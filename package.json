@@ -1,0 +1,47 @@
+{
+  "name": "farmx-backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22.12",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "infra:up": "docker compose -f infra/docker/compose.yml --env-file .env up -d --wait",
+    "infra:down": "docker compose -f infra/docker/compose.yml --env-file .env down",
+    "docker:up": "docker compose -f infra/docker/compose.stack.yml --env-file .env up -d --build --wait",
+    "docker:down": "docker compose -f infra/docker/compose.stack.yml --env-file .env down",
+    "docker:logs": "docker compose -f infra/docker/compose.stack.yml --env-file .env logs -f --tail=100",
+    "docker:seed": "docker compose -f infra/docker/compose.stack.yml --env-file .env run --rm migrate pnpm --filter @farmx/auth-service run db:seed",
+    "dev": "turbo run dev --filter=@farmx/api-gateway --filter=@farmx/auth-service --filter=@farmx/media-service --filter=@farmx/farm-service --filter=@farmx/catalog-service --filter=@farmx/product-service --filter=@farmx/user-service --filter=@farmx/order-service --filter=@farmx/inventory-service --filter=@farmx/payment-service",
+    "build": "turbo run build --output-logs=errors-only",
+    "test": "turbo run test --output-logs=new-only",
+    "lint": "turbo run lint --output-logs=errors-only",
+    "typecheck": "turbo run typecheck --output-logs=errors-only",
+    "check": "turbo run lint typecheck test build --output-logs=errors-only",
+    "db:generate": "pnpm --filter @farmx/database run db:generate",
+    "db:migrate": "pnpm --filter @farmx/database run db:migrate",
+    "db:deploy": "pnpm --filter @farmx/database run db:deploy",
+    "db:studio": "pnpm --filter @farmx/database run db:studio",
+    "db:seed": "pnpm --filter @farmx/auth-service run db:seed",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "turbo run clean",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@farmx/eslint-config": "workspace:*",
+    "@farmx/tsconfig": "workspace:*",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.10",
+    "turbo": "^2.11.10",
+    "typescript": "^6.0.3"
+  }
+}

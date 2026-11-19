@@ -1,0 +1,13 @@
+// order-service feature: settings. Business configuration as rows (seeded by migrations, validated
+// on read). Admin API: GET / PATCH /v1/admin/orders/settings.
+
+model OrderSetting {
+  /// paymentWindowMinutes, paymentGraceSeconds, maxOrderLines, adminReviewSlaHours,
+  /// adminAutoRejectHours, freeCancelMinutes, cancellationFeePercent, maxBulkConfirm
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@map("order_settings")
+}

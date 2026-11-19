@@ -1,0 +1,19 @@
+// payment-service feature: webhooks. Every SIGNED gateway delivery is stored once (dedup by the
+// provider event id), acknowledged fast and processed by a background job.
+
+model PaymentWebhookEvent {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  provider      String    @db.VarChar(20)
+  eventId       String    @db.VarChar(80)
+  type          String    @db.VarChar(60)
+  payloadSha256 String    @db.Char(64)
+  payload       Json
+  receivedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  attempts      Int       @default(0)
+  error         String?   @db.VarChar(500)
+
+  @@unique([provider, eventId])
+  @@index([processedAt, receivedAt])
+  @@map("payment_webhook_events")
+}

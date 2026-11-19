@@ -1,0 +1,52 @@
+// auth-service feature: sessions. Only services/auth-service/src/features/sessions/sessions.repository.ts queries this model.
+// userId (users feature) and deviceId (auth feature): plain indexed ids, NO Prisma relation (feature rule 10).
+//
+// Refresh-token rotation: every refresh creates a new Session in the same family and marks the
+// old one rotated (replacedById). Presenting a rotated token after the grace window revokes the
+// whole family (reuse detection). Revocation also writes auth:revoked:sid:<id> to Redis so the
+// gateway rejects live access tokens immediately.
+
+enum SessionRevokeReason {
+  LOGOUT
+  LOGOUT_ALL
+  REUSE_DETECTED
+  PASSWORD_CHANGED
+  ROLE_CHANGED
+  USER_SUSPENDED
+  DEVICE_BLOCKED
+  DEVICE_REVOKED
+  IDLE_TIMEOUT
+  ADMIN
+}
+
+model Session {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  userId            String               @db.Uuid
+  /// auth UserDevice.id the session was created on.
+  deviceId          String?              @db.Uuid
+  /// All sessions created by rotating one login share a family; reuse revokes the family.
+  familyId          String               @db.Uuid
+  /// SHA-256 (hex) of the opaque refresh token. The raw token is never stored.
+  tokenHash         String               @unique
+  /// Set when this token was rotated; the new session's id.
+  replacedById      String?              @db.Uuid
+  rotatedAt         DateTime?
+  /// Last successful MFA for this login; drives step-up for sensitive permissions.
+  mfaVerifiedAt     DateTime?
+  userAgent         String?
+  ip                String?
+  createdAt         DateTime             @default(now())
+  lastUsedAt        DateTime             @default(now())
+  /// lastUsedAt + shortest sessionIdleMinutes of the user's roles (FR-REG-20).
+  idleExpiresAt     DateTime
+  /// Hard cap regardless of activity.
+  absoluteExpiresAt DateTime
+  revokedAt         DateTime?
+  revokeReason      SessionRevokeReason?
+
+  @@index([userId, revokedAt])
+  @@index([deviceId])
+  @@index([familyId])
+  @@index([absoluteExpiresAt])
+  @@map("sessions")
+}

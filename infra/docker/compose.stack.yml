@@ -1,0 +1,257 @@
+# FarmX full stack in Docker: infrastructure + one-shot migrations + all 9 services.
+#
+#   pnpm docker:up       # build images, start everything, wait until every container is healthy
+#   pnpm docker:down     # stop (data kept)        pnpm docker:logs   # follow all logs
+#   pnpm docker:seed     # first run only: permissions + super admin (SEED_ADMIN_* in .env)
+#
+# Only the gateway is published on the host (http://localhost:${GATEWAY_HOST_PORT:-3000});
+# services talk to each other over the compose network by service name.
+# Variables come from the root .env (env_file); the `environment:` blocks below override what
+# must differ inside Docker (hostnames, the local database).
+name: farmx
+
+include:
+  - compose.yml # postgres, redis-cache, redis-queue, rabbitmq (same volumes as `pnpm infra:up`)
+
+x-build: &build
+  context: ../..
+  dockerfile: Dockerfile
+
+# Shared by every service. DOCKER_DATABASE_URL overrides the in-stack Postgres (e.g. a managed DB).
+x-env: &env
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}}
+  REDIS_CACHE_URL: redis://redis-cache:6379
+  REDIS_QUEUE_URL: redis://redis-queue:6379
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+  AUTH_SERVICE_URL: http://auth-service:3001
+  MEDIA_SERVICE_URL: http://media-service:3002
+  FARM_SERVICE_URL: http://farm-service:3003
+  CATALOG_SERVICE_URL: http://catalog-service:3004
+  PRODUCT_SERVICE_URL: http://product-service:3005
+  USER_SERVICE_URL: http://user-service:3006
+  ORDER_SERVICE_URL: http://order-service:3007
+  INVENTORY_SERVICE_URL: http://inventory-service:3008
+  PAYMENT_SERVICE_URL: http://payment-service:3009
+
+x-service: &service
+  env_file: ../../.env
+  restart: unless-stopped
+  stop_grace_period: 30s
+  init: false # tini is the image entrypoint
+
+# Readiness probe: GET /health/ready on the service's own port (checks its DB/Redis too).
+x-health: &health
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 20s
+
+# Services with a database wait for migrations; everything waits for healthy infra.
+x-db-deps: &db-deps
+  postgres: { condition: service_healthy }
+  redis-cache: { condition: service_healthy }
+  migrate: { condition: service_completed_successfully }
+
+services:
+  # One-shot: applies pending Prisma migrations, then exits 0. Every DB service waits for it.
+  migrate:
+    build: { <<: *build, target: migrator, args: { SERVICE: auth-service } }
+    image: farmx/migrator:local
+    env_file: ../../.env
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  auth-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: auth-service } }
+    image: farmx/auth-service:local
+    environment: { <<: *env, AUTH_SERVICE_PORT: 3001 }
+    depends_on: *db-deps
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  media-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: media-service } }
+    image: farmx/media-service:local
+    environment: { <<: *env, MEDIA_SERVICE_PORT: 3002 }
+    depends_on:
+      redis-cache: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  farm-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: farm-service } }
+    image: farmx/farm-service:local
+    environment: { <<: *env, FARM_SERVICE_PORT: 3003 }
+    depends_on: *db-deps
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3003/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  catalog-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: catalog-service } }
+    image: farmx/catalog-service:local
+    environment: { <<: *env, CATALOG_SERVICE_PORT: 3004 }
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3004/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  product-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: product-service } }
+    image: farmx/product-service:local
+    environment: { <<: *env, PRODUCT_SERVICE_PORT: 3005 }
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3005/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  user-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: user-service } }
+    image: farmx/user-service:local
+    environment: { <<: *env, USER_SERVICE_PORT: 3006 }
+    depends_on: *db-deps
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3006/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  order-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: order-service } }
+    image: farmx/order-service:local
+    environment: { <<: *env, ORDER_SERVICE_PORT: 3007 }
+    # Outbox relay + consumers (RabbitMQ) and order jobs (redis-queue).
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3007/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  # The only container published on the host. Starts once every upstream is healthy.
+  api-gateway:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: api-gateway } }
+    image: farmx/api-gateway:local
+    environment: { <<: *env, GATEWAY_PORT: 3000 }
+    ports:
+      - '${GATEWAY_HOST_PORT:-3000}:3000'
+    depends_on:
+      redis-cache: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+      media-service: { condition: service_healthy }
+      farm-service: { condition: service_healthy }
+      catalog-service: { condition: service_healthy }
+      product-service: { condition: service_healthy }
+      user-service: { condition: service_healthy }
+      order-service: { condition: service_healthy }
+      inventory-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  inventory-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: inventory-service } }
+    image: farmx/inventory-service:local
+    environment: { <<: *env, INVENTORY_SERVICE_PORT: 3008 }
+    # Outbox relay + product-event consumer (RabbitMQ) and BullMQ jobs (redis-queue).
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3008/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  payment-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: payment-service } }
+    image: farmx/payment-service:local
+    # PAYMENT_PROVIDER / RAZORPAY_* come from the root .env (mock by default; refused in prod).
+    environment: { <<: *env, PAYMENT_SERVICE_PORT: 3009 }
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3009/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]

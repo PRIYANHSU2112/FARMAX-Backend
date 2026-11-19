@@ -1,0 +1,210 @@
+// order-service feature: promotions. Offers, coupons, auto bonuses and shipping promos (D-31).
+// Money is Decimal(14,2); the pricing engine works in integer paise. Partial unique index on the
+// live code + CHECK (code = UPPER(code)) live in the migration SQL.
+
+enum PromoKind {
+  /// Product / variant / category / brand level (Phase A). BUNDLE_PAIR, COMBO, PERCENTAGE, FLAT.
+  LINE_OFFER
+  /// Manual code, max ONE per order (Phase B).
+  ORDER_COUPON
+  /// Auto-applied bonus such as WELCOME30, max ONE per order (Phase B2).
+  AUTO_BONUS
+  /// Freight / cold-chain packaging promo (Phase C).
+  SHIPPING
+}
+
+enum BenefitType {
+  FLAT
+  PERCENTAGE
+  COMBO
+  BUNDLE_PAIR
+  FREE_SHIPPING
+}
+
+enum PromoScope {
+  PLATFORM_WIDE
+  CATEGORY
+  PRODUCT
+  VARIANT
+  BRAND
+}
+
+/// EXPIRED is derived from endAt, never stored.
+enum PromoStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum PromoAccountType {
+  ALL
+  /// Farm has a verified GSTIN.
+  B2B_GST
+  /// No GSTIN.
+  RETAIL
+}
+
+enum PromoFarmHistory {
+  ALL
+  NEW_FARM
+  EXISTING_FARM
+}
+
+/// Prepaid only (no COD / credit).
+enum PromoPaymentMethod {
+  ANY
+  UPI
+  CARD
+  NETBANKING
+}
+
+enum PromoTargetType {
+  CATEGORY
+  PRODUCT
+  VARIANT
+  BRAND
+}
+
+enum PromoRuleType {
+  PRODUCTION_TYPE
+  FARM_CATEGORY
+  STATE
+  TERRITORY
+  PINCODE
+  BANK
+  CARD_BIN
+}
+
+enum RedemptionStatus {
+  APPLIED
+  PARTIALLY_REVERSED
+  REVERSED
+}
+
+model Promotion {
+  id                    String             @id @default(uuid(7)) @db.Uuid
+  /// Trimmed + UPPERCASE; null for auto offers. Unique among live rows (migration SQL).
+  code                  String?            @db.VarChar(30)
+  title                 String             @db.VarChar(120)
+  subtitle              String?            @db.VarChar(160)
+  termsText             String?
+  /// e.g. "FREE SHIPPING".
+  badgeText             String?            @db.VarChar(30)
+  kind                  PromoKind
+  benefitType           BenefitType
+  flatAmount            Decimal?           @db.Decimal(14, 2)
+  percentage            Decimal?           @db.Decimal(5, 2)
+  maxDiscountAmount     Decimal?           @db.Decimal(14, 2)
+  comboBuyQty           Int?
+  comboGetQty           Int?
+  /// 100 = free.
+  comboGetPercent       Decimal?           @db.Decimal(5, 2)
+  /// BUNDLE_PAIR: price of one full set.
+  bundlePrice           Decimal?           @db.Decimal(14, 2)
+  /// The coupon also waives freight.
+  freeShipping          Boolean            @default(false)
+  scope                 PromoScope         @default(PLATFORM_WIDE)
+  /// Checked against the eligible base (in-scope, stackable lines after Phase A).
+  minOrderAmount        Decimal            @default(0) @db.Decimal(14, 2)
+  startAt               DateTime
+  endAt                 DateTime
+  status                PromoStatus        @default(DRAFT)
+  statusChangedAt       DateTime           @default(now())
+  statusChangedByUserId String             @db.Uuid
+  statusReason          String?            @db.VarChar(500)
+  isAutoApply           Boolean            @default(false)
+  isStackable           Boolean            @default(false)
+  /// Tie-break only.
+  priority              Int                @default(0)
+  /// Configured limits (null = unlimited).
+  totalUsageLimit       Int?
+  perFarmLimit          Int?
+  perUserLimit          Int?
+  /// Server-managed counter, incremented by checkout (Step 2). Never writable through the API.
+  usedCount             Int                @default(0)
+  accountType           PromoAccountType   @default(ALL)
+  farmHistory           PromoFarmHistory   @default(ALL)
+  paymentMethod         PromoPaymentMethod @default(ANY)
+  isMemberOnly          Boolean            @default(false)
+  /// Listed on the public offers page (GET /v1/orders/offers/public) before login.
+  isPublic              Boolean            @default(false)
+  version               Int                @default(0)
+  createdByUserId       String             @db.Uuid
+  updatedByUserId       String             @db.Uuid
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  deletedAt             DateTime?
+
+  targets PromotionTarget[]
+  rules   PromotionRuleValue[]
+
+  @@index([status, startAt, endAt])
+  @@index([kind, status])
+  @@map("promotions")
+}
+
+model PromotionTarget {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  promotionId String          @db.Uuid
+  targetType  PromoTargetType
+  /// Plain id of a catalog category / brand or a product / variant (no FK across services).
+  targetId    String          @db.Uuid
+  /// BUNDLE_PAIR: units of this component in one set.
+  bundleQty   Int?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@map("promotion_targets")
+}
+
+model PromotionRuleValue {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  promotionId String        @db.Uuid
+  ruleType    PromoRuleType
+  value       String        @db.VarChar(40)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, ruleType, value])
+  @@map("promotion_rule_values")
+}
+
+/// Written only by checkout (Step 2); read now for per-farm / per-user limit counts.
+model PromoRedemption {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  promotionId    String           @db.Uuid
+  farmId         String           @db.Uuid
+  userId         String           @db.Uuid
+  orderId        String           @db.Uuid
+  discountAmount Decimal          @db.Decimal(14, 2)
+  status         RedemptionStatus @default(APPLIED)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  items PromoRedemptionItem[]
+
+  @@unique([promotionId, orderId])
+  @@index([promotionId, farmId, status])
+  @@index([promotionId, userId, status])
+  @@index([orderId])
+  @@map("promo_redemptions")
+}
+
+model PromoRedemptionItem {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  redemptionId   String           @db.Uuid
+  orderItemId    String           @db.Uuid
+  quantity       Int
+  discountAmount Decimal          @db.Decimal(14, 2)
+  reversedQty    Int              @default(0)
+  reversedAmount Decimal          @default(0) @db.Decimal(14, 2)
+  status         RedemptionStatus @default(APPLIED)
+
+  redemption PromoRedemption @relation(fields: [redemptionId], references: [id], onDelete: Cascade)
+
+  @@unique([redemptionId, orderItemId])
+  @@map("promo_redemption_items")
+}

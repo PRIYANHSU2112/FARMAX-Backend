@@ -1,0 +1,26 @@
+{
+  "name": "@farmx/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "rules"
+  ],
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
+    "globals": "^17.14.0",
+    "typescript-eslint": "^8.72.1"
+  },
+  "devDependencies": {
+    "eslint": "^10.14.0",
+    "typescript": "~6.0.3"
+  }
+}

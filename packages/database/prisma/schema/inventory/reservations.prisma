@@ -1,0 +1,65 @@
+// inventory-service feature: reservations (D-33, D-36). Atomic stock holds for checkout.
+//   ACTIVE    held for the payment window (expiresAt), then EXPIRED by the job
+//   COMMITTED order paid: held with NO expiry until confirm → issue (dispatch) or release
+//   ISSUED    stock left the warehouse (F1, shipment dispatched)
+//   RELEASED  order rejected / cancelled / failed (or every line released)
+//   REJECTED  late payment after expiry and the stock was gone (terminal)
+// One requested variant may be split across warehouses (several lines).
+
+enum StockReservationStatus {
+  ACTIVE
+  COMMITTED
+  ISSUED
+  RELEASED
+  EXPIRED
+  REJECTED
+}
+
+model StockReservation {
+  id                  String                 @id @default(uuid(7)) @db.Uuid
+  /// Caller's order id (unique among ACTIVE + COMMITTED, partial index).
+  orderRef            String                 @db.VarChar(64)
+  idempotencyKey      String                 @unique @db.VarChar(64)
+  requestHash         String                 @db.Char(64)
+  status              StockReservationStatus @default(ACTIVE)
+  pinCode             String                 @db.Char(6)
+  expiresAt           DateTime
+  /// Payment that committed it (from order.paid).
+  paymentRef          String?                @db.VarChar(64)
+  committedAt         DateTime?
+  /// Committed after it had expired (stock was secured again).
+  recoveredFromExpiry Boolean                @default(false)
+  expiredAt           DateTime?
+  rejectedAt          DateTime?
+  issuedAt            DateTime?
+  releasedAt          DateTime?
+  releaseReason       String?                @db.VarChar(500)
+  /// Admin who force-released it (null = caller service).
+  releasedByUserId    String?                @db.Uuid
+  version             Int                    @default(0)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @default(now()) @updatedAt
+
+  lines StockReservationLine[]
+
+  @@index([orderRef])
+  @@index([status, createdAt])
+  @@map("inventory_reservations")
+}
+
+model StockReservationLine {
+  reservationId String @db.Uuid
+  warehouseId   String @db.Uuid
+  variantId     String @db.Uuid
+  qty           Int
+  /// Released by a partial cancel (still held = qty − releasedQty − issuedQty).
+  releasedQty   Int    @default(0)
+  /// Left the warehouse at dispatch (F1).
+  issuedQty     Int    @default(0)
+
+  reservation StockReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@id([reservationId, warehouseId, variantId])
+  @@index([warehouseId, variantId])
+  @@map("inventory_reservation_lines")
+}

@@ -1,0 +1,62 @@
+// catalog-service feature: banners. Slots are data (BannerPlacement rows), not enums: a new
+// app / page / position is one admin POST, no migration. Banner → placement is a relation inside
+// the same feature; products / categories / brands are referenced only by `actionTarget` (D-21).
+// Only services/catalog-service/src/features/banners/*.repository.ts queries these models.
+
+model BannerPlacement {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// Client-facing slot key (`FARMER_HOME_HERO`); upper-case, unique among live placements, immutable.
+  code            String    @db.VarChar(60)
+  /// Admin label.
+  name            String    @db.VarChar(100)
+  /// Free-form upper-case keys (`FARMER`, `HOME`, `HERO_SLIDER`): validated by format, not a list.
+  app             String    @db.VarChar(30)
+  page            String    @db.VarChar(40)
+  position        String    @db.VarChar(40)
+  /// Image ratio the client renders (`16:9`, `4:1`).
+  aspectRatio     String    @db.VarChar(10)
+  /// At most this many live banners are served for the slot.
+  maxItems        Int       @default(5)
+  isActive        Boolean   @default(true)
+  version         Int       @default(0)
+  createdByUserId String    @db.Uuid
+  updatedByUserId String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  banners Banner[]
+
+  @@index([app, page, position])
+  @@map("banner_placements")
+}
+
+model Banner {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  placementId     String          @db.Uuid
+  placement       BannerPlacement @relation(fields: [placementId], references: [id], onDelete: Restrict)
+  title           String          @db.VarChar(120)
+  subtitle        String?         @db.VarChar(250)
+  /// Public media-service URLs.
+  imageUrl        String          @db.VarChar(500)
+  mobileImageUrl  String?         @db.VarChar(500)
+  /// NONE | PRODUCT | CATEGORY | BRAND | EXTERNAL_URL | DEEP_LINK (list lives in code, not the DB).
+  actionType      String          @default("NONE") @db.VarChar(20)
+  /// uuid (PRODUCT/CATEGORY/BRAND) or URL (EXTERNAL_URL/DEEP_LINK); null iff NONE.
+  actionTarget    String?         @db.VarChar(500)
+  /// Display order inside the placement (ascending).
+  sortOrder       Int             @default(0)
+  isActive        Boolean         @default(true)
+  /// Schedule window [startDate, endDate); null = open-ended.
+  startDate       DateTime?
+  endDate         DateTime?
+  version         Int             @default(0)
+  createdByUserId String          @db.Uuid
+  updatedByUserId String          @db.Uuid
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+
+  @@index([placementId, sortOrder])
+  @@map("banners")
+}

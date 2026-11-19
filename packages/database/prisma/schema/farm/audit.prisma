@@ -1,0 +1,21 @@
+// farm-service feature: audit. Same shape as admin_audit_log; append-only (proposed D-22).
+
+model FarmAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  actorUserId String   @db.Uuid
+  /// farm.suspend, kyc.document.reject, review.decide, pii.document_view …
+  action      String   @db.VarChar(60)
+  /// farm | owner | case | document | territory | pincode
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.VarChar(64)
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(45)
+  requestId   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("farm_audit_log")
+}

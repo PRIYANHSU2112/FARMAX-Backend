@@ -1,0 +1,84 @@
+# FarmX local infrastructure: one Postgres instance, two Redis instances, RabbitMQ.
+# Services (api-gateway, auth-service) run on the host with `pnpm dev`; this file is infra only.
+#
+#   pnpm infra:up        # docker compose -f infra/docker/compose.yml --env-file .env up -d --wait
+#   pnpm infra:down      # stop (data kept in named volumes)
+#   pnpm infra:down -v   # stop and DELETE all data (fresh databases on next infra:up)
+#
+# Variables come from the root .env (copy .env.example); every one has a default below.
+# Production overrides: compose.prod.yml (no published ports, required secrets, restart policy).
+name: farmx
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farmx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farmx}
+      # The ONE shared FarmX database, created automatically on an empty volume.
+      POSTGRES_DB: ${POSTGRES_DB:-farmx}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Cache, rate limits, revocation flags, OTPs, locks. Evicts (allkeys-lru), no persistence.
+  redis-cache:
+    image: redis:8-alpine
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    ports:
+      - '127.0.0.1:${REDIS_CACHE_PORT:-6379}:6379'
+    volumes:
+      - ./redis/redis-cache.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # BullMQ only. Never evicts (noeviction), AOF persistence.
+  redis-queue:
+    image: redis:8-alpine
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    ports:
+      - '127.0.0.1:${REDIS_QUEUE_PORT:-6380}:6379'
+    volumes:
+      - ./redis/redis-queue.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-queue-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Domain events between services (outbox → exchange → consumer queues).
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-farmx}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-farmx}
+    ports:
+      - '127.0.0.1:${RABBITMQ_PORT:-5672}:5672'
+      - '127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/90-farmx.conf:ro
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-queue-data:
+  rabbitmq-data:

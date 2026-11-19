@@ -1,0 +1,31 @@
+// Infrastructure (not a business feature): transactional outbox + consumer inbox.
+// Written by every feature through @farmx/infra/events (outbox relay, Phase 2); see docs/event-contracts.md.
+
+model OutboxEvent {
+  /// UUID v7 = the event id in the envelope.
+  id          String    @id @db.Uuid
+  /// Routing key, e.g. user.registered.v1
+  type        String
+  /// Full event envelope.
+  payload     Json
+  headers     Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+  attempts    Int       @default(0)
+  lastError   String?
+
+  // A partial index (WHERE "publishedAt" IS NULL) is added by a SQL migration in Phase 2.
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}
+
+model ProcessedEvent {
+  eventId     String   @db.Uuid
+  /// Consumer queue name, e.g. auth-service.user-events
+  consumer    String
+  processedAt DateTime @default(now())
+
+  @@id([eventId, consumer])
+  @@index([processedAt])
+  @@map("processed_events")
+}

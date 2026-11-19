@@ -1,0 +1,56 @@
+// order-service feature: projections. Read-only copies of product-service variants, pricing-service
+// prices and farm-service farms, fed by events through the inbox (idempotent). A newer snapshot
+// always wins: (version, occurredAt) must be greater than what is stored.
+
+model OrderVariantProjection {
+  variantId              String    @id @db.Uuid
+  /// Null until the first product-service facts event (a price can arrive first).
+  productId              String?   @db.Uuid
+  sku                    String?   @db.VarChar(40)
+  name                   String?   @db.VarChar(250)
+  categoryId             String?   @db.Uuid
+  /// Category ids root → self; empty = exact categoryId match only.
+  categoryPath           String[]  @default([]) @db.Uuid
+  brandId                String?   @db.Uuid
+  hsnCode                String?   @db.VarChar(8)
+  gstRate                Decimal?  @db.Decimal(5, 2)
+  temperatureClass       String    @default("AMB") @db.VarChar(10)
+  isActive               Boolean   @default(false)
+  /// Purchase limits per order line (product-service variant).
+  minOrderQty            Int       @default(1)
+  maxOrderQty            Int?
+  isPrescriptionRequired Boolean   @default(false)
+  /// inventory-service sellable quantity; null = unknown (never blocks).
+  availableQty           Int?
+  stockVersion           BigInt    @default(-1)
+  /// product-service variant version + event time (facts).
+  factsVersion           BigInt    @default(-1)
+  factsAt                DateTime?
+  /// pricing-service selling price + its sequence.
+  sellingPrice           Decimal?  @db.Decimal(14, 2)
+  priceVersion           BigInt    @default(-1)
+  updatedAt              DateTime  @updatedAt
+
+  @@index([productId])
+  @@map("order_variant_projections")
+}
+
+model OrderFarmProjection {
+  farmId          String   @id @db.Uuid
+  ownerUserId     String   @db.Uuid
+  farmCode        String?  @db.VarChar(20)
+  name            String   @db.VarChar(120)
+  category        String   @db.VarChar(20)
+  productionTypes String[] @default([])
+  gstin           String?  @db.Char(15)
+  stateCode       String?  @db.Char(2)
+  territoryCode   String?  @db.VarChar(3)
+  pinCode         String?  @db.Char(6)
+  status          String   @db.VarChar(20)
+  sourceVersion   BigInt
+  sourceAt        DateTime
+  updatedAt       DateTime @updatedAt
+
+  @@index([ownerUserId])
+  @@map("order_farm_projections")
+}

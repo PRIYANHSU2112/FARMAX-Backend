@@ -1,0 +1,12 @@
+// inventory-service feature: settings. Business configuration as rows (seeded by the migration,
+// edited through the admin API); the service validates each key's value.
+
+model InventorySetting {
+  /// reservationTtlSeconds, defaultReorderLevel, maxReservationLines, allowSplitAllocation
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@map("inventory_settings")
+}

@@ -1,0 +1,86 @@
+// payment-service feature: payments (D-37). One Payment per order (one gateway order); every
+// gateway attempt is a PaymentAttempt. Money is integer PAISE. Only masked instrument data.
+
+enum PaymentStatus {
+  /// Gateway order not created yet (crash window).
+  CREATED
+  /// Gateway order exists; waiting for the buyer (retries allowed).
+  PENDING
+  /// The last attempt failed; the buyer may retry until expiresAt.
+  FAILED
+  CAPTURED
+  /// Voided by the order (cancel / reject / fail) before any capture.
+  CANCELLED
+  /// Never paid before expiresAt.
+  EXPIRED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  MOCK
+}
+
+model Payment {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  /// TXN-yymmdd-xxxxxx (display / support reference).
+  paymentNo         String          @unique @db.VarChar(24)
+  orderId           String          @db.Uuid
+  orderNo           String          @db.VarChar(24)
+  userId            String          @db.Uuid
+  amountPaise       BigInt
+  currency          String          @default("INR") @db.Char(3)
+  capturedPaise     BigInt          @default(0)
+  refundedPaise     BigInt          @default(0)
+  status            PaymentStatus   @default(CREATED)
+  provider          PaymentProvider
+  providerOrderId   String?         @unique @db.VarChar(64)
+  providerPaymentId String?         @unique @db.VarChar(64)
+  method            String?         @db.VarChar(20)
+  /// Masked only, e.g. "ve***@okhdfc".
+  vpaMasked         String?         @db.VarChar(80)
+  cardLast4         String?         @db.Char(4)
+  cardNetwork       String?         @db.VarChar(20)
+  bank              String?         @db.VarChar(20)
+  wallet            String?         @db.VarChar(20)
+  expiresAt         DateTime
+  capturedAt        DateTime?
+  failureCode       String?         @db.VarChar(60)
+  failureReason     String?         @db.VarChar(300)
+  cancelledAt       DateTime?
+  expiredAt         DateTime?
+  attemptCount      Int             @default(0)
+  /// Captured amount ≠ order amount (order-service blocks confirm, R8).
+  amountMismatch    Boolean         @default(false)
+  version           Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @default(now()) @updatedAt
+
+  attempts PaymentAttempt[]
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Append-only: every gateway attempt (failed, captured) seen via verify, webhook or reconcile.
+model PaymentAttempt {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  paymentId         String   @db.Uuid
+  providerPaymentId String   @db.VarChar(64)
+  status            String   @db.VarChar(20)
+  method            String?  @db.VarChar(20)
+  errorCode         String?  @db.VarChar(60)
+  errorReason       String?  @db.VarChar(300)
+  /// verify | webhook | reconcile | mock
+  source            String   @db.VarChar(20)
+  createdAt         DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@unique([providerPaymentId, status])
+  @@index([paymentId, createdAt])
+  @@map("payment_attempts")
+}

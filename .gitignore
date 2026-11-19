@@ -1,0 +1,30 @@
+# deps
+node_modules/
+
+# build output
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# prisma generated client
+**/src/generated/*
+!**/src/generated/.gitkeep
+
+# env (keep examples)
+.env
+.env.*
+!.env.example
+
+# logs / OS / editor
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# tool caches / code graphs
+graphify-out/
+.claude/

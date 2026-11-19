@@ -1,0 +1,28 @@
+# Production overrides. Use together with the base file:
+#   docker compose -f infra/docker/compose.yml -f infra/docker/compose.prod.yml up -d
+#
+# - Infra is not published on the host; only services on the internal network reach it.
+# - Secrets are required (no local defaults).
+# - Containers always restart.
+services:
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    restart: always
+
+  redis-cache:
+    ports: !reset []
+    restart: always
+
+  redis-queue:
+    ports: !reset []
+    restart: always
+
+  rabbitmq:
+    ports: !reset []
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    restart: always

@@ -1,0 +1,54 @@
+# OMS 06 — Events and background jobs
+
+Transport:
+
+- The transactional outbox, written in the same transaction as the decision, is relayed to the
+  RabbitMQ `events` exchange.
+- Each consumer has its own queue and a `processed_events` inbox.
+- Events carry ids only: **no phone, email, address, OTP or secret** is ever in a payload.
+- Consumers drop stale events by comparing status guards and `version`.
+
+## Contracts
+
+| Event                                                                                                                                                            | Producer  | Consumers (now / _future_)                                            | Data                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `order.placed.v1`                                                                                                                                                | order     | _notification_, analytics                                             | orderId, orderNo, userId, farmId, grandTotal, paymentDueAt                                              |
+| `order.paid.v1`                                                                                                                                                  | order     | inventory (commit)                                                    | orderId, reservationId, paymentId, amount                                                               |
+| `order.confirmed.v1`                                                                                                                                             | order     | _WMS/logistics (shipments)_, _invoice_, _notification_                | orderId, orderNo, allocations per warehouse, confirmedAt                                                |
+| `order.rejected.v1`                                                                                                                                              | order     | inventory (release), payment (void), _notification_                   | orderId, reasonCode, refundAmount                                                                       |
+| `order.cancelled.v1`                                                                                                                                             | order     | inventory (release, full or per line), payment (void), _notification_ | orderId, scope, lines, reasonCode, stage, refundAmount                                                  |
+| `order.failed.v1`                                                                                                                                                | order     | inventory (release), payment (void), _notification_                   | orderId, failureCode, refundAmount                                                                      |
+| `order.refund_requested.v1`                                                                                                                                      | order     | payment (execute)                                                     | sourceRef, orderId, paymentId, amountPaise, reason, isSystem, requestedBy                               |
+| `order.review_overdue.v1`                                                                                                                                        | order     | _notification (ops)_                                                  | orderId, ageMinutes                                                                                     |
+| `payment.captured.v1`                                                                                                                                            | payment   | order, _notification_                                                 | paymentId, orderId, orderNo, amountPaise (captured), expectedPaise, currency, method, providerPaymentId |
+| `payment.failed.v1`                                                                                                                                              | payment   | order, _notification_                                                 | paymentId, orderId, errorCode                                                                           |
+| `payment.expired.v1`                                                                                                                                             | payment   | order                                                                 | paymentId, orderId                                                                                      |
+| `payment.refund_initiated.v1`                                                                                                                                    | payment   | order, _notification_                                                 | refundId, sourceRef, providerRefundId, amountPaise, expectedBy                                          |
+| `payment.refund_processed.v1`                                                                                                                                    | payment   | order, _notification_                                                 | refundId, sourceRef, arn                                                                                |
+| `payment.refund_failed.v1`                                                                                                                                       | payment   | order, _notification (ops)_                                           | refundId, sourceRef, reason                                                                             |
+| `inventory.reservation_committed.v1`                                                                                                                             | inventory | order                                                                 | reservationId, orderRef                                                                                 |
+| `inventory.reservation_rejected.v1`                                                                                                                              | inventory | order                                                                 | reservationId, orderRef, shortfall                                                                      |
+| `inventory.reservation_expired.v1`                                                                                                                               | inventory | order                                                                 | reservationId, orderRef (contract exists)                                                               |
+| `inventory.reservation_released.v1`                                                                                                                              | inventory | order                                                                 | reservationId, orderRef                                                                                 |
+| _F1:_ `order.shipment_status_changed.v1`, `order.partially_delivered.v1`, `order.delivered.v1`, `shipment.out_for_delivery.v1` (no OTP), `shipment.delivered.v1` | order     | _notification_, _invoice_, _settlement_                               |                                                                                                         |
+
+The future notification and invoice services only **bind a queue** to these routing keys. Order
+and payment code does not change when they arrive. A delivery OTP is sent by SMS through an
+internal call from a background job, never through an event.
+
+## Background jobs (BullMQ on `redis-queue`; idempotent; rows claimed with `FOR UPDATE SKIP LOCKED`)
+
+| Service   | Job                   | Every                     | Does                                                                                                                       |
+| --------- | --------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| order     | `payment-timeout`     | 1 min                     | Past `paymentDueAt` + grace and the live check says not captured → FAILED (PAYMENT_NOT_COMPLETED), release, `order.failed` |
+| order     | `stuck-orders`        | 1 min                     | `stockStatus` PENDING > 2 min → look up the reservation → RESERVED or FAILED                                               |
+| order     | `review-sla`          | 5 min                     | Overdue → `order.review_overdue`; auto-reject after `adminAutoRejectHours`                                                 |
+| order     | `recovery-watch`      | 5 min                     | RELEASE_REQUESTED > 15 min, or refund REQUESTED with no ACCEPTED after 10 min → re-emit (same key) + alert                 |
+| payment   | `webhook-process`     | 2 s                       | Apply the stored webhook                                                                                                   |
+| payment   | `refund-execute`      | 10 s (claims due refunds) | Gateway refund; backoff 1 m · 5 m · 30 m · 2 h · 6 h · 24 h (6 attempts) → FAILED_FINAL                                    |
+| payment   | `refund-status`       | 15 min                    | PROCESSING > 1 h → gateway refetch                                                                                         |
+| payment   | `reconcile-pending`   | 2 min                     | PENDING > 2 min → gateway refetch (guards against a lost webhook)                                                          |
+| payment   | `expire-intents`      | 1 min                     | Past `expiresAt` → EXPIRED + `payment.expired`                                                                             |
+| inventory | `expire-reservations` | 10 s                      | Existing plan (ACTIVE only; COMMITTED never expires)                                                                       |
+| inventory | `orphan-sweep`        | nightly                   | ACTIVE or COMMITTED reservations whose order is terminal → release                                                         |
+| all       | outbox relay          | continuous                | Existing `OutboxRelay`                                                                                                     |

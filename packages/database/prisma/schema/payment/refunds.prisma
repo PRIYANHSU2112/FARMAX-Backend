@@ -1,0 +1,50 @@
+// payment-service feature: refunds (D-45). Executes refund DECISIONS made by order-service
+// (order.refund_requested.v1). `sourceRef` is unique: a repeated request never refunds twice.
+
+enum RefundStatus {
+  CREATED
+  /// Manual decision above the approval threshold: waits for refunds.approve (SoD).
+  PENDING_APPROVAL
+  APPROVED
+  /// Sent to the gateway (providerRefundId once accepted).
+  PROCESSING
+  /// Gateway / network error: retried with backoff at nextRetryAt.
+  RETRYING
+  PROCESSED
+  FAILED_FINAL
+}
+
+model Refund {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  /// RF-yymmdd-xxxxxx
+  refundNo          String       @unique @db.VarChar(24)
+  paymentId         String       @db.Uuid
+  orderId           String       @db.Uuid
+  sourceRef         String       @unique @db.VarChar(80)
+  amountPaise       BigInt
+  reason            String       @db.VarChar(300)
+  /// Automatic (late payment, stock rejected …): never needs manual approval.
+  isSystem          Boolean      @default(false)
+  status            RefundStatus @default(CREATED)
+  requestedBy       String?      @db.Uuid
+  approvedBy        String?      @db.Uuid
+  approvedAt        DateTime?
+  providerRefundId  String?      @unique @db.VarChar(64)
+  /// Bank ARN / UTR once processed.
+  arn               String?      @db.VarChar(64)
+  attempts          Int          @default(0)
+  nextRetryAt       DateTime?
+  lastError         String?      @db.VarChar(300)
+  initiatedAt       DateTime?
+  expectedBy        DateTime?
+  processedAt       DateTime?
+  failedAt          DateTime?
+  version           Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @default(now()) @updatedAt
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([status, nextRetryAt])
+  @@map("refunds")
+}

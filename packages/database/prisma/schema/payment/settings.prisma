@@ -1,0 +1,11 @@
+// payment-service feature: settings (seeded by the migration; validated on read).
+
+model PaymentSetting {
+  /// refundManualApprovalAbovePaise, refundMaxAttempts, refundExpectedDays, reconcileAfterSeconds
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@map("payment_settings")
+}

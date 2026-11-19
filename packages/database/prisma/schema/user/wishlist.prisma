@@ -1,0 +1,16 @@
+// user-service feature: wishlist. `productId` is a plain uuid reference to product-service
+// (D-21); product data is fetched from its internal API, never joined. Hard delete (no history
+// value). Only wishlist.repository.ts queries this model.
+
+model WishlistItem {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  productId String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  /// Duplicate prevention: one row per user + product.
+  @@unique([userId, productId])
+  /// Newest-first cursor pages (uuid v7 ids are time-ordered).
+  @@index([userId, id(sort: Desc)])
+  @@map("wishlist_items")
+}

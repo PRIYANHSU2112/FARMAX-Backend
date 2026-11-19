@@ -1,0 +1,256 @@
+// farm-service feature: farms. Only services/farm-service/src/features/farms/*.repository.ts queries
+// these models. Other features store Farm.id / FarmOwner.id as plain uuid columns (no relation).
+// Raw SQL in the migration adds: trigram + earthdistance indexes, CHECKs, the farmCode
+// immutability trigger and append-only triggers (implementation-plan/07 §3.8).
+
+enum FarmCategory {
+  POULTRY_FARM
+  HATCHERY
+  FEED_MILL
+  BACKYARD
+}
+
+enum ProductionType {
+  LAYER
+  BROILER
+  BROILER_BREEDER
+  LAYER_BREEDER
+  HATCHERY
+  FEED_MILL
+  BACKYARD
+}
+
+enum FarmStatus {
+  DRAFT
+  UNDER_REVIEW
+  NEEDS_ATTENTION
+  ACTIVE
+  SUSPENDED
+  REJECTED
+  MERGED
+  CLOSED
+}
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum CapacityMetric {
+  BIRDS
+  EGGS
+  FEED_TONNES
+}
+
+enum CapacityPeriod {
+  STANDING
+  PER_CYCLE
+  PER_SETTING
+  PER_WEEK
+  PER_HOUR
+  PER_DAY
+  PER_MONTH
+}
+
+enum InvoiceNameSource {
+  FARM_NAME
+  GST_TRADE_NAME
+}
+
+enum AgeBand {
+  AGE_18_30
+  AGE_31_45
+  AGE_46_60
+  AGE_60_PLUS
+}
+
+enum RegistrationChannel {
+  SELF
+  FIELD_ASSISTED
+  ADMIN
+  IMPORT
+}
+
+enum FarmActorType {
+  OWNER
+  ADMIN
+  SYSTEM
+}
+
+enum ConsentPurpose {
+  PERSONALIZED_OFFERS
+  AADHAAR_EKYC
+}
+
+/// The person/legal entity behind one or more farm units. One per customer user.
+model FarmOwner {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  /// auth users.id (plain id, no FK — D-16).
+  userId             String    @unique @db.Uuid
+  fullName           String    @db.VarChar(120)
+  /// E.164 snapshot of the verified login phone.
+  phone              String?   @db.VarChar(15)
+  ageBand            AgeBand?
+  // PAN: AES-256-GCM at the app layer, HMAC for lookup/dedupe, masked for display. Never logged.
+  panCipher          Bytes?
+  panKeyId           Int?      @db.SmallInt
+  panHash            String?   @db.Char(64)
+  panMasked          String?   @db.VarChar(10)
+  panVerifiedAt      DateTime?
+  // Aadhaar: result only — the number is never stored (D-24).
+  aadhaarLast4       String?   @db.Char(4)
+  aadhaarRefId       String?   @db.VarChar(64)
+  aadhaarNameMatch   Boolean?
+  aadhaarVerifiedAt  DateTime?
+  kycStatus          KycStatus @default(NOT_STARTED)
+  kycStatusChangedAt DateTime?
+  personalizedOffers Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  farms    Farm[]
+  consents FarmOwnerConsent[]
+
+  @@index([panHash])
+  @@index([kycStatus])
+  @@map("farm_owners")
+}
+
+/// One farm unit. Gets an immutable Farm ID (`farmCode`) on activation.
+model Farm {
+  id                 String              @id @default(uuid(7)) @db.Uuid
+  /// FX-WG-L-00418 — set once on activation, immutable (DB trigger).
+  farmCode           String?             @unique @db.VarChar(24)
+  ownerId            String              @db.Uuid
+  category           FarmCategory
+  /// Ordered; [0] is the primary type that sets the Farm ID type code.
+  productionTypes    ProductionType[]
+  name               String              @db.VarChar(120)
+  /// lower-cased, trimmed, single-spaced name for search and dedupe.
+  nameNormalized     String              @db.VarChar(120)
+  // Billing
+  gstin              String?             @db.Char(15)
+  gstVerificationId  String?             @db.Uuid
+  invoiceNameSource  InvoiceNameSource   @default(FARM_NAME)
+  invoiceName        String?             @db.VarChar(200)
+  /// GST portal "Legal Name of Business" + trade name, copied from the bound verification
+  /// (never typed by the client). Set together with gstin; null = not GST-registered.
+  gstBusinessName    String?             @db.VarChar(200)
+  gstTradeName       String?             @db.VarChar(200)
+  /// Portal check time of the bound verification.
+  gstVerifiedAt      DateTime?
+  // Location
+  latitude           Decimal?            @db.Decimal(9, 6)
+  longitude          Decimal?            @db.Decimal(9, 6)
+  gpsAccuracyM       Int?                @db.SmallInt
+  locationCapturedAt DateTime?
+  addressLine        String?             @db.VarChar(200)
+  village            String?             @db.VarChar(80)
+  pinCode            String?             @db.Char(6)
+  territoryId        String?             @db.Uuid
+  territoryCode      String?             @db.VarChar(3)
+  districtName       String?             @db.VarChar(80)
+  mandalName         String?             @db.VarChar(80)
+  primaryNodeId      String?             @db.Uuid
+  backupNodeId       String?             @db.Uuid
+  /// Denormalised sum of BIRDS capacities (pass, lists).
+  totalBirdCapacity  Int?
+  // Lifecycle
+  status             FarmStatus          @default(DRAFT)
+  statusReason       String?             @db.VarChar(500)
+  statusChangedAt    DateTime            @default(now())
+  /// Resume point of the 5-step registration (1..5).
+  registrationStep   Int                 @default(1) @db.SmallInt
+  kycDeferredAt      DateTime?
+  submittedAt        DateTime?
+  /// "Member since".
+  activatedAt        DateTime?
+  mergedIntoFarmId   String?             @db.Uuid
+  channel            RegistrationChannel @default(SELF)
+  createdByUserId    String              @db.Uuid
+  /// Optimistic concurrency (If-Match).
+  version            Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  owner        FarmOwner         @relation(fields: [ownerId], references: [id])
+  capacities   FarmCapacity[]
+  statusEvents FarmStatusEvent[]
+
+  @@index([ownerId, status])
+  @@index([status, id])
+  @@index([territoryCode, status, id])
+  @@index([category, status, id])
+  @@index([pinCode])
+  @@index([gstin])
+  // Trigram search (q=…); declared so `migrate dev` does not try to drop them.
+  @@index([nameNormalized(ops: raw("gin_trgm_ops"))], type: Gin, map: "farms_nameNormalized_trgm_idx")
+  @@index([farmCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "farms_farmCode_trgm_idx")
+  @@map("farms")
+}
+
+model FarmCapacity {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  farmId         String         @db.Uuid
+  productionType ProductionType
+  metric         CapacityMetric
+  value          Decimal        @db.Decimal(14, 2)
+  period         CapacityPeriod
+  /// 1 = primary ("1st" in the UI).
+  rank           Int            @db.SmallInt
+  updatedAt      DateTime       @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, productionType, metric])
+  @@map("farm_capacities")
+}
+
+/// Append-only (trigger): every status transition, attributed and timestamped.
+model FarmStatusEvent {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  farmId      String        @db.Uuid
+  fromStatus  FarmStatus?
+  toStatus    FarmStatus
+  reason      String?       @db.VarChar(500)
+  actorType   FarmActorType
+  actorUserId String?       @db.Uuid
+  requestId   String?       @db.VarChar(64)
+  createdAt   DateTime      @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id])
+
+  @@index([farmId, createdAt])
+  @@map("farm_status_events")
+}
+
+/// Farm ID serial per (territory, type). Incremented atomically inside the activation tx.
+model FarmIdSequence {
+  territoryCode String   @db.VarChar(3)
+  typeCode      String   @db.VarChar(2)
+  lastValue     Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@id([territoryCode, typeCode])
+  @@map("farm_id_sequences")
+}
+
+/// Append-only DPDP consent ledger; the latest row per purpose wins.
+model FarmOwnerConsent {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  ownerId       String         @db.Uuid
+  purpose       ConsentPurpose
+  granted       Boolean
+  noticeVersion String         @db.VarChar(20)
+  ip            String?        @db.VarChar(45)
+  createdAt     DateTime       @default(now())
+
+  owner FarmOwner @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId, purpose, createdAt(sort: Desc)])
+  @@map("farm_owner_consents")
+}

@@ -1,0 +1,197 @@
+// auth-service feature: auth. Only services/auth-service/src/features/auth/auth.repository.ts queries these models.
+// Credentials, MFA, device registry and the authentication event log.
+// The User record belongs to the `users` feature (users.prisma); every userId here is a plain
+// indexed column with NO Prisma relation (feature rule 10). Roles live in the `access` feature.
+// Live OTP codes and rate-limit counters live in Redis, not here (see implementation-plan/02).
+
+enum MfaFactorType {
+  TOTP
+  SMS_OTP
+}
+
+enum DeviceStatus {
+  UNVERIFIED /// seen, but not yet confirmed by OTP / MFA
+  TRUSTED /// confirmed; no device-change OTP needed
+  BLOCKED /// blocked by the user or an admin; logins from it are refused
+  REVOKED /// removed by the user ("sign out this device"); next login re-verifies
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+  DESKTOP
+  OTHER
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  LOGOUT_ALL
+  OTP_SENT
+  OTP_VERIFIED
+  OTP_FAILED
+  OTP_RATE_LIMITED
+  TOKEN_REFRESHED
+  TOKEN_REUSE_DETECTED
+  SESSION_REVOKED
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET
+  MFA_ENROLLED
+  MFA_REMOVED
+  MFA_SUCCESS
+  MFA_FAILED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  STATUS_CHANGED
+  NEW_DEVICE
+  DEVICE_TRUSTED
+  DEVICE_BLOCKED
+  DEVICE_UNBLOCKED
+  DEVICE_REVOKED
+  DEVICE_LOGIN_BLOCKED
+}
+
+model Credential {
+  userId            String    @id @db.Uuid
+  /// Argon2id hash. Never logged, never returned by the API.
+  passwordHash      String
+  passwordUpdatedAt DateTime  @default(now())
+  /// Optional rotation policy (admin and finance roles).
+  passwordExpiresAt DateTime?
+  /// Durable lockout backstop; fast counters live in Redis.
+  failedLoginCount  Int       @default(0)
+  lastFailedAt      DateTime?
+  lockedUntil       DateTime?
+
+  @@map("credentials")
+}
+
+/// Previous password hashes, to block reuse of the last N passwords.
+model PasswordHistory {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  userId       String   @db.Uuid
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("password_history")
+}
+
+model MfaFactor {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  userId          String        @db.Uuid
+  type            MfaFactorType
+  label           String?
+  /// TOTP secret, AES-256-GCM encrypted with a key from env/KMS. Null for SMS_OTP.
+  secretEncrypted String?
+  /// Null = enrolment not finished.
+  verifiedAt      DateTime?
+  lastUsedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  disabledAt      DateTime?
+
+  @@index([userId])
+  @@map("mfa_factors")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  /// SHA-256 of the code; shown to the user once.
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
+}
+
+/// Device registry: every device a user has signed in from (FR-REG-16/17/21).
+/// Sessions (sessions feature) and auth events reference it by plain deviceId.
+model UserDevice {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @db.Uuid
+  /// SHA-256 of the client-generated stable device id (app install id / browser id).
+  deviceHash String
+  status     DeviceStatus   @default(UNVERIFIED)
+  platform   DevicePlatform @default(OTHER)
+
+  // ── Device details reported by the client / parsed from User-Agent ──
+  /// User-editable label, e.g. "Ravi's Redmi".
+  name           String?
+  manufacturer   String?
+  model          String?
+  osName         String?
+  osVersion      String?
+  browserName    String?
+  browserVersion String?
+  appVersion     String?
+  /// FCM/APNs token for security alerts ("new login on your account").
+  pushToken      String?
+
+  // ── Network / location ──
+  firstIp       String?
+  lastIp        String?
+  lastCountry   String?
+  lastRegion    String?
+  lastCity      String?
+  lastLatitude  Decimal? @db.Decimal(9, 6)
+  lastLongitude Decimal? @db.Decimal(9, 6)
+
+  // ── Risk signals ──
+  /// e.g. { "rooted": true, "emulator": false, "vpn": true, "impossibleTravel": false }
+  riskFlags Json?
+  /// 0 (clean) – 100 (high risk); computed by the service on each login.
+  riskScore Int   @default(0)
+
+  // ── Lifecycle ──
+  loginCount      Int       @default(0)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  lastLoginAt     DateTime?
+  trustedAt       DateTime?
+  blockedAt       DateTime?
+  blockedByUserId String?   @db.Uuid
+  blockedReason   String?
+  revokedAt       DateTime?
+
+  @@unique([userId, deviceHash])
+  @@index([userId, lastSeenAt])
+  @@index([status])
+  @@index([deviceHash])
+  @@map("user_devices")
+}
+
+/// Authentication event log (FR-REG-21). Append-only: protected by DB triggers.
+/// No relations, so rows outlive users and devices.
+model AuthEvent {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  userId     String?       @db.Uuid
+  /// Masked login identifier for failed attempts on unknown users, e.g. +91******3210.
+  identifier String?
+  type       AuthEventType
+  success    Boolean
+  /// bad_password | locked | mfa_required | device_blocked | rate_limited | ...
+  reason     String?
+  ip         String?
+  userAgent  String?
+  deviceId   String?       @db.Uuid
+  sessionId  String?       @db.Uuid
+  country    String?
+  city       String?
+  latitude   Decimal?      @db.Decimal(9, 6)
+  longitude  Decimal?      @db.Decimal(9, 6)
+  riskScore  Int?
+  /// Extra context (actor of an admin action, OTP purpose/channel, ...). Never secrets.
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([deviceId, createdAt])
+  @@index([type, createdAt])
+  @@index([ip, createdAt])
+  @@map("auth_events")
+}

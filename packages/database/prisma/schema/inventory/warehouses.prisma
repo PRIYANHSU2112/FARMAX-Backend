@@ -1,0 +1,53 @@
+// inventory-service feature: warehouses. The stock-holding nodes (mother warehouse, C&F depots)
+// and the PIN codes each one serves (allocation candidates, by priority).
+
+enum WarehouseType {
+  MOTHER
+  DEPOT
+}
+
+model Warehouse {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  /// Short UPPERCASE code, e.g. RJY-MW, NZV-DEP. Immutable after creation.
+  code            String        @unique @db.VarChar(20)
+  name            String        @db.VarChar(120)
+  type            WarehouseType
+  addressLine     String        @db.VarChar(250)
+  city            String        @db.VarChar(80)
+  stateCode       String        @db.Char(2)
+  pinCode         String        @db.Char(6)
+  /// Inactive: no new stock movements and never allocated.
+  isActive        Boolean       @default(true)
+  /// Allocatable: counted in availability and offered to reservations.
+  isAllocatable   Boolean       @default(true)
+  /// Can store and ship 2–8 °C / frozen stock (cold-chain lines are allocated only here).
+  hasColdChain    Boolean       @default(false)
+  /// Lower = preferred when two warehouses cover a PIN with the same coverage priority.
+  priority        Int           @default(100)
+  statusReason    String?       @db.VarChar(500)
+  version         Int           @default(0)
+  createdByUserId String        @db.Uuid
+  updatedByUserId String        @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  coverage WarehouseCoverage[]
+
+  @@index([isActive, isAllocatable])
+  @@map("inventory_warehouses")
+}
+
+/// One PIN code served by a warehouse. Lower priority = tried first.
+model WarehouseCoverage {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  warehouseId String   @db.Uuid
+  pinCode     String   @db.Char(6)
+  priority    Int      @default(100)
+  createdAt   DateTime @default(now())
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, pinCode])
+  @@index([pinCode, priority])
+  @@map("inventory_warehouse_coverage")
+}

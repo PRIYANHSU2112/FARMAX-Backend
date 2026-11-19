@@ -1,0 +1,105 @@
+import { UnauthorizedError } from '@farmx/common/errors';
+import { internalAuth } from '@farmx/common/middleware';
+import { ok, paginated } from '@farmx/common/response';
+import { routeDocs } from '@farmx/common/server';
+import type { AuthUser } from '@farmx/common/types';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+
+import { rateLimit, requireAuth } from '../../middleware/guards.js';
+import { idempotencyKeyOf } from '../../middleware/http.js';
+import { ORDER_DOCS } from './orders.docs.js';
+import type { CancelInput, CheckoutInput, OrderListQuery } from './orders.types.js';
+import {
+  buyerCancelSchema,
+  checkoutSchema,
+  listOrdersSchema,
+  orderIdSchema,
+  quoteSchema,
+  statusesSchema,
+} from './orders.validation.js';
+
+interface IdParams {
+  id: string;
+}
+
+const svc = (req: FastifyRequest) => req.diScope.resolve('ordersService');
+const userOf = (req: FastifyRequest): AuthUser => {
+  if (req.user === null) throw new UnauthorizedError();
+  return req.user;
+};
+const ctx = (req: FastifyRequest) => ({ correlationId: req.id });
+const buyer = requireAuth('CUSTOMER');
+
+/** Mounted at `/orders` (gateway: `/v1/orders`). Buyers only; own orders only. */
+export const ordersRoutes: FastifyPluginAsync = async (app) => {
+  await app.register(ordersCancelRoutes);
+  app.post<{ Body: CheckoutInput }>(
+    '/checkout',
+    {
+      schema: { ...checkoutSchema, ...routeDocs(ORDER_DOCS.checkout) },
+      preHandler: [buyer, rateLimit('checkout', 10, 60)],
+    },
+    async (req, reply) => {
+      const result = await svc(req).checkout(userOf(req), idempotencyKeyOf(req), req.body, ctx(req));
+      return reply
+        .code(result.replayed ? 200 : 201)
+        .send(ok({ order: result.order, payment: result.payment }));
+    },
+  );
+  app.get<{ Querystring: OrderListQuery }>(
+    '/',
+    { schema: { ...listOrdersSchema, ...routeDocs(ORDER_DOCS.list) }, preHandler: buyer },
+    async (req) => paginated(await svc(req).list(userOf(req), req.query)),
+  );
+  app.get<{ Params: IdParams }>(
+    '/:id',
+    { schema: { ...orderIdSchema, ...routeDocs(ORDER_DOCS.get) }, preHandler: buyer },
+    async (req) => ok(await svc(req).get(userOf(req), req.params.id)),
+  );
+  app.post<{ Params: IdParams }>(
+    '/:id/pay',
+    {
+      schema: { ...orderIdSchema, ...routeDocs(ORDER_DOCS.pay) },
+      preHandler: [buyer, rateLimit('pay', 20, 60)],
+    },
+    async (req) => {
+      const r = await svc(req).pay(userOf(req), req.params.id, ctx(req));
+      return ok({ order: r.order, payment: r.payment });
+    },
+  );
+};
+
+/** Buyer cancellation (registered with the buyer routes). */
+export const ordersCancelRoutes: FastifyPluginAsync = async (app) => {
+  app.post<{ Params: IdParams; Body: Pick<CancelInput, 'lines'> }>(
+    '/:id/cancellation-quote',
+    { schema: { ...quoteSchema, ...routeDocs(ORDER_DOCS.quote) }, preHandler: [buyer, rateLimit('cancel-quote', 30, 60)] },
+    async (req) => ok(await svc(req).cancellationQuote(userOf(req), req.params.id, req.body.lines)),
+  );
+  app.post<{ Params: IdParams; Body: CancelInput }>(
+    '/:id/cancel',
+    { schema: { ...buyerCancelSchema, ...routeDocs(ORDER_DOCS.cancel) }, preHandler: [buyer, rateLimit('cancel', 10, 60)] },
+    async (req) => ok(await svc(req).cancel(userOf(req), req.params.id, idempotencyKeyOf(req), req.body, ctx(req))),
+  );
+};
+
+/**
+ * Mounted at `/internal/orders` (service token, checked BEFORE validation; never routed by the
+ * gateway; not in Swagger). For inventory (orphan sweep) and future logistics / invoice services.
+ */
+export const ordersInternalRoutes: FastifyPluginAsync = async (app) => {
+  const token = app.diContainer.resolve('config').INTERNAL_SERVICE_TOKEN;
+  if (token === undefined) return;
+  const guard = internalAuth(token);
+
+  app.get<{ Querystring: { ids: string } }>(
+    '/status',
+    { schema: { hide: true, ...statusesSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).statuses(req.query.ids.split(','))),
+  );
+  app.get<{ Params: IdParams }>(
+    '/:id',
+    { schema: { hide: true, ...orderIdSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).getInternal(req.params.id)),
+  );
+};

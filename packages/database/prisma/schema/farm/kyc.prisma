@@ -1,0 +1,63 @@
+// farm-service feature: kyc. Documents are stored in a PRIVATE bucket; only the object key is kept.
+
+enum KycDocType {
+  PAN_CARD
+  GST_CERTIFICATE
+  ID_PROOF_FRONT
+  ID_PROOF_BACK
+  OTHER
+}
+
+enum KycDocStatus {
+  UPLOADED
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum GstPortalStatus {
+  ACTIVE
+  CANCELLED
+  SUSPENDED
+  INACTIVE
+}
+
+model KycDocument {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  ownerId          String       @db.Uuid
+  farmId           String?      @db.Uuid
+  docType          KycDocType
+  storageKey       String       @db.VarChar(300)
+  contentType      String       @db.VarChar(60)
+  sizeBytes        Int
+  sha256           String       @db.Char(64)
+  status           KycDocStatus @default(UPLOADED)
+  /// BLURRY, MISMATCH, EXPIRED, INCOMPLETE, OTHER
+  rejectionCode    String?      @db.VarChar(40)
+  rejectionNote    String?      @db.VarChar(300)
+  reviewedByUserId String?      @db.Uuid
+  reviewedAt       DateTime?
+  uploadedByUserId String       @db.Uuid
+  createdAt        DateTime     @default(now())
+
+  @@index([ownerId, docType, createdAt(sort: Desc)])
+  @@index([farmId])
+  @@index([status, id])
+  @@map("kyc_documents")
+}
+
+/// Snapshot of one GST portal lookup (public data).
+model GstVerification {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  gstin        String          @db.Char(15)
+  tradeName    String?         @db.VarChar(200)
+  legalName    String          @db.VarChar(200)
+  portalStatus GstPortalStatus
+  stateCode    String          @db.Char(2)
+  provider     String          @db.VarChar(30)
+  requestedBy  String          @db.Uuid
+  checkedAt    DateTime        @default(now())
+
+  @@index([gstin, checkedAt(sort: Desc)])
+  @@map("gst_verifications")
+}

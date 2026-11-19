@@ -1,0 +1,37 @@
+// FarmX shared database schema — the single source of truth for every table.
+// Database: farmx (one Postgres database, one DATABASE_URL, shared by all services).
+//
+// One folder per service, one file per feature (the feature's repository is the only code that
+// queries those models). No Prisma relations across features; cross-feature ids are plain columns.
+//   base.prisma          generator + datasource
+//   outbox.prisma        infrastructure: OutboxEvent, ProcessedEvent
+//   auth/users.prisma    auth-service feature "users"     User
+//   auth/auth.prisma     auth-service feature "auth"      Credential, PasswordHistory, MfaFactor,
+//                                                         MfaRecoveryCode, UserDevice, AuthEvent
+//   auth/access.prisma   auth-service feature "access"    Role, Permission, RolePermission, UserRole
+//   auth/sessions.prisma auth-service feature "sessions"  Session
+//   auth/audit.prisma    auth-service feature "audit"     AdminAuditLog
+//   farm/farms.prisma    farm-service feature "farms"     FarmOwner, Farm, FarmCapacity,
+//                                                         FarmStatusEvent, FarmIdSequence, FarmOwnerConsent
+//   farm/geo.prisma      farm-service feature "geo"       Territory, PinCode
+//   farm/kyc.prisma      farm-service feature "kyc"       KycDocument, GstVerification
+//   farm/review.prisma   farm-service feature "review"    DuplicateCase
+//   farm/audit.prisma    farm-service feature "audit"     FarmAuditLog
+//   catalog/categories.prisma  catalog-service "categories" Category (adjacency list + path, D-28)
+//   catalog/audit.prisma       catalog-service "audit"      CatalogAuditLog
+//   order/promotions.prisma   order-service "promotions" Promotion, PromotionTarget, PromotionRuleValue,
+//                                                         PromoRedemption, PromoRedemptionItem
+//   order/projections.prisma  order-service "projections" OrderVariantProjection, OrderFarmProjection
+//   order/audit.prisma        order-service "audit"     OrderAuditLog
+//   <service>/…          add a folder per new service
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

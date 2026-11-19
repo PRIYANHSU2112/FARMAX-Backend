@@ -1,0 +1,21 @@
+// order-service feature: audit. Same shape as product_audit_log; append-only (D-22).
+
+model OrderAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  actorUserId String   @db.Uuid
+  /// promotion.create, promotion.update, promotion.status, …
+  action      String   @db.VarChar(60)
+  /// promotion
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.VarChar(64)
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(45)
+  requestId   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("order_audit_log")
+}

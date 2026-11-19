@@ -1,0 +1,48 @@
+// farm-service feature: review. Duplicate-registration cases raised on submit.
+
+enum DuplicateSignal {
+  PAN_OTHER_OWNER
+  GSTIN_OTHER_OWNER
+  GEO_SAME_OWNER
+  GEO_NAME
+}
+
+enum OwnerClaim {
+  SEPARATE_UNIT
+  SAME_FARM
+}
+
+enum DuplicateCaseStatus {
+  OPEN
+  RESOLVED_SEPARATE
+  RESOLVED_MERGED
+  RESOLVED_CHANGES
+  RESOLVED_REJECTED
+}
+
+model DuplicateCase {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  farmId           String              @db.Uuid
+  matchedFarmId    String              @db.Uuid
+  matchedOwnerId   String              @db.Uuid
+  /// True when the match belongs to the same owner (only then is it shown to the customer).
+  sameOwner        Boolean
+  signals          DuplicateSignal[]
+  score            Int                 @db.SmallInt
+  distanceM        Int?
+  nameSimilarity   Decimal?            @db.Decimal(4, 3)
+  ownerClaim       OwnerClaim?
+  ownerClaimAt     DateTime?
+  status           DuplicateCaseStatus @default(OPEN)
+  assignedToUserId String?             @db.Uuid
+  slaDueAt         DateTime
+  resolvedByUserId String?             @db.Uuid
+  resolvedAt       DateTime?
+  resolutionNote   String?             @db.VarChar(500)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([farmId, status])
+  @@index([status, slaDueAt])
+  @@map("farm_duplicate_cases")
+}

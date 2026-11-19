@@ -1,0 +1,247 @@
+// order-service feature: orders (D-34…D-45, docs/oms). An order starts PENDING_ADMIN_CONFIRMATION;
+// `status` (business) is separate from `paymentStatus`, `stockStatus` and `refundStatus`, each
+// changed only by its own source. Every change locks the order row and appends one
+// order_status_events row (append-only).
+
+enum OrderStatus {
+  PENDING_ADMIN_CONFIRMATION
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  /// The system could not complete it (see failureCode).
+  FAILED
+}
+
+enum OrderPaymentStatus {
+  PENDING
+  /// The last attempt failed; the buyer may pay again until paymentDueAt.
+  FAILED
+  PAID
+  EXPIRED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum OrderStockStatus {
+  /// Reserve call in flight / outcome unknown.
+  PENDING
+  RESERVED
+  COMMITTED
+  RELEASE_REQUESTED
+  RELEASED
+  /// Could not reserve at checkout.
+  FAILED
+  /// Late payment after the hold expired and the stock was gone.
+  REJECTED
+}
+
+enum OrderRefundStatus {
+  NONE
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  PARTIALLY_COMPLETED
+  ACTION_REQUIRED
+}
+
+enum OrderRefundRequestStatus {
+  REQUESTED
+  ACCEPTED
+  COMPLETED
+  FAILED
+  RETRY_REQUESTED
+  MANUALLY_RESOLVED
+}
+
+model Order {
+  id               String             @id @db.Uuid
+  /// ORD-yy-nnnnnnn (yearly sequence).
+  orderNo          String             @unique @db.VarChar(20)
+  userId           String             @db.Uuid
+  farmId           String             @db.Uuid
+  /// APP · WEB · ASSISTED
+  channel          String             @default("APP") @db.VarChar(12)
+  status           OrderStatus        @default(PENDING_ADMIN_CONFIRMATION)
+  /// PAYMENT_NOT_COMPLETED · STOCK_UNAVAILABLE · STOCK_UNAVAILABLE_AFTER_PAYMENT · PLACEMENT_ERROR
+  failureCode      String?            @db.VarChar(40)
+  paymentStatus    OrderPaymentStatus @default(PENDING)
+  stockStatus      OrderStockStatus   @default(PENDING)
+  refundStatus     OrderRefundStatus  @default(NONE)
+  /// AMOUNT_MISMATCH: confirm is blocked (docs/oms R8).
+  paymentException String?            @db.VarChar(40)
+  currency         String             @default("INR") @db.Char(3)
+  itemSubtotal     Decimal            @db.Decimal(14, 2)
+  discountTotal    Decimal            @db.Decimal(14, 2)
+  taxableAmount    Decimal            @db.Decimal(14, 2)
+  cgst             Decimal            @db.Decimal(14, 2)
+  sgst             Decimal            @db.Decimal(14, 2)
+  igst             Decimal            @db.Decimal(14, 2)
+  freight          Decimal            @db.Decimal(14, 2)
+  freightDiscount  Decimal            @db.Decimal(14, 2)
+  grandTotal       Decimal            @db.Decimal(14, 2)
+  paidAmount       Decimal            @default(0) @db.Decimal(14, 2)
+  refundedAmount   Decimal            @default(0) @db.Decimal(14, 2)
+  /// Full pricing waterfall (BL-02), kept for the life of the order.
+  priceTrace       Json
+  /// Farm, GSTIN (when billed to GST), ITC eligibility, place of supply.
+  billing          Json
+  /// user-service address snapshot (never re-read).
+  deliveryAddress  Json
+  deliveryPromise  String?            @db.VarChar(40)
+  couponCode       String?            @db.VarChar(40)
+  cartVersion      Int
+  reservationId    String?            @db.Uuid
+  activePaymentId  String?            @db.Uuid
+  idempotencyKey   String             @unique @db.VarChar(64)
+  requestHash      String             @db.Char(64)
+  placedAt         DateTime           @default(now())
+  paymentDueAt     DateTime
+  paidAt           DateTime?
+  confirmedAt      DateTime?
+  confirmedBy      String?            @db.Uuid
+  rejectedAt       DateTime?
+  rejectedBy       String?            @db.Uuid
+  cancelledAt      DateTime?
+  cancelledBy      String?            @db.Uuid
+  failedAt         DateTime?
+  closeReasonCode  String?            @db.VarChar(40)
+  closeReason      String?            @db.VarChar(500)
+  /// The review-SLA alert was sent (one order.review_overdue.v1 per order).
+  reviewOverdueAt  DateTime?
+  version          Int                @default(0)
+  updatedAt        DateTime           @default(now()) @updatedAt
+
+  lines OrderLine[]
+
+  @@index([userId, placedAt(sort: Desc)])
+  @@index([farmId])
+  @@index([status, paymentStatus, stockStatus, placedAt])
+  @@map("orders")
+}
+
+model OrderLine {
+  id               String  @id @db.Uuid
+  orderId          String  @db.Uuid
+  lineNo           Int
+  variantId        String  @db.Uuid
+  productId        String  @db.Uuid
+  sku              String  @db.VarChar(40)
+  name             String  @db.VarChar(250)
+  hsnCode          String  @db.VarChar(8)
+  gstRate          Decimal @db.Decimal(5, 2)
+  temperatureClass String  @db.VarChar(10)
+  qty              Int
+  cancelledQty     Int     @default(0)
+  unitPrice        Decimal @db.Decimal(14, 2)
+  lineGross        Decimal @db.Decimal(14, 2)
+  lineDiscount     Decimal @db.Decimal(14, 2)
+  taxableValue     Decimal @db.Decimal(14, 2)
+  cgst             Decimal @db.Decimal(14, 2)
+  sgst             Decimal @db.Decimal(14, 2)
+  igst             Decimal @db.Decimal(14, 2)
+  lineTotal        Decimal @db.Decimal(14, 2)
+  /// Exact share of every promotion on this line (rupee strings).
+  allocations      Json
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, lineNo])
+  @@index([variantId])
+  @@map("order_lines")
+}
+
+/// Append-only timeline: every transition of every status column, by every actor.
+model OrderStatusEvent {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  orderId    String   @db.Uuid
+  /// STATUS · PAYMENT · STOCK · REFUND
+  field      String   @db.VarChar(10)
+  fromValue  String?  @db.VarChar(40)
+  toValue    String   @db.VarChar(40)
+  /// CUSTOMER · STAFF · SYSTEM · SERVICE
+  actorType  String   @db.VarChar(10)
+  actorId    String?  @db.Uuid
+  reasonCode String?  @db.VarChar(40)
+  note       String?  @db.VarChar(500)
+  at         DateTime @default(now())
+
+  @@index([orderId, at])
+  @@map("order_status_events")
+}
+
+/// A refund DECISION (lifecycle A, D-45). payment-service executes it (lifecycle B).
+model OrderRefundRequest {
+  id               String                   @id @default(uuid(7)) @db.Uuid
+  orderId          String                   @db.Uuid
+  /// REJECT · CANCEL · FAIL · STOCK_REJECTED · LATE_PAYMENT · AUTO_REJECT · AMOUNT_MISMATCH
+  source           String                   @db.VarChar(20)
+  sourceRef        String                   @unique @db.VarChar(80)
+  paymentId        String                   @db.Uuid
+  amount           Decimal                  @db.Decimal(14, 2)
+  reason           String                   @db.VarChar(300)
+  isSystem         Boolean                  @default(true)
+  status           OrderRefundRequestStatus @default(REQUESTED)
+  paymentRefundId  String?                  @db.Uuid
+  providerRefundId String?                  @db.VarChar(64)
+  expectedBy       DateTime?
+  completedAt      DateTime?
+  arn              String?                  @db.VarChar(64)
+  failureReason    String?                  @db.VarChar(300)
+  requestedBy      String?                  @db.Uuid
+  resolvedBy       String?                  @db.Uuid
+  resolutionRef    String?                  @db.VarChar(80)
+  version          Int                      @default(0)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @default(now()) @updatedAt
+
+  @@index([orderId])
+  @@index([status, createdAt])
+  @@map("order_refund_requests")
+}
+
+/// Append-only internal notes by staff (manager console).
+model OrderNote {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  orderId   String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String   @db.VarChar(2000)
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_notes")
+}
+
+/// One cancellation (full or partial) by a buyer or staff.
+model OrderCancellation {
+  id             String   @id @db.Uuid
+  orderId        String   @db.Uuid
+  /// FULL · PARTIAL
+  scope          String   @db.VarChar(8)
+  /// [{ lineNo, variantId, qty, refund }]
+  lines          Json
+  /// ORDERED_BY_MISTAKE · FLOCK_DELAYED · LOWER_PRICE · VET_ADVISED · OTHER · ADMIN codes …
+  reasonCode     String   @db.VarChar(40)
+  note           String?  @db.VarChar(500)
+  /// Order status when it was cancelled.
+  stage          String   @db.VarChar(40)
+  fee            Decimal  @db.Decimal(14, 2)
+  refundAmount   Decimal  @db.Decimal(14, 2)
+  actorType      String   @db.VarChar(10)
+  requestedBy    String?  @db.Uuid
+  idempotencyKey String?  @unique @db.VarChar(64)
+  requestHash    String?  @db.Char(64)
+  createdAt      DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_cancellations")
+}
+
+/// Atomic yearly counters: INSERT … ON CONFLICT DO UPDATE … RETURNING (inside the transaction).
+model OrderSequence {
+  kind String @db.VarChar(8)
+  year Int
+  last Int
+
+  @@id([kind, year])
+  @@map("order_sequences")
+}

@@ -1,0 +1,118 @@
+// inventory-service feature: stock. Warehouse × variant balances (the hot rows), manual stock
+// operations, the append-only ledger and the availability publisher state.
+// Sellable = onHand − reserved − safetyStock. CHECKs (migration): all ≥ 0, reserved ≤ onHand.
+
+enum StockOperationType {
+  RECEIPT
+  DAMAGE
+  WRITE_OFF
+  ADJUSTMENT
+}
+
+enum StockOperationStatus {
+  /// Adjustments only: waiting for an approver (≠ requester).
+  PENDING
+  APPLIED
+  REJECTED
+}
+
+enum StockLedgerType {
+  RECEIVE
+  ADJUST_IN
+  ADJUST_OUT
+  DAMAGE
+  WRITE_OFF
+  SALE
+}
+
+model StockLevel {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  warehouseId     String   @db.Uuid
+  variantId       String   @db.Uuid
+  /// Physical sellable-condition units in the warehouse (includes reserved and safety stock).
+  onHand          Int      @default(0)
+  /// Held by ACTIVE reservations.
+  reserved        Int      @default(0)
+  /// Damaged units, out of onHand, waiting for write-off.
+  damaged         Int      @default(0)
+  /// Protected units that are never sold.
+  safetyStock     Int      @default(0)
+  /// Alert threshold only (0 = no alerts).
+  reorderLevel    Int      @default(0)
+  /// A low_stock event was sent and sellable has not risen above reorderLevel since (dedup).
+  lowStockAlerted Boolean  @default(false)
+  version         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@unique([warehouseId, variantId])
+  @@index([variantId])
+  @@map("inventory_stock_levels")
+}
+
+/// A manual stock document. `lines` = [{ variantId, qty }] (ADJUSTMENT qty is signed).
+model StockOperation {
+  id               String               @id @default(uuid(7)) @db.Uuid
+  type             StockOperationType
+  status           StockOperationStatus
+  warehouseId      String               @db.Uuid
+  lines            Json
+  /// External document, e.g. supplier invoice / GRN number.
+  reference        String?              @db.VarChar(80)
+  reason           String?              @db.VarChar(500)
+  idempotencyKey   String               @unique @db.VarChar(64)
+  /// SHA-256 of the canonical request; same key + different body → 422.
+  requestHash      String               @db.Char(64)
+  requestedBy      String               @db.Uuid
+  decidedBy        String?              @db.Uuid
+  decidedAt        DateTime?
+  decisionReason   String?              @db.VarChar(500)
+  createdAt        DateTime             @default(now())
+
+  @@index([warehouseId, createdAt])
+  @@index([type, status, createdAt])
+  @@map("inventory_stock_operations")
+}
+
+/// Append-only (trigger). Physical movements only; reservations are their own trail.
+model StockLedgerEntry {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  warehouseId  String          @db.Uuid
+  variantId    String          @db.Uuid
+  type         StockLedgerType
+  onHandDelta  Int
+  damagedDelta Int             @default(0)
+  onHandAfter  Int
+  damagedAfter Int
+  /// operation | reservation
+  refType      String          @db.VarChar(20)
+  refId        String          @db.Uuid
+  actorUserId  String?         @db.Uuid
+  requestId    String?         @db.VarChar(64)
+  createdAt    DateTime        @default(now())
+
+  @@index([warehouseId, variantId, createdAt])
+  @@index([variantId, createdAt])
+  @@index([refType, refId])
+  @@map("inventory_stock_ledger")
+}
+
+/// Variants whose availability must be recomputed (coalesces bursts into one event).
+model InventoryAvailabilityDirty {
+  variantId String   @id @db.Uuid
+  markedAt  DateTime @default(now())
+
+  @@map("inventory_availability_dirty")
+}
+
+/// Last PUBLISHED network availability per variant (dedup + monotonic sequence).
+model InventoryAvailabilityState {
+  variantId    String   @id @db.Uuid
+  availableQty Int
+  inStock      Boolean
+  lowStock     Boolean
+  sequence     BigInt
+  publishedAt  DateTime
+
+  @@map("inventory_availability_state")
+}

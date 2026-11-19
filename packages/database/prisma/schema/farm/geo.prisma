@@ -1,0 +1,36 @@
+// farm-service feature: geo. Territory and pin-code → node master data (interim owner until
+// logistics-service exists; then an event-fed read model — proposed D-26).
+
+model Territory {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  /// WG, EG, KR … — part of every Farm ID.
+  code         String   @unique @db.VarChar(3)
+  name         String   @db.VarChar(80)
+  districtName String   @db.VarChar(80)
+  stateCode    String   @db.Char(2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("territories")
+}
+
+model PinCode {
+  pinCode         String   @id @db.Char(6)
+  territoryId     String   @db.Uuid
+  territoryCode   String   @db.VarChar(3)
+  districtName    String   @db.VarChar(80)
+  mandalName      String?  @db.VarChar(80)
+  /// Suggestions for the Village field.
+  villages        String[]
+  primaryNodeId   String?  @db.Uuid
+  primaryNodeName String?  @db.VarChar(80)
+  backupNodeId    String?  @db.Uuid
+  backupNodeName  String?  @db.VarChar(80)
+  deliveryPromise String?  @db.VarChar(40)
+  serviceable     Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  @@index([territoryId])
+  @@map("pin_codes")
+}

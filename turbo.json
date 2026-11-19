@@ -1,0 +1,37 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["eslint.config.mjs", ".prettierrc"],
+  "globalEnv": ["NODE_ENV", "APP_ENV"],
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "db:generate": {
+      "inputs": ["prisma/**/*.prisma", "prisma.config.ts"],
+      "outputs": ["src/generated/**"]
+    },
+    "build": {
+      "dependsOn": ["transit", "^db:generate", "db:generate"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit", "^db:generate", "db:generate"]
+    },
+    "lint": {
+      "dependsOn": ["transit", "^db:generate", "db:generate"]
+    },
+    "test": {
+      "dependsOn": ["transit", "^db:generate", "db:generate"],
+      "outputs": []
+    },
+    "dev": {
+      "dependsOn": ["^db:generate"],
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

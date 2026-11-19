@@ -1,0 +1,36 @@
+// auth-service feature: audit. Only services/auth-service/src/features/audit/audit.repository.ts queries this model.
+// Every admin action (user management, roles, assignments, permission sync) writes one row,
+// in the SAME transaction as the change, via `auditService.record(entry, tx)`.
+// Authentication events (login, OTP, tokens, devices) stay in auth's `auth_events`.
+
+/// Append-only admin audit log (PRD §17, NFR-14). No relations, so rows outlive their targets.
+/// UPDATE / DELETE / TRUNCATE are blocked by DB triggers (see the init migration).
+model AdminAuditLog {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  /// Who did it. The nil uuid (00000000-…) is the system (seed, jobs).
+  actorUserId   String   @db.Uuid
+  /// <target>.<verb>, e.g. user.created, user.status_changed, user_role.changed,
+  /// session.force_logout, role.created, permissions.synced
+  action        String
+  /// user | role | user_role | permission | session
+  targetType    String
+  targetId      String   @db.Uuid
+  /// The user affected (for user and assignment changes).
+  subjectUserId String?  @db.Uuid
+  before        Json?
+  after         Json?
+  /// Why. Required by the services for sensitive actions.
+  reason        String?
+  /// Extra context. Never secrets or password hashes.
+  metadata      Json?
+  ip            String?
+  userAgent     String?
+  requestId     String?
+  createdAt     DateTime @default(now())
+
+  @@index([subjectUserId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([action, createdAt])
+  @@map("admin_audit_log")
+}

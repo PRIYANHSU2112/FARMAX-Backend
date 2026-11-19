@@ -1,0 +1,34 @@
+// catalog-service feature: brands. Flat list; products will reference a brand by a plain indexed
+// `brandId` uuid column (no Prisma relation across features, D-21) — not built yet.
+// Only services/catalog-service/src/features/brands/*.repository.ts queries this model.
+
+model Brand {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// Display name; unique (case-insensitive) among live brands (partial unique index in the migration).
+  name            String    @db.VarChar(80)
+  /// URL key, unique among live brands (partial unique index in the migration).
+  slug            String    @db.VarChar(100)
+  /// Short upper-case code (`ZOETIS`, `VENKYS-AH`), unique among live brands.
+  code            String    @db.VarChar(20)
+  description     String?   @db.VarChar(1000)
+  /// Public media-service URLs.
+  logoUrl         String?   @db.VarChar(500)
+  bannerUrl       String?   @db.VarChar(500)
+  websiteUrl      String?   @db.VarChar(500)
+  /// ISO 3166-1 alpha-2 (`IN`, `US`).
+  countryOfOrigin String?   @db.Char(2)
+  isFeatured      Boolean   @default(false)
+  /// false hides the brand from the storefront.
+  isActive        Boolean   @default(true)
+  /// Display order (ascending), then name.
+  sortOrder       Int       @default(0)
+  version         Int       @default(0)
+  createdByUserId String    @db.Uuid
+  updatedByUserId String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  @@index([isActive, isFeatured, sortOrder])
+  @@map("brands")
+}

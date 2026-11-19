@@ -1,0 +1,119 @@
+// auth-service feature: access (RBAC). Only services/auth-service/src/features/access/access.repository.ts queries these models.
+// userId columns belong to the users feature: plain indexed ids, NO Prisma relation (feature rule 10).
+// Every change is audited in the audit feature's admin_audit_log (same transaction).
+//
+// Permissions are FIXED: defined in code (services/auth-service/src/features/access/permissions.catalog.ts) and synced
+// by the seed. No API creates, renames or deletes a permission.
+// Roles are DYNAMIC: created, edited and archived by authorised admins at runtime. Only the
+// `super_admin` system role is seeded.
+
+enum ScopeType {
+  GLOBAL /// whole platform
+  WAREHOUSE /// a mother warehouse or C&F depot (scopeId = node id)
+  REGION /// a territory (scopeId = region id)
+  VENDOR /// a vendor principal (scopeId = vendor id)
+  OWN /// only records the user owns or is assigned to
+}
+
+/// Which kind of user may hold a role. Mirrors auth's UserType on purpose (no shared types).
+enum RoleAudience {
+  INTERNAL
+  CUSTOMER
+  VENDOR
+  LOGISTICS_PARTNER
+}
+
+model Role {
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  /// Stable machine key, snake_case, e.g. warehouse_manager. Immutable after creation.
+  key                String       @unique
+  name               String
+  description        String?
+  audience           RoleAudience
+  /// Seeded system role (super_admin). Cannot be edited, archived or have permissions changed.
+  isSystem           Boolean      @default(false)
+  /// Holders must complete MFA (FR-REG-18).
+  mfaRequired        Boolean      @default(true)
+  /// Idle session timeout in minutes (FR-REG-20). The shortest value across a user's roles wins.
+  sessionIdleMinutes Int?
+  createdByUserId    String?      @db.Uuid
+  updatedByUserId    String?      @db.Uuid
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  /// Soft delete. Archived roles grant nothing.
+  archivedAt         DateTime?
+
+  permissions RolePermission[]
+  assignments UserRole[]
+
+  @@index([audience, archivedAt])
+  @@map("roles")
+}
+
+/// Fixed permission catalog, synced from code. Read-only at runtime.
+model Permission {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  /// e.g. orders.cancel, refunds.approve
+  key           String      @unique
+  /// Module group for the admin UI, e.g. orders
+  module        String
+  /// Action part of the key, e.g. cancel
+  action        String
+  description   String
+  /// Requires a reason, an audit entry and fresh MFA (step-up) when used.
+  isSensitive   Boolean     @default(false)
+  /// false = reserved for the super_admin system role; cannot be granted to dynamic roles.
+  assignable    Boolean     @default(true)
+  /// Scopes this permission may be granted with, e.g. {GLOBAL, WAREHOUSE}.
+  allowedScopes ScopeType[]
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  /// Set when a key is removed from the code catalog. Deprecated permissions grant nothing.
+  deprecatedAt  DateTime?
+
+  roles RolePermission[]
+
+  @@index([module, sortOrder])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId          String   @db.Uuid
+  permissionId    String   @db.Uuid
+  grantedByUserId String?  @db.Uuid
+  grantedAt       DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/// A role granted to a user within a scope. Active = revokedAt IS NULL and not expired.
+/// One active row per (user, role, scope) — partial unique index in the migration.
+model UserRole {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  /// users feature's User.id (no relation).
+  userId           String    @db.Uuid
+  roleId           String    @db.Uuid
+  scopeType        ScopeType @default(GLOBAL)
+  /// Warehouse / region / vendor id. Null for GLOBAL and OWN (CHECK in migration).
+  scopeId          String?   @db.Uuid
+  assignedByUserId String?   @db.Uuid
+  assignedAt       DateTime  @default(now())
+  /// Temporary or break-glass access.
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  revokedByUserId  String?   @db.Uuid
+  reason           String?
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([userId, revokedAt])
+  @@index([roleId])
+  @@index([scopeType, scopeId])
+  @@map("user_roles")
+}

@@ -1,0 +1,42 @@
+// user-service feature: addresses. A customer's saved delivery addresses. `userId` is a plain
+// indexed uuid (auth-service owns users; no cross-feature relation, D-21). Soft delete keeps rows
+// resolvable for the order snapshot endpoint. Only addresses.repository.ts queries this model.
+
+enum AddressType {
+  HOME
+  FARM
+  WAREHOUSE
+  OFFICE
+  OTHER
+}
+
+model UserAddress {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  userId       String      @db.Uuid
+  type         AddressType @default(HOME)
+  /// Customer's own name for it ("Main farm").
+  label        String?     @db.VarChar(40)
+  contactName  String      @db.VarChar(80)
+  /// E.164 (+919876543210).
+  contactPhone String      @db.VarChar(15)
+  line1        String      @db.VarChar(150)
+  line2        String?     @db.VarChar(150)
+  landmark     String?     @db.VarChar(100)
+  village      String?     @db.VarChar(80)
+  mandal       String?     @db.VarChar(80)
+  district     String      @db.VarChar(80)
+  /// ISO 3166-2:IN state code without the prefix (TG, AP, KA).
+  stateCode    String      @db.Char(2)
+  pinCode      String      @db.Char(6)
+  latitude     Decimal?    @db.Decimal(9, 6)
+  longitude    Decimal?    @db.Decimal(9, 6)
+  /// Exactly one live default per user (partial unique index in the migration).
+  isDefault    Boolean     @default(false)
+  version      Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  @@index([userId, deletedAt])
+  @@map("user_addresses")
+}

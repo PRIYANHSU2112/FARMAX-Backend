@@ -1,0 +1,48 @@
+// order-service feature: cart. One cart per customer (userId) or per guest (guestToken, random
+// UUID v4). Every write bumps `version` under a row lock on the cart (lock order: cart → items),
+// so concurrent taps, merges and the future checkout never interleave.
+
+enum CartStatus {
+  ACTIVE
+  /// Guest cart folded into a customer cart after login (terminal).
+  MERGED
+}
+
+model Cart {
+  id           String     @id @db.Uuid
+  /// Customer cart: exactly one per user, kept forever (lines are removed, the row stays).
+  userId       String?    @unique @db.Uuid
+  /// Guest cart: unguessable token sent as `X-Cart-Token` (CHECK: exactly one of userId / guestToken).
+  guestToken   String?    @unique @db.Uuid
+  status       CartStatus @default(ACTIVE)
+  mergedIntoId String?    @db.Uuid
+  /// Coupon the buyer chose (normalised UPPERCASE). Advisory: re-checked when the order is placed.
+  couponCode   String?    @db.VarChar(40)
+  /// Bumped on every change; a checkout quote is bound to it (409 CART_CHANGED otherwise).
+  version      Int        @default(0)
+  /// Guests only: sliding 30-day expiry, renewed on every write.
+  expiresAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+
+  items CartItem[]
+
+  @@index([status, expiresAt])
+  @@map("carts")
+}
+
+/// One line per variant (natural key). CHECK qty > 0.
+model CartItem {
+  cartId            String   @db.Uuid
+  variantId         String   @db.Uuid
+  qty               Int
+  /// Unit price seen when the line was last written ("price changed since you added it").
+  unitPriceSnapshot Decimal? @db.Decimal(14, 2)
+  addedAt           DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@id([cartId, variantId])
+  @@map("cart_items")
+}

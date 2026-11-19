@@ -1,0 +1,47 @@
+packages:
+  - 'packages/common'
+  - 'packages/database'
+  - 'packages/infra'
+  - 'packages/tooling/*'
+  - 'services/*'
+
+# Single source of truth for shared dependency versions.
+# Use "catalog:" as the version in any package.json.
+catalog:
+  '@fastify/multipart': ^10.1.6
+  '@aws-sdk/client-s3': ^3.1168.0
+  sharp: ^0.35.5
+  ffmpeg-static: ^5.3.0
+  '@fastify/awilix': ^8.3.2
+  '@fastify/cors': ^11.4.0
+  '@fastify/helmet': ^13.2.0
+  '@fastify/http-proxy': ^11.6.6
+  '@fastify/swagger': ^9.9.3
+  '@fastify/swagger-ui': ^6.1.3
+  '@prisma/adapter-pg': 7.10.1
+  '@prisma/client': 7.10.1
+  '@types/node': ^24.0.0
+  argon2: ^0.44.0
+  awilix: ^13.0.5
+  fastify: ^5.12.8
+  fastify-plugin: ^6.0.1
+  ioredis: ^5.8.2
+  joi: ^18.3.1
+  joi-to-swagger: ^6.2.0
+  pino: ^10.4.0
+  pino-pretty: ^13.2.0
+  # Pinned exactly: the "latest" npm tag points at an 8.0 release candidate.
+  prisma: 7.10.1
+  tsup: ^9.0.0
+  tsx: ^4.20.6
+  typescript: ~6.0.3
+  vitest: ^5.1.0
+
+# Packages allowed to run install scripts (pnpm 10 blocks them by default).
+onlyBuiltDependencies:
+  - sharp
+  - ffmpeg-static
+  - '@prisma/engines'
+  - argon2
+  - esbuild
+  - prisma

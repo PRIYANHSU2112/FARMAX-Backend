@@ -1,0 +1,60 @@
+// product-service feature: attributes. Dynamic per-category attribute definitions and compliance
+// profiles, both inherited down the catalog category path. categoryId is a plain uuid (D-21).
+// Only services/product-service/src/features/attributes/*.repository.ts queries these models.
+
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  DATE
+}
+
+model CategoryAttribute {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  categoryId      String            @db.Uuid
+  /// camelCase key stored in Product.attributes; unique per category among live rows.
+  key             String            @db.VarChar(60)
+  label           String            @db.VarChar(80)
+  dataType        AttributeDataType
+  unit            String?           @db.VarChar(20)
+  /// SELECT / MULTI_SELECT: allowed values.
+  options         String[]          @default([])
+  isRequired      Boolean           @default(false)
+  /// Offered as a storefront filter (`attr.<key>=`).
+  isFilterable    Boolean           @default(false)
+  sortOrder       Int               @default(0)
+  version         Int               @default(0)
+  createdByUserId String            @db.Uuid
+  updatedByUserId String            @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  @@index([categoryId, sortOrder])
+  @@map("category_attributes")
+}
+
+/// Regulatory requirements per category (tighten-only; merged with the base rule matrix).
+model ComplianceProfile {
+  id                           String           @id @default(uuid(7)) @db.Uuid
+  /// One live profile per category (partial unique index in the migration).
+  categoryId                   String           @db.Uuid
+  requiresRegistration         Boolean          @default(false)
+  requiresDrugLicense          Boolean          @default(false)
+  requiresManufacturingLicense Boolean          @default(false)
+  requiresWithdrawal           Boolean          @default(false)
+  requiresColdChain            Boolean          @default(false)
+  requiredDocTypes             ProductDocType[] @default([])
+  /// Empty = any schedule.
+  allowedSchedules             DrugSchedule[]   @default([])
+  version                      Int              @default(0)
+  createdByUserId              String           @db.Uuid
+  updatedByUserId              String           @db.Uuid
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
+  deletedAt                    DateTime?
+
+  @@map("product_compliance_profiles")
+}

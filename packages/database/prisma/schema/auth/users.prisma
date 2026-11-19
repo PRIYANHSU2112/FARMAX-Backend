@@ -1,0 +1,86 @@
+// auth-service feature: users. Only services/auth-service/src/features/users/users.repository.ts queries this model.
+// Other features (auth, access, sessions, audit) store User.id as a plain indexed userId column
+// with NO Prisma relation (feature rule 10) and read users through `usersService`.
+
+/// Which application surface / persona family the user belongs to (PRD §5, §6.2).
+enum UserType {
+  INTERNAL /// FarmX staff — admin console (P7, P8, P12–P16)
+  CUSTOMER /// farm owner, delegate, retail buyer (P1–P4)
+  VENDOR /// vendor portal (P5, P6)
+  LOGISTICS_PARTNER /// logistics app (P11)
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  LOCKED /// temporary lock by the security policy (too many failures)
+  SUSPENDED /// administrative suspension
+  DEACTIVATED /// closed account; identifiers are never reused
+}
+
+model User {
+  /// UUID v7: time-ordered, so it doubles as the pagination cursor.
+  id       String   @id @default(uuid(7)) @db.Uuid
+  userType UserType
+
+  // ── Login identifiers. At least one of email/phone is required (CHECK in migration). ──
+  /// Stored lower-cased and trimmed by the service.
+  email           String?   @unique
+  emailVerifiedAt DateTime?
+  /// E.164 format, e.g. +919876543210.
+  phone           String?   @unique
+  phoneVerifiedAt DateTime?
+  /// Optional username login (FR-REG-15). Stored lower-cased.
+  username        String?   @unique
+
+  // ── Profile (minimal; farm/customer profile belongs to a future customer service) ──
+  fullName          String
+  displayName       String?
+  avatarUrl         String?
+  /// INTERNAL staff only.
+  employeeCode      String? @unique
+  /// en | te (NFR-06).
+  preferredLanguage String  @default("en")
+  timezone          String  @default("Asia/Kolkata")
+
+  // ── State ──
+  status             UserStatus @default(PENDING_VERIFICATION)
+  statusReason       String?
+  statusChangedAt    DateTime?
+  /// Forced true for INTERNAL and VENDOR users (FR-REG-18); cannot be disabled by the user.
+  mfaRequired        Boolean    @default(false)
+  /// First login after admin/vendor provisioning or seed bootstrap (FR-VDR-07).
+  mustChangePassword Boolean    @default(false)
+
+  // ── Delegate login under a farm owner (FR-REG-19) ──
+  parentUserId       String?  @db.Uuid
+  delegateOrderLimit Decimal? @db.Decimal(14, 2)
+
+  // ── Provenance (FR-REG-13) ──
+  createdByUserId    String? @db.Uuid
+  /// self | admin | field_exec | vendor_onboarding | import | seed
+  registrationSource String?
+
+  // ── DPDP consent (NFR-16) ──
+  termsAcceptedAt    DateTime?
+  privacyConsentAt   DateTime?
+  marketingConsentAt DateTime?
+
+  // ── Last activity (denormalised for list screens; full history is auth_events) ──
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  lastLoginDeviceId String?   @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  /// Soft delete. Identifiers are never reused.
+  deletedAt DateTime?
+
+  parent    User?  @relation("Delegates", fields: [parentUserId], references: [id])
+  delegates User[] @relation("Delegates")
+
+  @@index([userType, status, createdAt])
+  @@index([parentUserId])
+  @@index([deletedAt])
+  @@map("users")
+}
