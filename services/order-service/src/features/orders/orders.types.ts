@@ -1,9 +1,5 @@
 export type OrderStatus =
-  | 'PENDING_ADMIN_CONFIRMATION'
-  | 'CONFIRMED'
-  | 'REJECTED'
-  | 'CANCELLED'
-  | 'FAILED';
+  'PENDING_ADMIN_CONFIRMATION' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'FAILED';
 export type PaymentStatus =
   'PENDING' | 'FAILED' | 'PAID' | 'EXPIRED' | 'PARTIALLY_REFUNDED' | 'REFUNDED';
 export type StockStatus =
@@ -148,7 +144,8 @@ export interface AdminOrderQuery {
   placedTo?: Date;
 }
 
-export type ExceptionType = 'refund_failed' | 'stock_release_pending' | 'amount_mismatch' | 'late_payment';
+export type ExceptionType =
+  'refund_failed' | 'stock_release_pending' | 'amount_mismatch' | 'late_payment';
 
 export interface CancelInput {
   lines?: { variantId: string; qty: number }[];

@@ -46,8 +46,8 @@
   driver app, POD) · cold chain · QMS.
 - Ads · liquidation · leads (Book a Sales Call) · content/news · support tickets · notifications ·
   reports/audit · finance/GST.
-- **Built today:** `auth-service`, which covers users (admin), access (RBAC), sessions, audit and
-  auth (credentials). See `docs/PROGRESS.md`.
+- **Built today:** see `docs/PROGRESS.md` (auth, media, farm, catalog, product, user, order,
+  inventory, payment and notification services).
 
 ## Tech stack
 
@@ -74,6 +74,7 @@ services/<svc>/tests/{unit,integration}     services/_template = copy for a new 
                     services: api-gateway :3000 · auth-service :3001 · media-service :3002 · farm-service :3003
                     · catalog-service :3004 · product-service :3005 · user-service :3006
                     · order-service :3007 · inventory-service :3008 · payment-service :3009
+                    · notification-service :3010
 infra/docker        compose.yml (+ compose.prod.yml)     docs/ · implementation-plan/
 ```
 
@@ -126,7 +127,7 @@ details?, requestId } }`.
 
 ```
 pnpm install            pnpm infra:up / infra:down [-v]     pnpm dev   (gateway :3000, auth :3001)
-pnpm docker:up          (whole stack in Docker: infra + migrate + 7 services, gateway :3000)
+pnpm docker:up          (whole stack in Docker: infra + migrate + 10 services, gateway :3000)
 pnpm docker:down        pnpm docker:logs        pnpm docker:seed   (first run: permissions + super admin)
 pnpm typecheck          pnpm lint        pnpm test        pnpm build        pnpm check (all)
 pnpm db:generate        pnpm db:migrate [--name x]        pnpm db:deploy    pnpm db:seed    pnpm db:studio
@@ -141,6 +142,8 @@ API docs (all services, one page): `http://localhost:3000/api-docs` · spec: `ht
 - `docs/PROGRESS.md`: module checklist. **Update it after every task.**
 - `docs/API_PLAN.md`: all planned APIs, DB models and relations.
 - `docs/architecture.md` · `docs/decisions.md` · `docs/event-contracts.md` · `implementation-plan/`.
+- `docs/notifications/`: notification-service (D-46): architecture, consumed events, app
+  integration guide, monitoring.
 - `docs/oms/`: approved order-management + payment-service design (D-34…D-45; admin-confirmed
   orders, recovery playbook, refund lifecycles). Build order P1 inventory → P2 payment → P3 orders → P4 admin.
 

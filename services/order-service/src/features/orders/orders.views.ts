@@ -52,7 +52,15 @@ export interface OrderDetailView extends OrderSummaryView {
     lineTotal: string;
   }[];
   /** Every status change, oldest first (C-17b timeline). */
-  timeline: { field: string; from: string | null; to: string; by: string; reasonCode: string | null; note: string | null; at: Date }[];
+  timeline: {
+    field: string;
+    from: string | null;
+    to: string;
+    by: string;
+    reasonCode: string | null;
+    note: string | null;
+    at: Date;
+  }[];
   /** Refund decisions and their progress (requested ≠ completed). */
   refunds: {
     id: string;
@@ -68,9 +76,12 @@ export interface OrderDetailView extends OrderSummaryView {
 }
 
 const payable = (o: OrderWithLines): { allowed: boolean; reason: string | null } => {
-  if (o.status !== 'PENDING_ADMIN_CONFIRMATION') return { allowed: false, reason: `Order is ${o.status}` };
-  if (!UNPAID_STATUSES.includes(o.paymentStatus)) return { allowed: false, reason: `Payment is ${o.paymentStatus}` };
-  if (o.paymentDueAt.getTime() <= Date.now()) return { allowed: false, reason: 'The payment window has ended' };
+  if (o.status !== 'PENDING_ADMIN_CONFIRMATION')
+    return { allowed: false, reason: `Order is ${o.status}` };
+  if (!UNPAID_STATUSES.includes(o.paymentStatus))
+    return { allowed: false, reason: `Payment is ${o.paymentStatus}` };
+  if (o.paymentDueAt.getTime() <= Date.now())
+    return { allowed: false, reason: 'The payment window has ended' };
   if (!['RESERVED', 'COMMITTED'].includes(o.stockStatus))
     return { allowed: false, reason: 'Stock is still being confirmed; try again in a moment' };
   return { allowed: true, reason: null };

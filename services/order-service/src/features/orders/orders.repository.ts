@@ -59,29 +59,29 @@ export class OrdersRepository {
   }
 
   async findByKey(key: string): Promise<OrderWithLines | null> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.db.order.findUnique({ where: { idempotencyKey: key }, include: WITH_LINES }),
-    ));
+    );
   }
 
   async find(id: string, tx?: Tx): Promise<OrderWithLines | null> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       (tx ?? this.db).order.findUnique({ where: { id }, include: WITH_LINES }),
-    ));
+    );
   }
 
   async lock(tx: Tx, id: string): Promise<OrderRow | null> {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "orders" WHERE "id" = ${id}::uuid FOR UPDATE`;
     if (rows.length === 0) return null;
-    return (await tx.order.findUnique({ where: { id } }));
+    return await tx.order.findUnique({ where: { id } });
   }
 
   async update(tx: Tx, id: string, data: Prisma.OrderUncheckedUpdateInput): Promise<OrderRow> {
-    return (await tx.order.update({
+    return await tx.order.update({
       where: { id },
       data: { ...data, version: { increment: 1 } },
-    }));
+    });
   }
 
   async addEvents(
@@ -140,12 +140,18 @@ export class OrdersRepository {
 
   statuses(ids: readonly string[]): Promise<{ id: string; status: string }[]> {
     return withPrismaErrors(() =>
-      this.db.order.findMany({ where: { id: { in: [...ids] } }, select: { id: true, status: true } }),
+      this.db.order.findMany({
+        where: { id: { in: [...ids] } },
+        select: { id: true, status: true },
+      }),
     );
   }
 
   /** Open, unpaid orders whose window + grace has passed (timeout candidates). */
-  unpaidDue(before: Date, limit: number): Promise<{ id: string; activePaymentId: string | null }[]> {
+  unpaidDue(
+    before: Date,
+    limit: number,
+  ): Promise<{ id: string; activePaymentId: string | null }[]> {
     return withPrismaErrors(() =>
       this.db.order.findMany({
         where: {
@@ -162,7 +168,7 @@ export class OrdersRepository {
 
   /** Open orders whose placement did not finish (stock outcome unknown, or no payment yet). */
   async stuck(placedBefore: Date, limit: number): Promise<OrderWithLines[]> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.db.order.findMany({
         where: {
           status: 'PENDING_ADMIN_CONFIRMATION',
@@ -180,7 +186,7 @@ export class OrdersRepository {
         take: limit,
         include: WITH_LINES,
       }),
-    ));
+    );
   }
 
   // ── Admin reads ──
@@ -193,7 +199,9 @@ export class OrdersRepository {
           ...(query.paymentStatus === undefined ? {} : { paymentStatus: query.paymentStatus }),
           ...(query.stockStatus === undefined ? {} : { stockStatus: query.stockStatus }),
           ...(query.refundStatus === undefined ? {} : { refundStatus: query.refundStatus }),
-          ...(query.orderNo === undefined ? {} : { orderNo: { startsWith: query.orderNo.toUpperCase() } }),
+          ...(query.orderNo === undefined
+            ? {}
+            : { orderNo: { startsWith: query.orderNo.toUpperCase() } }),
           ...(query.farmId === undefined ? {} : { farmId: query.farmId }),
           ...(query.userId === undefined ? {} : { userId: query.userId }),
           ...(query.placedFrom === undefined && query.placedTo === undefined
@@ -215,14 +223,18 @@ export class OrdersRepository {
 
   /** Paid + stock committed, waiting for a decision: oldest payment first. */
   async reviewQueue(limit: number): Promise<OrderWithLines[]> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.db.order.findMany({
-        where: { status: 'PENDING_ADMIN_CONFIRMATION', paymentStatus: 'PAID', stockStatus: 'COMMITTED' },
+        where: {
+          status: 'PENDING_ADMIN_CONFIRMATION',
+          paymentStatus: 'PAID',
+          stockStatus: 'COMMITTED',
+        },
         orderBy: { paidAt: 'asc' },
         take: limit,
         include: WITH_LINES,
       }),
-    ));
+    );
   }
 
   async stats(dayStart: Date, overdueBefore: Date) {
@@ -260,7 +272,11 @@ export class OrdersRepository {
   }
 
   /** Recovery work queues (docs/oms §3A). */
-  async exceptions(type: ExceptionType, staleBefore: Date, limit: number): Promise<OrderWithLines[]> {
+  async exceptions(
+    type: ExceptionType,
+    staleBefore: Date,
+    limit: number,
+  ): Promise<OrderWithLines[]> {
     const where =
       type === 'refund_failed'
         ? { refundStatus: 'ACTION_REQUIRED' as const }
@@ -269,13 +285,26 @@ export class OrdersRepository {
           : type === 'amount_mismatch'
             ? { paymentException: { not: null }, status: 'PENDING_ADMIN_CONFIRMATION' as const }
             : {
-                status: { in: ['FAILED', 'CANCELLED', 'REJECTED'] as ('FAILED' | 'CANCELLED' | 'REJECTED')[] },
+                status: {
+                  in: ['FAILED', 'CANCELLED', 'REJECTED'] as (
+                    'FAILED' | 'CANCELLED' | 'REJECTED'
+                  )[],
+                },
                 paymentStatus: 'PAID' as const,
-                refundStatus: { in: ['REQUESTED', 'IN_PROGRESS', 'ACTION_REQUIRED'] as ('REQUESTED' | 'IN_PROGRESS' | 'ACTION_REQUIRED')[] },
+                refundStatus: {
+                  in: ['REQUESTED', 'IN_PROGRESS', 'ACTION_REQUIRED'] as (
+                    'REQUESTED' | 'IN_PROGRESS' | 'ACTION_REQUIRED'
+                  )[],
+                },
               };
-    return (await withPrismaErrors(() =>
-      this.db.order.findMany({ where, orderBy: { updatedAt: 'asc' }, take: limit, include: WITH_LINES }),
-    ));
+    return await withPrismaErrors(() =>
+      this.db.order.findMany({
+        where,
+        orderBy: { updatedAt: 'asc' },
+        take: limit,
+        include: WITH_LINES,
+      }),
+    );
   }
 
   // ── Notes, cancellations ──
@@ -299,7 +328,10 @@ export class OrdersRepository {
     );
   }
 
-  async createCancellation(tx: Tx, data: Prisma.OrderCancellationUncheckedCreateInput): Promise<void> {
+  async createCancellation(
+    tx: Tx,
+    data: Prisma.OrderCancellationUncheckedCreateInput,
+  ): Promise<void> {
     await tx.orderCancellation.create({ data });
   }
 
@@ -312,7 +344,11 @@ export class OrdersRepository {
     );
   }
 
-  async cancelLines(tx: Tx, orderId: string, items: readonly { lineNo: number; qty: number }[]): Promise<void> {
+  async cancelLines(
+    tx: Tx,
+    orderId: string,
+    items: readonly { lineNo: number; qty: number }[],
+  ): Promise<void> {
     for (const it of items)
       await tx.orderLine.update({
         where: { orderId_lineNo: { orderId, lineNo: it.lineNo } },
@@ -323,7 +359,10 @@ export class OrdersRepository {
   // ── Jobs ──
 
   /** Paid, committed, waiting longer than the SLA and not alerted yet. */
-  overdueReviews(paidBefore: Date, limit: number): Promise<{ id: string; orderNo: string; paidAt: Date | null }[]> {
+  overdueReviews(
+    paidBefore: Date,
+    limit: number,
+  ): Promise<{ id: string; orderNo: string; paidAt: Date | null }[]> {
     return withPrismaErrors(() =>
       this.db.order.findMany({
         where: {
@@ -341,7 +380,11 @@ export class OrdersRepository {
   autoRejectCandidates(paidBefore: Date, limit: number): Promise<{ id: string }[]> {
     return withPrismaErrors(() =>
       this.db.order.findMany({
-        where: { status: 'PENDING_ADMIN_CONFIRMATION', paymentStatus: 'PAID', paidAt: { lt: paidBefore } },
+        where: {
+          status: 'PENDING_ADMIN_CONFIRMATION',
+          paymentStatus: 'PAID',
+          paidAt: { lt: paidBefore },
+        },
         take: limit,
         select: { id: true },
       }),
@@ -353,6 +396,8 @@ export class OrdersRepository {
       () =>
         this.db.order.findMany({
           where: { stockStatus: 'RELEASE_REQUESTED', updatedAt: { lt: before } },
+          // Oldest first: each re-send bumps updatedAt, so a backlog rotates and none starves.
+          orderBy: { updatedAt: 'asc' },
           take: limit,
         }) as Promise<OrderRow[]>,
     );
@@ -363,6 +408,7 @@ export class OrdersRepository {
       () =>
         this.db.orderRefundRequest.findMany({
           where: { status: { in: ['REQUESTED', 'RETRY_REQUESTED'] }, updatedAt: { lt: before } },
+          orderBy: { updatedAt: 'asc' },
           take: limit,
         }) as Promise<RefundRequestRow[]>,
     );
@@ -388,7 +434,7 @@ export class OrdersRepository {
     const rows = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "order_refund_requests" WHERE "sourceRef" = ${sourceRef} FOR UPDATE`;
     if (rows.length === 0) return null;
-    return (await tx.orderRefundRequest.findUnique({ where: { sourceRef } }));
+    return await tx.orderRefundRequest.findUnique({ where: { sourceRef } });
   }
 
   async updateRefundRequest(
@@ -396,13 +442,19 @@ export class OrdersRepository {
     id: string,
     data: Prisma.OrderRefundRequestUncheckedUpdateInput,
   ): Promise<void> {
-    await tx.orderRefundRequest.update({ where: { id }, data: { ...data, version: { increment: 1 } } });
+    await tx.orderRefundRequest.update({
+      where: { id },
+      data: { ...data, version: { increment: 1 } },
+    });
   }
 
   async refundRequests(orderId: string, tx?: Tx): Promise<RefundRequestRow[]> {
-    return (await withPrismaErrors(() =>
-      (tx ?? this.db).orderRefundRequest.findMany({ where: { orderId }, orderBy: { createdAt: 'asc' } }),
-    ));
+    return await withPrismaErrors(() =>
+      (tx ?? this.db).orderRefundRequest.findMany({
+        where: { orderId },
+        orderBy: { createdAt: 'asc' },
+      }),
+    );
   }
 }
 

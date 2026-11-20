@@ -2,6 +2,7 @@ import type { DocsOptions, ServiceModule } from '@farmx/common/server';
 
 import type { OrderConfig } from '../config/index.js';
 import { auditModule } from '../features/audit/index.js';
+import { invoicesModule } from '../features/invoices/index.js';
 import { CART_TAG, cartModule } from '../features/cart/index.js';
 import { OFFERS_TAG, offersModule } from '../features/offers/index.js';
 import {
@@ -14,13 +15,16 @@ import {
 import { projectionsModule } from '../features/projections/index.js';
 import { ADMIN_PROMOTIONS_TAG, promotionsModule } from '../features/promotions/index.js';
 import { settingsModule } from '../features/settings/index.js';
+import { transactionsModule } from '../features/transactions/index.js';
 
 /**
- * order-service: coupons & promotions engine + cart (Orders / Checkout come next). The gateway
- * maps (narrow prefixes):
+ * order-service: promotions engine, cart, orders (admin-confirmed checkout, lifecycle, refunds,
+ * cancellation) and the order money ledger. The gateway maps (narrow prefixes):
  *   /v1/cart/*              → /cart/*              cart (guests + customers)
- *   /v1/orders/*            → /orders/*            public offers, offers + price preview (customers)
+ *   /v1/orders/*            → /orders/*            checkout, my orders, ledger, offers + price preview
+ *   /v1/admin/orders/*      → /admin/orders/*      manager console, ledger + reconciliation (staff)
  *   /v1/admin/promotions/*  → /admin/promotions/*  promotions admin (staff)
+ * `/internal/orders/*` is service-to-service only.
  */
 export const features: readonly ServiceModule[] = [
   auditModule,
@@ -29,6 +33,8 @@ export const features: readonly ServiceModule[] = [
   offersModule,
   cartModule,
   settingsModule,
+  transactionsModule,
+  invoicesModule,
   ordersModule,
   ordersAdminModule,
   ordersInternalModule,
@@ -39,7 +45,7 @@ export const createDocsOptions = (config: OrderConfig): DocsOptions => ({
   title: 'FarmX Order Service API',
   version: config.SERVICE_VERSION,
   description:
-    'Cart (guest + customer, login merge, revalidated prices) and the offers, coupons and promotions engine: admin promotions (line offers, coupons, auto bonuses, shipping promos), public offers, offers for a cart and the billing / tax-invoice preview. Cart, orders and checkout come next.',
+    'Cart (guest + customer, login merge, revalidated prices), the offers / coupons / promotions engine with the GST invoice preview, and orders: resumable idempotent checkout (prepaid, admin-confirmed), my orders with timeline, pay again, cancellation with exact refunds, the manager console (review queue, confirm / reject, recovery), and the immutable order money ledger (every capture and partial refund in paise, reconciled with payment-service).',
   tags: [
     { name: 'Health', description: 'Public liveness and readiness probes.' },
     {
@@ -50,7 +56,7 @@ export const createDocsOptions = (config: OrderConfig): DocsOptions => ({
     {
       name: ORDERS_TAG,
       description:
-        'Checkout (admin-confirmed, prepaid), my orders, order detail + timeline, pay again (docs/oms).',
+        'Checkout (admin-confirmed, prepaid), my orders, order detail + timeline, pay again, cancellation, money ledger (docs/oms).',
     },
     {
       name: ADMIN_ORDERS_TAG,

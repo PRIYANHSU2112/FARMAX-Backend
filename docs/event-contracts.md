@@ -86,7 +86,7 @@ sequenceDiagram
 | `user.deleted.v1`             | Soft delete by an admin                                      | `userId`, `deletedByUserId \| null`                                                                                                   |
 | `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
 
-Consumers: none yet. Expected consumers are the notification service (welcome and security alerts)
+Consumers: none yet (auth-service has **no outbox relay**, so these are not published). The notification service will add welcome / account / security rules once they are (docs/notifications). Other expected consumers:
 and services that keep a local read model of users.
 
 ### Published by farm-service
@@ -123,12 +123,14 @@ Consumer: product-service, on queue `product-service.events`. It updates the bra
 
 ### Published by product-service
 
-| Type                                            | When                                               | Data                                                                                                                                                                                                                 |
-| ----------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `product.variant_created.v1`                    | Variant created (including with a new product)     | `VariantFactsV1`: ids, SKU, GTIN, names, manufacturer, pack, Rx, temperature class, shelf life, `categoryId`, `categoryPath` (root → self), `brandId`, `hsnCode`, `gstRate`, `minOrderQty`, `maxOrderQty`, `version` |
-| `product.variant_updated.v1`                    | Variant or stock-relevant product fact changed     | `VariantFactsV1`                                                                                                                                                                                                     |
-| `product.variant_deactivated.v1`                | Variant deactivated or deleted, or product deleted | `variantId`, `productId`, `version`                                                                                                                                                                                  |
-| `product.published.v1` / `product.suspended.v1` | Product became sellable / stopped being sellable   | `productId`, `variantIds`, `reason`                                                                                                                                                                                  |
+| Type                                            | When                                                       | Data                                                                                                                                                                                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `product.variant_created.v1`                    | Variant created (including with a new product)             | `VariantFactsV1`: ids, SKU, GTIN, names, manufacturer, pack, Rx, temperature class, shelf life, `categoryId`, `categoryPath` (root → self), `brandId`, `hsnCode`, `gstRate`, `minOrderQty`, `maxOrderQty`, `version` |
+| `product.variant_updated.v1`                    | Variant or stock-relevant product fact changed             | `VariantFactsV1`                                                                                                                                                                                                     |
+| `product.variant_deactivated.v1`                | Variant deactivated or deleted, or product deleted         | `variantId`, `productId`, `version`                                                                                                                                                                                  |
+| `product.published.v1` / `product.suspended.v1` | Product became sellable / stopped being sellable           | `productId`, `variantIds`, `reason`                                                                                                                                                                                  |
+| `product.review_moderated.v1`                   | A review changed status by moderation (admin or auto-hide) | `reviewId`, `productId`, `userId`, `status`, `action` (approve / reject / hide / restore / auto_hide), `reason` → notification to the author (D-49)                                                                  |
+| `product.rating_changed.v1`                     | Published rating totals of a product changed               | `productId`, `ratingAvg` (decimal string or null), `ratingCount`, `sequence` (epoch ms) → search, wishlist cards                                                                                                     |
 
 Consumers: inventory-service (inventory items), logistics master sync (FR-PRD-001), order-service (variant read model). A product category or brand change re-emits `variant_updated` for every variant with the same variant `version`, so consumers order snapshots by (`version`, `occurredAt`).
 
@@ -166,10 +168,11 @@ Queue `inventory-service.events`: `product.variant_created.v1` / `variant_update
 
 ### Consumed by product-service
 
-| Type                                | Producer                 | Data                                                                 |
-| ----------------------------------- | ------------------------ | -------------------------------------------------------------------- |
-| `inventory.availability_changed.v1` | inventory-service        | `variantId`, `availableQty`, `inStock`, `lowStock`, `sequence`       |
-| `pricing.price_changed.v1`          | pricing-service (future) | `variantId`, `sellingPrice`, `currency`, `effectiveFrom`, `sequence` |
+| Type                                | Producer                                             | Data                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `inventory.availability_changed.v1` | inventory-service                                    | `variantId`, `availableQty`, `inStock`, `lowStock`, `sequence`                                                            |
+| `pricing.price_changed.v1`          | pricing-service (future)                             | `variantId`, `sellingPrice`, `currency`, `effectiveFrom`, `sequence`                                                      |
+| `order.delivered.v1`                | F1 shipments (future; contract in `order.events.ts`) | `orderId`, `orderNo`, `userId`, `deliveredAt`, `lines[{ lineNo, variantId, productId, qty }]` → review eligibility (D-49) |
 
 A projection applies an event only if its `sequence` is newer than the stored one.
 
@@ -199,7 +202,7 @@ Built in P4 (2026-11-24):
 
 Queue `order-service.events`: `product.variant_created.v1`, `product.variant_updated.v1`, `product.variant_deactivated.v1`, `pricing.price_changed.v1`, `inventory.availability_changed.v1` (cart soft stock check, `sequence`-guarded), `farm.facts_changed.v1` → `order_variant_projections` and `order_farm_projections`. Facts land only when (`version`, `occurredAt`) is newer than the stored pair; prices only when `sequence` is newer. Variant facts without `categoryId` / `brandId` (an older producer) are ignored.
 
-Queue `order-service.events` now also binds `payment.captured/failed/expired/refund_initiated/refund_processed/refund_failed.v1` and `inventory.reservation_committed/rejected/released.v1` → order lifecycle (row lock + status guards; duplicates and stale events are no-ops).
+Queue `order-service.events` now also binds `payment.captured/failed/expired/refund_initiated/refund_processed/refund_failed.v1` and `inventory.reservation_committed/rejected/released.v1` → order lifecycle (row lock + status guards; duplicates and stale events are no-ops). `payment.captured.v1` and `payment.refund_processed.v1` also write the order money ledger first (D-47, idempotent per payment / refund).
 
 ### Planned: order management + payments (D-34…D-45, not built yet)
 
@@ -210,6 +213,17 @@ The full list is in [`oms/06-events.md`](oms/06-events.md). It covers:
 - `inventory.reservation_committed`, `inventory.reservation_rejected`, `inventory.reservation_released`
 
 All are `.v1`. Logistics and WMS will consume `order.confirmed.v1` (not `order.paid`, unlike Logistics PRD §8.5). A delivery OTP never travels in an event.
+
+### Consumed by notification-service (built 2026-11-19, D-46)
+
+Queue `notification-service.events` (consume-only; publishes nothing): `order.placed.v1` (also
+records order → buyer in `notification_order_projections`), `order.confirmed.v1`,
+`order.rejected.v1`, `order.failed.v1` (`ORDER_CLOSED` re-sends notify nobody),
+`order.cancelled.v1`, `order.review_overdue.v1`, `payment.captured.v1`, `payment.failed.v1`,
+`payment.refund_initiated.v1`, `payment.refund_processed.v1`, `payment.refund_failed.v1`,
+`inventory.low_stock.v1`. Business dedupe keys absorb recovery re-sends; buyer events need the
+order projection (an event before its `order.placed` is retried, then dead-lettered). Rules,
+audiences and channels: [`notifications/README.md`](notifications/README.md#consumed-events).
 
 ### Pending design
 

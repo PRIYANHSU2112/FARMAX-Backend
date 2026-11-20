@@ -4,7 +4,13 @@ import type { Cradle } from '@fastify/awilix';
 
 import type { Prisma } from '@farmx/database/client';
 import type { Tx } from '@farmx/database';
-import type { LoginUserRecord, UserListQuery, UserRecord } from './users.types.js';
+import type {
+  LoginUserRecord,
+  UserContact,
+  UserListQuery,
+  UserRecord,
+  UserType,
+} from './users.types.js';
 
 /** Columns returned to the service. Never select anything credential-related. */
 const userSelect = {
@@ -208,5 +214,74 @@ export class UsersRepository {
     await withPrismaErrors(() =>
       db.user.update({ where: { id }, data: { mustChangePassword: value }, select: { id: true } }),
     );
+  }
+
+  // ── Internal lookups (notification-service, /internal/users) ─────────────────────────────
+
+  /** Delivery details of one user (never credentials). Null when unknown or deleted. */
+  async findContact(id: string): Promise<UserContact | null> {
+    const row = await withPrismaErrors(() =>
+      this.db.user.findFirst({
+        where: { id, deletedAt: null },
+        select: {
+          id: true,
+          userType: true,
+          status: true,
+          fullName: true,
+          email: true,
+          emailVerifiedAt: true,
+          phone: true,
+          phoneVerifiedAt: true,
+          preferredLanguage: true,
+        },
+      }),
+    );
+    if (row === null) return null;
+    return {
+      id: row.id,
+      userType: row.userType,
+      status: row.status,
+      fullName: row.fullName,
+      email: row.email,
+      emailVerified: row.emailVerifiedAt !== null,
+      phone: row.phone,
+      phoneVerified: row.phoneVerifiedAt !== null,
+      preferredLanguage: row.preferredLanguage,
+    };
+  }
+
+  /** ACTIVE user ids of one type, ascending (keyset page after `cursor`). */
+  async listActiveIds(
+    userType: UserType,
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<string[]> {
+    const rows = await withPrismaErrors(() =>
+      this.db.user.findMany({
+        where: {
+          userType,
+          status: 'ACTIVE',
+          deletedAt: null,
+          ...(cursor === undefined ? {} : { id: { gt: cursor } }),
+        },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+        take: limit,
+      }),
+    );
+    return rows.map((row) => row.id);
+  }
+
+  /** The subset of `ids` that are ACTIVE users of `userType`. */
+  async filterActiveIds(ids: readonly string[], userType: UserType): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const rows = await withPrismaErrors(() =>
+      this.db.user.findMany({
+        where: { id: { in: [...ids] }, userType, status: 'ACTIVE', deletedAt: null },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      }),
+    );
+    return rows.map((row) => row.id);
   }
 }

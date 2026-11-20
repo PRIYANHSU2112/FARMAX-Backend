@@ -1,0 +1,13 @@
+// notification-service feature: preferences. No row = the category default (opt-out channels on,
+// PROMO off). SECURITY and CRITICAL notifications ignore opt-outs; in-app is always on.
+
+model NotificationPreference {
+  userId    String               @db.Uuid
+  category  NotificationCategory
+  channel   NotificationChannel
+  enabled   Boolean
+  updatedAt DateTime             @default(now()) @updatedAt
+
+  @@id([userId, category, channel])
+  @@map("notification_preferences")
+}

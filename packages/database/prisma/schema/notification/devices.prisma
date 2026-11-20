@@ -1,0 +1,24 @@
+// notification-service feature: devices. FCM registration tokens. A token belongs to one user at
+// a time (re-registration by another user moves it). Max 10 active per user (oldest revoked).
+
+enum NotificationDevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+model DeviceToken {
+  id         String                     @id @default(uuid(7)) @db.Uuid
+  userId     String                     @db.Uuid
+  app        NotificationApp
+  platform   NotificationDevicePlatform
+  token      String                     @unique @db.VarChar(512)
+  deviceId   String?                    @db.VarChar(100)
+  lastSeenAt DateTime                   @default(now())
+  /// Logout, replaced, or FCM said the token is invalid.
+  revokedAt  DateTime?
+  createdAt  DateTime                   @default(now())
+
+  @@index([userId, app])
+  @@map("notification_device_tokens")
+}

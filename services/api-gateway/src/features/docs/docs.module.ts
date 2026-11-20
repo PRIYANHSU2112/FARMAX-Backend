@@ -62,7 +62,15 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     service: 'payment-service',
     baseUrl: config.PAYMENT_SERVICE_URL,
     publicPrefix: '/v1',
-    summary: 'Payments (Razorpay / mock), checkout verification, signed webhooks, refunds, reconciliation',
+    summary:
+      'Payments (Razorpay / mock), checkout verification, signed webhooks, refunds, reconciliation',
+  },
+  {
+    service: 'notification-service',
+    baseUrl: config.NOTIFICATION_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Notifications: in-app inbox + live SSE, push (FCM), email, SMS, preferences, devices; staff send, templates, delivery DLQ, analytics',
   },
 ];
 

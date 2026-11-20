@@ -1,4 +1,9 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@farmx/common/errors';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@farmx/common/errors';
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
 import { ORDER_EVENTS } from '@farmx/infra/events';
@@ -9,6 +14,7 @@ import { emitOrderEvent } from '../../adapters/events.js';
 import type { Actor as AuditActor } from '../audit/index.js';
 import { fromPaise, toPaise } from '../pricing/index.js';
 import type { OrderSettings, SettingsPatch } from '../settings/index.js';
+import type { LedgerCheckView, OrderLedgerView } from '../transactions/index.js';
 import type { CancellationQuote } from './orders.cancel.service.js';
 import type { Ctx } from './orders.lifecycle.js';
 import {
@@ -21,7 +27,12 @@ import {
   PAID_STATUSES,
   SYSTEM,
 } from './orders.types.js';
-import { type OrderDetailView, type OrderSummaryView, toDetail, toSummary } from './orders.views.js';
+import {
+  type OrderDetailView,
+  type OrderSummaryView,
+  toDetail,
+  toSummary,
+} from './orders.views.js';
 
 type Deps = Pick<
   Cradle,
@@ -31,6 +42,7 @@ type Deps = Pick<
   | 'runInTransaction'
   | 'settingsService'
   | 'auditService'
+  | 'transactionsService'
   | 'redis'
   | 'logger'
 >;
@@ -46,7 +58,16 @@ export interface AdminOrderView extends OrderDetailView {
   closeReason: string | null;
   notes: NoteRow[];
   /** Timeline with WHO (staff ids) — never shown to buyers. */
-  history: { field: string; from: string | null; to: string; actorType: string; actorId: string | null; reasonCode: string | null; note: string | null; at: Date }[];
+  history: {
+    field: string;
+    from: string | null;
+    to: string;
+    actorType: string;
+    actorId: string | null;
+    reasonCode: string | null;
+    note: string | null;
+    at: Date;
+  }[];
 }
 
 export interface QueueItem extends OrderSummaryView {
@@ -86,8 +107,14 @@ export class OrdersAdminService {
     const { adminReviewSlaHours } = await this.deps.settingsService.current();
     const now = Date.now();
     return (await this.deps.ordersRepository.reviewQueue(200)).map((o) => {
-      const waitingMinutes = o.paidAt === null ? 0 : Math.floor((now - o.paidAt.getTime()) / 60_000);
-      return { ...toSummary(o), paidAt: o.paidAt, waitingMinutes, overdue: waitingMinutes >= adminReviewSlaHours * 60 };
+      const waitingMinutes =
+        o.paidAt === null ? 0 : Math.floor((now - o.paidAt.getTime()) / 60_000);
+      return {
+        ...toSummary(o),
+        paidAt: o.paidAt,
+        waitingMinutes,
+        overdue: waitingMinutes >= adminReviewSlaHours * 60,
+      };
     });
   }
 
@@ -113,8 +140,23 @@ export class OrdersAdminService {
 
   async exceptions(type: ExceptionType): Promise<OrderSummaryView[]> {
     return (
-      await this.deps.ordersRepository.exceptions(type, new Date(Date.now() - STALE_RELEASE_MS), 200)
+      await this.deps.ordersRepository.exceptions(
+        type,
+        new Date(Date.now() - STALE_RELEASE_MS),
+        200,
+      )
     ).map(toSummary);
+  }
+
+  /** Money ledger of any order (staff). */
+  async transactions(id: string): Promise<OrderLedgerView> {
+    await this.mustFind(id);
+    return this.deps.transactionsService.forOrder(id);
+  }
+
+  /** Payments whose ledger disagrees with payment-service (reconcile job). */
+  ledgerMismatches(query: { cursor?: string; limit: number }): Promise<Paginated<LedgerCheckView>> {
+    return this.deps.transactionsService.mismatches(query);
   }
 
   async detail(id: string): Promise<AdminOrderView> {
@@ -150,7 +192,12 @@ export class OrdersAdminService {
 
   // ── Decisions ──
 
-  async confirm(actor: AuditActor, id: string, input: { expectedVersion?: number; note?: string }, ctx: Ctx): Promise<AdminOrderView> {
+  async confirm(
+    actor: AuditActor,
+    id: string,
+    input: { expectedVersion?: number; note?: string },
+    ctx: Ctx,
+  ): Promise<AdminOrderView> {
     await this.deps.runInTransaction(async (tx) => {
       const order = await this.lockedAt(tx, id, input.expectedVersion);
       const lines = (await this.deps.ordersRepository.find(id, tx))?.lines ?? [];
@@ -177,9 +224,12 @@ export class OrdersAdminService {
     await this.deps.runInTransaction(async (tx) => {
       const order = await this.lockedAt(tx, id, input.expectedVersion);
       if (order.status !== 'PENDING_ADMIN_CONFIRMATION')
-        throw new ConflictError(`Only orders awaiting confirmation can be rejected (${order.status})`, {
-          details: { reason: 'NOT_PENDING', status: order.status },
-        });
+        throw new ConflictError(
+          `Only orders awaiting confirmation can be rejected (${order.status})`,
+          {
+            details: { reason: 'NOT_PENDING', status: order.status },
+          },
+        );
       await this.deps.orderLifecycle.closeInTx(tx, order, {
         to: 'REJECTED',
         actor: staff(actor),
@@ -207,7 +257,9 @@ export class OrdersAdminService {
   async bulkConfirm(actor: AuditActor, ids: readonly string[], ctx: Ctx) {
     const { maxBulkConfirm } = await this.deps.settingsService.current();
     if (ids.length > maxBulkConfirm)
-      throw new ValidationError([{ path: 'body.orderIds', message: `at most ${String(maxBulkConfirm)}` }]);
+      throw new ValidationError([
+        { path: 'body.orderIds', message: `at most ${String(maxBulkConfirm)}` },
+      ]);
     const results: { orderId: string; ok: boolean; reason: string | null }[] = [];
     for (const id of new Set(ids)) {
       try {
@@ -230,12 +282,22 @@ export class OrdersAdminService {
     ctx: Ctx,
   ): Promise<AdminOrderView> {
     const { expectedVersion, ...cancel } = input;
-    await this.deps.orderCancelService.cancel(id, cancel, staff(actor), { ctx, expectedVersion, audit: actor });
+    await this.deps.orderCancelService.cancel(id, cancel, staff(actor), {
+      ctx,
+      expectedVersion,
+      audit: actor,
+    });
     return this.detail(id);
   }
 
-  quoteCancel(id: string, lines: CancelInput['lines'], actor: AuditActor): Promise<CancellationQuote> {
-    return this.mustFind(id).then((o) => this.deps.orderCancelService.quote(o, { lines }, staff(actor)));
+  quoteCancel(
+    id: string,
+    lines: CancelInput['lines'],
+    actor: AuditActor,
+  ): Promise<CancellationQuote> {
+    return this.mustFind(id).then((o) =>
+      this.deps.orderCancelService.quote(o, { lines }, staff(actor)),
+    );
   }
 
   async addNote(actor: AuditActor, id: string, body: string): Promise<NoteRow> {
@@ -250,13 +312,24 @@ export class OrdersAdminService {
   // ── Refund recovery (lifecycle A) ──
 
   /** FAILED → RETRY_REQUESTED: the SAME decision is re-sent (payment retries the same refund). */
-  async retryRefund(actor: AuditActor, orderId: string, refundId: string, reason: string, ctx: Ctx): Promise<AdminOrderView> {
+  async retryRefund(
+    actor: AuditActor,
+    orderId: string,
+    refundId: string,
+    reason: string,
+    ctx: Ctx,
+  ): Promise<AdminOrderView> {
     await this.deps.runInTransaction(async (tx) => {
       const rr = await this.deps.ordersRepository.lockRefundRequestById(tx, refundId);
       if (rr?.orderId !== orderId) throw new NotFoundError('Refund');
       if (rr.status !== 'FAILED')
-        throw new ConflictError(`Refund is ${rr.status}`, { details: { reason: 'NOT_FAILED', status: rr.status } });
-      await this.deps.ordersRepository.updateRefundRequest(tx, rr.id, { status: 'RETRY_REQUESTED', failureReason: null });
+        throw new ConflictError(`Refund is ${rr.status}`, {
+          details: { reason: 'NOT_FAILED', status: rr.status },
+        });
+      await this.deps.ordersRepository.updateRefundRequest(tx, rr.id, {
+        status: 'RETRY_REQUESTED',
+        failureReason: null,
+      });
       await emitOrderEvent(
         tx,
         ORDER_EVENTS.refundRequested,
@@ -273,7 +346,13 @@ export class OrdersAdminService {
       );
       const order = await this.deps.ordersRepository.lock(tx, orderId);
       if (order !== null)
-        await this.deps.orderLifecycle.apply(tx, order, { refundStatus: 'IN_PROGRESS' }, staff(actor), { code: 'REFUND_RETRY' });
+        await this.deps.orderLifecycle.apply(
+          tx,
+          order,
+          { refundStatus: 'IN_PROGRESS' },
+          staff(actor),
+          { code: 'REFUND_RETRY' },
+        );
       await this.deps.auditService.record(tx, actor, {
         action: 'order.refund_retry',
         targetType: 'order',
@@ -301,7 +380,9 @@ export class OrdersAdminService {
           details: { reason: 'NOT_FAILED', status: rr.status },
         });
       if (rr.requestedBy !== null && rr.requestedBy === actor.userId)
-        throw new ForbiddenError('An offline refund must be resolved by someone other than its requester');
+        throw new ForbiddenError(
+          'An offline refund must be resolved by someone other than its requester',
+        );
       await this.deps.ordersRepository.updateRefundRequest(tx, rr.id, {
         status: 'MANUALLY_RESOLVED',
         resolvedBy: actor.userId,
@@ -320,7 +401,12 @@ export class OrdersAdminService {
         order,
         {
           paymentStatus: refunded >= paid ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-          refundStatus: open.length > 0 ? 'IN_PROGRESS' : refunded >= paid ? 'COMPLETED' : 'PARTIALLY_COMPLETED',
+          refundStatus:
+            open.length > 0
+              ? 'IN_PROGRESS'
+              : refunded >= paid
+                ? 'COMPLETED'
+                : 'PARTIALLY_COMPLETED',
         },
         staff(actor),
         { code: 'REFUND_OFFLINE', note: input.bankReference },
@@ -355,10 +441,14 @@ export class OrdersAdminService {
     const s = await this.deps.settingsService.current();
     const now = Date.now();
     let overdue = 0;
-    for (const o of await this.deps.ordersRepository.overdueReviews(new Date(now - s.adminReviewSlaHours * 3_600_000), JOB_BATCH)) {
+    for (const o of await this.deps.ordersRepository.overdueReviews(
+      new Date(now - s.adminReviewSlaHours * 3_600_000),
+      JOB_BATCH,
+    )) {
       await this.deps.runInTransaction(async (tx) => {
         const locked = await this.deps.ordersRepository.lock(tx, o.id);
-        if (locked?.status !== 'PENDING_ADMIN_CONFIRMATION' || locked.reviewOverdueAt !== null) return;
+        if (locked?.status !== 'PENDING_ADMIN_CONFIRMATION' || locked.reviewOverdueAt !== null)
+          return;
         await this.deps.ordersRepository.update(tx, o.id, { reviewOverdueAt: new Date() });
         await emitOrderEvent(
           tx,
@@ -375,10 +465,17 @@ export class OrdersAdminService {
     }
     let autoRejected = 0;
     if (s.adminAutoRejectHours > 0)
-      for (const o of await this.deps.ordersRepository.autoRejectCandidates(new Date(now - s.adminAutoRejectHours * 3_600_000), JOB_BATCH)) {
+      for (const o of await this.deps.ordersRepository.autoRejectCandidates(
+        new Date(now - s.adminAutoRejectHours * 3_600_000),
+        JOB_BATCH,
+      )) {
         const done = await this.deps.runInTransaction(async (tx) => {
           const locked = await this.deps.ordersRepository.lock(tx, o.id);
-          if (locked?.status !== 'PENDING_ADMIN_CONFIRMATION' || !PAID_STATUSES.includes(locked.paymentStatus)) return false;
+          if (
+            locked?.status !== 'PENDING_ADMIN_CONFIRMATION' ||
+            !PAID_STATUSES.includes(locked.paymentStatus)
+          )
+            return false;
           await this.deps.orderLifecycle.closeInTx(tx, locked, {
             to: 'REJECTED',
             actor: SYSTEM,
@@ -403,14 +500,21 @@ export class OrdersAdminService {
    */
   async recoveryWatch(): Promise<{ releases: number; refunds: number }> {
     const now = Date.now();
-    const releases = await this.deps.ordersRepository.staleReleases(new Date(now - STALE_RELEASE_MS), JOB_BATCH);
+    const releases = await this.deps.ordersRepository.staleReleases(
+      new Date(now - STALE_RELEASE_MS),
+      JOB_BATCH,
+    );
     for (const o of releases)
       await this.deps.runInTransaction(async (tx) => {
         const locked = await this.deps.ordersRepository.lock(tx, o.id);
         if (locked?.stockStatus !== 'RELEASE_REQUESTED') return;
         await emitOrderEvent(
           tx,
-          locked.status === 'REJECTED' ? ORDER_EVENTS.rejected : locked.status === 'CANCELLED' ? ORDER_EVENTS.cancelled : ORDER_EVENTS.failed,
+          locked.status === 'REJECTED'
+            ? ORDER_EVENTS.rejected
+            : locked.status === 'CANCELLED'
+              ? ORDER_EVENTS.cancelled
+              : ORDER_EVENTS.failed,
           {
             orderId: locked.id,
             orderNo: locked.orderNo,
@@ -423,7 +527,10 @@ export class OrdersAdminService {
         );
         await this.deps.ordersRepository.update(tx, locked.id, {});
       });
-    const refunds = await this.deps.ordersRepository.staleRefundRequests(new Date(now - STALE_REFUND_MS), JOB_BATCH);
+    const refunds = await this.deps.ordersRepository.staleRefundRequests(
+      new Date(now - STALE_REFUND_MS),
+      JOB_BATCH,
+    );
     for (const rr of refunds)
       await this.deps.runInTransaction(async (tx) => {
         const locked = await this.deps.ordersRepository.lockRefundRequest(tx, rr.sourceRef);
@@ -445,7 +552,10 @@ export class OrdersAdminService {
         await this.deps.ordersRepository.updateRefundRequest(tx, locked.id, {});
       });
     if (releases.length + refunds.length > 0)
-      this.deps.logger.warn({ releases: releases.length, refunds: refunds.length }, 'recovery-watch re-sent side effects');
+      this.deps.logger.warn(
+        { releases: releases.length, refunds: refunds.length },
+        'recovery-watch re-sent side effects',
+      );
     return { releases: releases.length, refunds: refunds.length };
   }
 
@@ -454,7 +564,8 @@ export class OrdersAdminService {
   private async lockedAt(tx: Tx, id: string, expectedVersion?: number): Promise<OrderRow> {
     const order = await this.deps.ordersRepository.lock(tx, id);
     if (order === null) throw new NotFoundError('Order');
-    if (expectedVersion !== undefined && order.version !== expectedVersion) throw versionConflict(order.version);
+    if (expectedVersion !== undefined && order.version !== expectedVersion)
+      throw versionConflict(order.version);
     return order;
   }
 

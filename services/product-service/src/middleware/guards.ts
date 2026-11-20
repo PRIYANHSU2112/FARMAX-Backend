@@ -10,7 +10,12 @@ import { productKeys, hitRateLimit } from '@farmx/infra/redis';
 import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 
 /** Permission keys this service checks (must exist in auth's permissions.catalog.ts). */
-export const PRODUCT_PERMISSIONS = new Set(['catalogue.publish', 'catalogue.manage']);
+export const PRODUCT_PERMISSIONS = new Set([
+  'catalogue.publish',
+  'catalogue.manage',
+  'reviews.view',
+  'reviews.moderate',
+]);
 
 /** preHandler: valid, non-revoked access token with FULL scope; optionally a persona. */
 export const requireAuth = (...userTypes: UserType[]): preHandlerAsyncHookHandler =>

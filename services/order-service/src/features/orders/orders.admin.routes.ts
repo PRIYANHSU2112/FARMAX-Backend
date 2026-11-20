@@ -4,6 +4,8 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import Joi from 'joi';
 
 import { AUTH_ADMIN, IDS } from '../../docs/shared.js';
+import { PAGE } from '../../middleware/http.js';
+import { ledgerDocs, mismatchDocs } from './orders.ledger.docs.js';
 import { admin, rateLimit } from '../../middleware/guards.js';
 import { actorOf } from '../audit/index.js';
 import { SETTING_RULES, type SettingsPatch } from '../settings/index.js';
@@ -27,7 +29,8 @@ import {
 export const ADMIN_ORDERS_TAG = 'Admin Orders';
 
 const WRITE = '60 writes per user per minute';
-const VERSION_NOTE = '`expectedVersion` from the last read is required (stale → 409 VERSION_CONFLICT).';
+const VERSION_NOTE =
+  '`expectedVersion` from the last read is required (stale → 409 VERSION_CONFLICT).';
 const doc = (d: Omit<RouteDocs, 'tag' | 'auth'> & { permission: string }): RouteDocs => ({
   tag: ADMIN_ORDERS_TAG,
   auth: AUTH_ADMIN,
@@ -52,7 +55,8 @@ const DOCS = {
   }),
   stats: doc({
     summary: 'Order dashboard counters',
-    description: 'Awaiting payment / review, overdue reviews, today’s placed / confirmed / rejected / cancelled / failed, net GMV, refunds needing action. Cached 30 s.',
+    description:
+      'Awaiting payment / review, overdue reviews, today’s placed / confirmed / rejected / cancelled / failed, net GMV, refunds needing action. Cached 30 s.',
     permission: 'orders.view',
     success: { status: 200, description: 'Counters' },
   }),
@@ -66,7 +70,8 @@ const DOCS = {
   }),
   get: doc({
     summary: 'Order detail (staff)',
-    description: 'Everything the buyer sees plus ids, version, notes and the full history with WHO did each change.',
+    description:
+      'Everything the buyer sees plus ids, version, notes and the full history with WHO did each change.',
     permission: 'orders.view',
     success: { status: 200, description: 'Order' },
     errors: [404, 422],
@@ -85,13 +90,18 @@ const DOCS = {
     description: `Only while awaiting confirmation. Offers are given back, stock released, and everything paid is refunded automatically (\`order.refund_requested.v1\`). \`reasonCode\`: ${REJECT_REASONS.join(' · ')}. ${VERSION_NOTE} Audited.`,
     permission: 'orders.confirm',
     rateLimit: WRITE,
-    requestExample: { expectedVersion: 3, reasonCode: 'OUT_OF_STOCK_PHYSICAL', reason: 'Cold room failure at Tanuku C&F' },
+    requestExample: {
+      expectedVersion: 3,
+      reasonCode: 'OUT_OF_STOCK_PHYSICAL',
+      reason: 'Cold room failure at Tanuku C&F',
+    },
     success: { status: 200, description: 'Rejected order' },
     errors: [404, 409, 422],
   }),
   bulk: doc({
     summary: 'Confirm many orders',
-    description: 'Each order is confirmed in its own transaction (one failure never blocks the others); the result lists every order with `ok` / `reason`.',
+    description:
+      'Each order is confirmed in its own transaction (one failure never blocks the others); the result lists every order with `ok` / `reason`.',
     permission: 'orders.confirm',
     rateLimit: WRITE,
     requestExample: { orderIds: [IDS.order] },
@@ -100,7 +110,8 @@ const DOCS = {
   }),
   quote: doc({
     summary: 'Cancellation preview (staff)',
-    description: 'What a staff cancel would release and refund now (no fee for staff cancellations). Nothing changes.',
+    description:
+      'What a staff cancel would release and refund now (no fee for staff cancellations). Nothing changes.',
     permission: 'orders.cancel',
     success: { status: 200, description: 'Quote' },
     errors: [404, 422],
@@ -110,11 +121,20 @@ const DOCS = {
     description: `Whole order (no \`lines\`) or per item (\`lines\`: variantId + qty). Released stock and refunds follow automatically; staff refunds above the approval threshold wait for a second approver in payment-service. \`reasonCode\`: ${STAFF_CANCEL_REASONS.join(' · ')}; \`note\` required. ${VERSION_NOTE} Audited.`,
     permission: 'orders.cancel',
     rateLimit: WRITE,
-    requestExample: { expectedVersion: 4, reasonCode: 'CUSTOMER_REQUEST', note: 'Farmer called: flock placement postponed' },
+    requestExample: {
+      expectedVersion: 4,
+      reasonCode: 'CUSTOMER_REQUEST',
+      note: 'Farmer called: flock placement postponed',
+    },
     success: { status: 200, description: 'Order after cancellation' },
     errors: [404, 409, 422],
   }),
-  notes: doc({ summary: 'Internal notes', permission: 'orders.view', success: { status: 200, description: 'Notes, oldest first' }, errors: [404, 422] }),
+  notes: doc({
+    summary: 'Internal notes',
+    permission: 'orders.view',
+    success: { status: 200, description: 'Notes, oldest first' },
+    errors: [404, 422],
+  }),
   addNote: doc({
     summary: 'Add an internal note',
     description: 'Staff-only, append-only (never shown to the buyer).',
@@ -126,7 +146,8 @@ const DOCS = {
   }),
   refundRetry: doc({
     summary: 'Retry a failed refund',
-    description: 'FAILED → RETRY_REQUESTED: the same decision (same `sourceRef`) is sent again; payment-service retries the same refund, never a second one. `reason` required; audited.',
+    description:
+      'FAILED → RETRY_REQUESTED: the same decision (same `sourceRef`) is sent again; payment-service retries the same refund, never a second one. `reason` required; audited.',
     permission: 'refunds.initiate',
     rateLimit: WRITE,
     success: { status: 200, description: 'Order' },
@@ -138,7 +159,10 @@ const DOCS = {
       'For money returned outside the gateway (bank transfer): FAILED → MANUALLY_RESOLVED with the bank reference; the order’s refunded amount and payment status are updated. **Segregation of duties:** not by the person who requested the refund (403). Audited.',
     permission: 'refunds.approve',
     rateLimit: WRITE,
-    requestExample: { reason: 'Bank closed the UPI account; paid by NEFT', bankReference: 'NEFT-SBIN-2611-88231' },
+    requestExample: {
+      reason: 'Bank closed the UPI account; paid by NEFT',
+      bankReference: 'NEFT-SBIN-2611-88231',
+    },
     success: { status: 200, description: 'Order' },
     errors: [404, 409, 422],
   }),
@@ -184,29 +208,66 @@ export const ordersAdminRoutes: FastifyPluginAsync = async (app) => {
     { schema: { ...adminListSchema, ...routeDocs(DOCS.list) }, preHandler: admin('orders.view') },
     async (req) => paginated(await svc(req).list(req.query)),
   );
-  app.get('/review-queue', { schema: routeDocs(DOCS.queue), preHandler: admin('orders.view') }, async (req) =>
-    ok(await svc(req).reviewQueue()),
+  app.get(
+    '/review-queue',
+    { schema: routeDocs(DOCS.queue), preHandler: admin('orders.view') },
+    async (req) => ok(await svc(req).reviewQueue()),
   );
-  app.get('/stats', { schema: routeDocs(DOCS.stats), preHandler: admin('orders.view') }, async (req) =>
-    ok(await svc(req).stats()),
+  app.get(
+    '/stats',
+    { schema: routeDocs(DOCS.stats), preHandler: admin('orders.view') },
+    async (req) => ok(await svc(req).stats()),
   );
   app.get<{ Querystring: { type: ExceptionType } }>(
     '/exceptions',
-    { schema: { ...exceptionsSchema, ...routeDocs(DOCS.exceptions) }, preHandler: admin('orders.view') },
+    {
+      schema: { ...exceptionsSchema, ...routeDocs(DOCS.exceptions) },
+      preHandler: admin('orders.view'),
+    },
     async (req) => ok(await svc(req).exceptions(req.query.type)),
   );
-  app.get('/settings', { schema: routeDocs(DOCS.settings), preHandler: admin('orders.view') }, async (req) =>
-    ok(await svc(req).settings()),
+  app.get(
+    '/settings',
+    { schema: routeDocs(DOCS.settings), preHandler: admin('orders.view') },
+    async (req) => ok(await svc(req).settings()),
   );
   app.patch<{ Body: SettingsPatch }>(
     '/settings',
-    { schema: { ...settingsSchema, ...routeDocs(DOCS.updateSettings) }, preHandler: write('orders.configure') },
+    {
+      schema: { ...settingsSchema, ...routeDocs(DOCS.updateSettings) },
+      preHandler: write('orders.configure'),
+    },
     async (req) => ok(await svc(req).updateSettings(actorOf(req), req.body)),
   );
   app.post<{ Body: { orderIds: string[] } }>(
     '/bulk-confirm',
-    { schema: { ...bulkConfirmSchema, ...routeDocs(DOCS.bulk) }, preHandler: write('orders.confirm') },
+    {
+      schema: { ...bulkConfirmSchema, ...routeDocs(DOCS.bulk) },
+      preHandler: write('orders.confirm'),
+    },
     async (req) => ok(await svc(req).bulkConfirm(actorOf(req), req.body.orderIds, ctx(req))),
+  );
+  app.get<{ Querystring: { cursor?: string; limit: number } }>(
+    '/ledger-mismatches',
+    {
+      schema: {
+        querystring: Joi.object({ ...PAGE }),
+        ...routeDocs(mismatchDocs(ADMIN_ORDERS_TAG, AUTH_ADMIN)),
+      },
+      preHandler: admin('payments.view'),
+    },
+    async (req) => paginated(await svc(req).ledgerMismatches(req.query)),
+  );
+  app.get<{ Params: IdParams }>(
+    '/:id/transactions',
+    {
+      schema: {
+        ...orderIdSchema,
+        ...routeDocs(ledgerDocs(ADMIN_ORDERS_TAG, AUTH_ADMIN, 'orders.view')),
+      },
+      preHandler: admin('orders.view'),
+    },
+    async (req) => ok(await svc(req).transactions(req.params.id)),
   );
   app.get<{ Params: IdParams }>(
     '/:id',
@@ -215,10 +276,16 @@ export const ordersAdminRoutes: FastifyPluginAsync = async (app) => {
   );
   app.post<{ Params: IdParams; Body: { expectedVersion: number; note?: string } }>(
     '/:id/confirm',
-    { schema: { ...confirmSchema, ...routeDocs(DOCS.confirm) }, preHandler: write('orders.confirm') },
+    {
+      schema: { ...confirmSchema, ...routeDocs(DOCS.confirm) },
+      preHandler: write('orders.confirm'),
+    },
     async (req) => ok(await svc(req).confirm(actorOf(req), req.params.id, req.body, ctx(req))),
   );
-  app.post<{ Params: IdParams; Body: { expectedVersion: number; reasonCode: string; reason: string } }>(
+  app.post<{
+    Params: IdParams;
+    Body: { expectedVersion: number; reasonCode: string; reason: string };
+  }>(
     '/:id/reject',
     { schema: { ...rejectSchema, ...routeDocs(DOCS.reject) }, preHandler: write('orders.confirm') },
     async (req) => ok(await svc(req).reject(actorOf(req), req.params.id, req.body, ctx(req))),
@@ -230,7 +297,10 @@ export const ordersAdminRoutes: FastifyPluginAsync = async (app) => {
   );
   app.post<{ Params: IdParams; Body: CancelInput & { expectedVersion: number } }>(
     '/:id/cancel',
-    { schema: { ...adminCancelSchema, ...routeDocs(DOCS.cancel) }, preHandler: write('orders.cancel') },
+    {
+      schema: { ...adminCancelSchema, ...routeDocs(DOCS.cancel) },
+      preHandler: write('orders.cancel'),
+    },
     async (req) => ok(await svc(req).cancel(actorOf(req), req.params.id, req.body, ctx(req))),
   );
   app.get<{ Params: IdParams }>(
@@ -241,17 +311,33 @@ export const ordersAdminRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: IdParams; Body: { body: string } }>(
     '/:id/notes',
     { schema: { ...noteSchema, ...routeDocs(DOCS.addNote) }, preHandler: write('orders.update') },
-    async (req, reply) => reply.code(201).send(ok(await svc(req).addNote(actorOf(req), req.params.id, req.body.body))),
+    async (req, reply) =>
+      reply.code(201).send(ok(await svc(req).addNote(actorOf(req), req.params.id, req.body.body))),
   );
   app.post<{ Params: RefundParams; Body: { reason: string } }>(
     '/:id/refunds/:refundId/retry',
-    { schema: { ...refundRetrySchema, ...routeDocs(DOCS.refundRetry) }, preHandler: write('refunds.initiate') },
+    {
+      schema: { ...refundRetrySchema, ...routeDocs(DOCS.refundRetry) },
+      preHandler: write('refunds.initiate'),
+    },
     async (req) =>
-      ok(await svc(req).retryRefund(actorOf(req), req.params.id, req.params.refundId, req.body.reason, ctx(req))),
+      ok(
+        await svc(req).retryRefund(
+          actorOf(req),
+          req.params.id,
+          req.params.refundId,
+          req.body.reason,
+          ctx(req),
+        ),
+      ),
   );
   app.post<{ Params: RefundParams; Body: { reason: string; bankReference: string } }>(
     '/:id/refunds/:refundId/resolve-offline',
-    { schema: { ...refundOfflineSchema, ...routeDocs(DOCS.refundOffline) }, preHandler: write('refunds.approve') },
-    async (req) => ok(await svc(req).resolveOffline(actorOf(req), req.params.id, req.params.refundId, req.body)),
+    {
+      schema: { ...refundOfflineSchema, ...routeDocs(DOCS.refundOffline) },
+      preHandler: write('refunds.approve'),
+    },
+    async (req) =>
+      ok(await svc(req).resolveOffline(actorOf(req), req.params.id, req.params.refundId, req.body)),
   );
 };

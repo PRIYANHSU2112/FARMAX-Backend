@@ -11,6 +11,7 @@ export interface ServiceUrls {
   ORDER_SERVICE_URL: string;
   INVENTORY_SERVICE_URL: string;
   PAYMENT_SERVICE_URL: string;
+  NOTIFICATION_SERVICE_URL: string;
 }
 
 const url = (fallback: string) =>
@@ -28,4 +29,5 @@ export const serviceUrlsSchema = {
   ORDER_SERVICE_URL: url('http://localhost:3007'),
   INVENTORY_SERVICE_URL: url('http://localhost:3008'),
   PAYMENT_SERVICE_URL: url('http://localhost:3009'),
+  NOTIFICATION_SERVICE_URL: url('http://localhost:3010'),
 };

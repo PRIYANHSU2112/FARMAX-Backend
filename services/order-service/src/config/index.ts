@@ -30,6 +30,36 @@ export interface OrderConfig extends BaseConfig {
   USER_SERVICE_URL: string;
   /** GST state code of the supplying node (mother warehouse); decides CGST+SGST vs IGST. */
   SELLER_STATE_CODE: string;
+  /**
+   * Seller of record printed on tax documents (required in prod; outside prod an invoice cannot
+   * be issued until they are set). The GSTIN's state must equal SELLER_STATE_CODE.
+   */
+  SELLER_GSTIN?: string;
+  SELLER_LEGAL_NAME?: string;
+  /** One line, e.g. "Plot 12, APIIC IDA, Nuzvid, Eluru, Andhra Pradesh 521201". */
+  SELLER_ADDRESS?: string;
+  /** Document number prefixes (1–3 letters, so numbers stay ≤ 16 characters): FX/2627/0000001. */
+  INVOICE_SERIES: string;
+  CREDIT_NOTE_SERIES: string;
+  /** Inter-state B2C invoices above this (₹) are reported as GSTR-1 B2CL. */
+  B2CL_THRESHOLD: string;
+  /**
+   * Where invoice PDFs are stored: `spaces` (DigitalOcean Spaces, PRIVATE objects, signed
+   * download URLs) or `local` (a directory; dev / tests only, REFUSED when APP_ENV=prod).
+   */
+  INVOICE_STORAGE: 'spaces' | 'local';
+  INVOICE_LOCAL_DIR: string;
+  /** DigitalOcean Spaces (same variables as media-service). Required for `spaces`. */
+  AWS_ENDPOINT?: string;
+  AWS_REGION?: string;
+  AWS_BUCKET_NAME?: string;
+  AWS_ACCESS_KEY_ID?: string;
+  AWS_SECRET_ACCESS_KEY?: string;
+  /** Optional PNG / JPEG logo printed on invoices (else the seller name as a wordmark). */
+  INVOICE_LOGO_PATH?: string;
+  /** PDFs rendered in parallel per replica; attempts before FAILED (admin retry). */
+  INVOICE_PDF_CONCURRENCY: number;
+  INVOICE_PDF_MAX_ATTEMPTS: number;
   /** Cold-chain freight & packaging (₹) when any line is CC_REF / CC_FRZ. */
   FREIGHT_COLD_CHAIN: string;
   /** Freight (₹) otherwise. */
@@ -90,6 +120,44 @@ const schema = Joi.object<OrderConfig>({
   SELLER_STATE_CODE: Joi.string()
     .pattern(/^\d{2}$/)
     .default('37'),
+  SELLER_GSTIN: Joi.string()
+    .pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/)
+    .when('APP_ENV', { is: 'prod', then: Joi.required() }),
+  SELLER_LEGAL_NAME: Joi.string().max(120).when('APP_ENV', { is: 'prod', then: Joi.required() }),
+  SELLER_ADDRESS: Joi.string().max(300).when('APP_ENV', { is: 'prod', then: Joi.required() }),
+  INVOICE_SERIES: Joi.string()
+    .pattern(/^[A-Z]{1,3}$/)
+    .default('FX'),
+  CREDIT_NOTE_SERIES: Joi.string()
+    .pattern(/^[A-Z]{1,3}$/)
+    .default('CN'),
+  B2CL_THRESHOLD: RUPEES.default('100000.00'),
+  // Fails CLOSED in prod: `local` is not allowed there (Joi.override replaces the valid values).
+  INVOICE_STORAGE: Joi.string()
+    .valid('spaces', 'local')
+    .default((parent: { APP_ENV?: string }) => (parent.APP_ENV === 'prod' ? 'spaces' : 'local'))
+    .when('APP_ENV', {
+      is: 'prod',
+      then: Joi.valid(Joi.override, 'spaces').messages({
+        'any.only': 'INVOICE_STORAGE=local is not allowed when APP_ENV=prod',
+      }),
+    }),
+  INVOICE_LOCAL_DIR: Joi.string().default('.data/invoices'),
+  ...Object.fromEntries(
+    [
+      'AWS_ENDPOINT',
+      'AWS_REGION',
+      'AWS_BUCKET_NAME',
+      'AWS_ACCESS_KEY_ID',
+      'AWS_SECRET_ACCESS_KEY',
+    ].map((key) => [
+      key,
+      Joi.string().when('INVOICE_STORAGE', { is: 'spaces', then: Joi.required() }),
+    ]),
+  ),
+  INVOICE_LOGO_PATH: Joi.string(),
+  INVOICE_PDF_CONCURRENCY: Joi.number().integer().min(1).max(16).default(2),
+  INVOICE_PDF_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).default(6),
   FREIGHT_COLD_CHAIN: RUPEES.default('495.00'),
   FREIGHT_STANDARD: RUPEES.default('0.00'),
   FREIGHT_GST_RATE: Joi.string()

@@ -52,22 +52,22 @@ model StockLevel {
 
 /// A manual stock document. `lines` = [{ variantId, qty }] (ADJUSTMENT qty is signed).
 model StockOperation {
-  id               String               @id @default(uuid(7)) @db.Uuid
-  type             StockOperationType
-  status           StockOperationStatus
-  warehouseId      String               @db.Uuid
-  lines            Json
+  id             String               @id @default(uuid(7)) @db.Uuid
+  type           StockOperationType
+  status         StockOperationStatus
+  warehouseId    String               @db.Uuid
+  lines          Json
   /// External document, e.g. supplier invoice / GRN number.
-  reference        String?              @db.VarChar(80)
-  reason           String?              @db.VarChar(500)
-  idempotencyKey   String               @unique @db.VarChar(64)
+  reference      String?              @db.VarChar(80)
+  reason         String?              @db.VarChar(500)
+  idempotencyKey String               @unique @db.VarChar(64)
   /// SHA-256 of the canonical request; same key + different body → 422.
-  requestHash      String               @db.Char(64)
-  requestedBy      String               @db.Uuid
-  decidedBy        String?              @db.Uuid
-  decidedAt        DateTime?
-  decisionReason   String?              @db.VarChar(500)
-  createdAt        DateTime             @default(now())
+  requestHash    String               @db.Char(64)
+  requestedBy    String               @db.Uuid
+  decidedBy      String?              @db.Uuid
+  decidedAt      DateTime?
+  decisionReason String?              @db.VarChar(500)
+  createdAt      DateTime             @default(now())
 
   @@index([warehouseId, createdAt])
   @@index([type, status, createdAt])

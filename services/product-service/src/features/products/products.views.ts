@@ -106,6 +106,7 @@ export const toProductView = (p: ProductRecord): ProductView => ({
   minPrice: dec(p.minPrice, 2),
   maxPrice: dec(p.maxPrice, 2),
   maxDiscountPercent: dec(p.maxDiscountPercent, 2),
+  rating: { avg: dec(p.ratingAvg, 2), count: p.ratingCount },
   ingredients: p.ingredients.map((i) => ({
     id: i.id,
     name: i.name,
@@ -172,6 +173,7 @@ export const toCard = (c: CardRecord): ProductCard => {
     isFeatured: c.isFeatured,
     imageUrl: c.media[0]?.url ?? null,
     priceRange: { min: dec(c.minPrice, 2), max: dec(c.maxPrice, 2) },
+    rating: { avg: dec(c.ratingAvg, 2), count: c.ratingCount },
     defaultVariant: variants[0] ?? null,
     inStock: variants.some((v) => v.availability.inStock),
   };

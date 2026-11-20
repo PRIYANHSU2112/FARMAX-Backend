@@ -2,17 +2,17 @@
 // events through the inbox), so stock is only received for real, active variants.
 
 model InventoryVariantProjection {
-  variantId    String    @id @db.Uuid
-  productId    String    @db.Uuid
-  sku          String    @db.VarChar(40)
-  name         String    @db.VarChar(250)
-  isActive     Boolean   @default(false)
+  variantId        String    @id @db.Uuid
+  productId        String    @db.Uuid
+  sku              String    @db.VarChar(40)
+  name             String    @db.VarChar(250)
+  isActive         Boolean   @default(false)
   /// AMB, AMB_CTL, CC_REF, CC_FRZ, HAZ (CC_* need a cold-chain warehouse).
-  temperatureClass String @default("AMB") @db.VarChar(10)
+  temperatureClass String    @default("AMB") @db.VarChar(10)
   /// product-service variant version + event time; an older snapshot never overwrites a newer one.
-  factsVersion BigInt    @default(-1)
-  factsAt      DateTime?
-  updatedAt    DateTime  @updatedAt
+  factsVersion     BigInt    @default(-1)
+  factsAt          DateTime?
+  updatedAt        DateTime  @updatedAt
 
   @@index([productId])
   @@map("inventory_variant_projections")

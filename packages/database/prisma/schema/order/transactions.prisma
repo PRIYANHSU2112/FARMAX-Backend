@@ -1,0 +1,59 @@
+// order-service feature: transactions. The immutable per-order money ledger: every capture and
+// every (partial) refund, in integer paise, recorded from payment-service events inside the inbox
+// transaction. `idempotencyKey` (capture:<paymentId> / refund:<refundId>) makes replays no-ops.
+// Append-only (DB trigger). Totals are always SUMs (no stored balance, so event order never
+// matters); `order_ledger_checks` holds the reconciliation against payment-service.
+
+enum OrderTransactionKind {
+  CAPTURE
+  REFUND
+}
+
+enum OrderLedgerCheckStatus {
+  OK
+  MISMATCH
+}
+
+model OrderTransaction {
+  id             String               @id @default(uuid(7)) @db.Uuid
+  orderId        String               @db.Uuid
+  kind           OrderTransactionKind
+  /// Always > 0 (CHECK in the migration); the kind gives the direction.
+  amountPaise    BigInt
+  currency       String               @default("INR") @db.Char(3)
+  /// Gateway method of the capture: upi · card · netbanking · wallet · emi … (no instrument data).
+  method         String?              @db.VarChar(20)
+  paymentId      String               @db.Uuid
+  refundId       String?              @db.Uuid
+  /// Gateway payment id (capture) or bank ARN / gateway refund id (refund).
+  providerRef    String?              @db.VarChar(64)
+  /// The refund decision (order_refund_requests.sourceRef), refunds only.
+  sourceRef      String?              @db.VarChar(80)
+  idempotencyKey String               @unique @db.VarChar(100)
+  /// The payment-service event that recorded it (null for the migration backfill).
+  sourceEventId  String?              @db.Uuid
+  /// When the money moved (event time).
+  occurredAt     DateTime
+  recordedAt     DateTime             @default(now())
+
+  @@index([orderId, kind])
+  @@index([paymentId])
+  @@index([recordedAt])
+  @@map("order_transactions")
+}
+
+/// Latest reconciliation of one payment: ledger sums vs payment-service's own totals.
+model OrderLedgerCheck {
+  paymentId            String                 @id @db.Uuid
+  orderId              String                 @db.Uuid
+  status               OrderLedgerCheckStatus
+  ledgerCapturedPaise  BigInt
+  ledgerRefundedPaise  BigInt
+  paymentCapturedPaise BigInt
+  paymentRefundedPaise BigInt
+  checkedAt            DateTime               @default(now())
+
+  @@index([status, checkedAt])
+  @@index([orderId])
+  @@map("order_ledger_checks")
+}

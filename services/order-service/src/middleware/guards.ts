@@ -12,6 +12,7 @@ export const ORDER_PERMISSIONS = new Set([
   'pricing.view',
   'pricing.manage',
   'orders.view',
+  'payments.view',
   'orders.update',
   'orders.cancel',
   'orders.confirm',

@@ -15,7 +15,7 @@
     "docker:down": "docker compose -f infra/docker/compose.stack.yml --env-file .env down",
     "docker:logs": "docker compose -f infra/docker/compose.stack.yml --env-file .env logs -f --tail=100",
     "docker:seed": "docker compose -f infra/docker/compose.stack.yml --env-file .env run --rm migrate pnpm --filter @farmx/auth-service run db:seed",
-    "dev": "turbo run dev --filter=@farmx/api-gateway --filter=@farmx/auth-service --filter=@farmx/media-service --filter=@farmx/farm-service --filter=@farmx/catalog-service --filter=@farmx/product-service --filter=@farmx/user-service --filter=@farmx/order-service --filter=@farmx/inventory-service --filter=@farmx/payment-service",
+    "dev": "turbo run dev --concurrency=15 --filter=@farmx/api-gateway --filter=@farmx/auth-service --filter=@farmx/media-service --filter=@farmx/farm-service --filter=@farmx/catalog-service --filter=@farmx/product-service --filter=@farmx/user-service --filter=@farmx/order-service --filter=@farmx/inventory-service --filter=@farmx/payment-service",
     "build": "turbo run build --output-logs=errors-only",
     "test": "turbo run test --output-logs=new-only",
     "lint": "turbo run lint --output-logs=errors-only",

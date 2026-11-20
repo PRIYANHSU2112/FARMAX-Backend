@@ -2,6 +2,7 @@ import { defineModule } from '@farmx/common/server';
 import { asClass } from 'awilix';
 
 import { UsersController } from './users.controller.js';
+import { usersInternalRoutes } from './users.internal.routes.js';
 import { UsersRepository } from './users.repository.js';
 import { meRoutes, usersRoutes } from './users.routes.js';
 import { UsersService } from './users.service.js';
@@ -29,3 +30,10 @@ export const usersModule = defineModule({
 
 /** `/me` (self-service profile). Providers are registered by `usersModule`. */
 export const meModule = defineModule({ name: 'me', prefix: '/me', routes: meRoutes });
+
+/** `/internal/users`: contact + active ids for notification-service (internal token). */
+export const usersInternalModule = defineModule({
+  name: 'users-internal',
+  prefix: '/internal/users',
+  routes: usersInternalRoutes,
+});

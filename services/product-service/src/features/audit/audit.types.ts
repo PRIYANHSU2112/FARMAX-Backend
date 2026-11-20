@@ -3,7 +3,15 @@ import type { FastifyRequest } from 'fastify';
 export interface AuditEntry {
   actorUserId: string;
   action: string;
-  targetType: 'product' | 'variant' | 'media' | 'attribute' | 'compliance_profile' | 'lookup';
+  targetType:
+    | 'product'
+    | 'variant'
+    | 'media'
+    | 'attribute'
+    | 'compliance_profile'
+    | 'lookup'
+    | 'review'
+    | 'review_report';
   targetId: string;
   before?: object | null;
   after?: object | null;

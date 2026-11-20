@@ -5,7 +5,7 @@ import { auditModule } from '../features/audit/index.js';
 import { authModule } from '../features/auth/index.js';
 import { sessionsModule } from '../features/sessions/index.js';
 import { tokensModule } from '../features/tokens/index.js';
-import { meModule, usersModule } from '../features/users/index.js';
+import { meModule, usersInternalModule, usersModule } from '../features/users/index.js';
 
 /**
  * Every feature of auth-service, mounted by `buildService` (no service-level prefix; the gateway
@@ -24,5 +24,6 @@ export const features: readonly ServiceModule[] = [
   usersModule,
   accessModule,
   accessInternalModule,
+  usersInternalModule,
   auditModule,
 ];

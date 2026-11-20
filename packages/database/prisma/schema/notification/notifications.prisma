@@ -1,0 +1,173 @@
+// notification-service feature: notifications. One Notification (rendered once) fans out to
+// recipients (the in-app inbox row) and external deliveries (push / email / SMS), each retried by
+// BullMQ workers. `dedupeKey` makes creation idempotent (event redelivery, recovery resends,
+// admin Idempotency-Key). Ids only in `data` — no personal data.
+
+enum NotificationApp {
+  CUSTOMER
+  ADMIN
+  WAREHOUSE
+  LOGISTICS
+  VENDOR
+}
+
+enum NotificationCategory {
+  ORDER
+  PAYMENT
+  REFUND
+  INVENTORY
+  ACCOUNT
+  /// Mandatory: ignores user opt-outs.
+  SECURITY
+  /// Opt-in only.
+  PROMO
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  /// Mandatory: ignores user opt-outs.
+  CRITICAL
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum NotificationAudience {
+  USER
+  USERS
+  /// Staff holding a permission (optionally at one warehouse), resolved through auth-service.
+  PERMISSION
+  /// Every active user of the app's user type (admin broadcast).
+  APP
+}
+
+enum NotificationStatus {
+  /// Waits for `scheduledFor` (release-scheduled job).
+  SCHEDULED
+  /// Large audience: the fan-out job is creating recipients in pages.
+  PROCESSING
+  /// Recipients + deliveries created.
+  SENT
+  CANCELLED
+  /// Passed `expiresAt` before it went out.
+  EXPIRED
+}
+
+enum DeliveryStatus {
+  PENDING
+  /// Claimed by a worker (crash recovery: `lockedAt` older than the lease → re-queued).
+  SENDING
+  SENT
+  /// Transient provider error: retried with backoff at `nextAttemptAt`.
+  RETRYING
+  /// Permanent error or attempts exhausted (the delivery DLQ; admin can retry).
+  FAILED
+  /// Not sent by policy: opted out, no device / address, user inactive, expired.
+  SKIPPED
+}
+
+model Notification {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  dedupeKey       String                @unique @db.VarChar(160)
+  category        NotificationCategory
+  priority        NotificationPriority  @default(NORMAL)
+  app             NotificationApp
+  audienceType    NotificationAudience
+  /// {userIds} | {permission, warehouseId?} | {} (APP)
+  audience        Json                  @default("{}")
+  /// External channels requested (in-app is always on).
+  channels        NotificationChannel[]
+  templateKey     String                @db.VarChar(80)
+  templateVersion Int?
+  /// Rendered in-app text.
+  title           String                @db.VarChar(200)
+  body            String                @db.VarChar(1000)
+  /// Rendered per channel: {PUSH:{title,body}, EMAIL:{subject,text,html}, SMS:{text}}.
+  content         Json                  @default("{}")
+  /// Deep link for the apps: {entityType, entityId, ...ids}. Never personal data.
+  data            Json                  @default("{}")
+  entityType      String?               @db.VarChar(30)
+  entityId        String?               @db.VarChar(64)
+  /// event | admin
+  source          String                @db.VarChar(10)
+  sourceEventId   String?               @db.Uuid
+  createdBy       String?               @db.Uuid
+  reason          String?               @db.VarChar(500)
+  status          NotificationStatus    @default(SENT)
+  scheduledFor    DateTime?
+  expiresAt       DateTime?
+  /// Fan-out cursor for PROCESSING (last user id done).
+  fanoutCursor    String?               @db.VarChar(64)
+  recipientCount  Int                   @default(0)
+  cancelledAt     DateTime?
+  cancelledBy     String?               @db.Uuid
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @default(now()) @updatedAt
+
+  recipients NotificationRecipient[]
+  deliveries NotificationDelivery[]
+
+  @@index([status, scheduledFor])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// The in-app inbox row (one per user per notification). category / expiresAt are copied so the
+/// inbox list and unread count read one index.
+model NotificationRecipient {
+  id             String               @id @default(uuid(7)) @db.Uuid
+  notificationId String               @db.Uuid
+  userId         String               @db.Uuid
+  app            NotificationApp
+  category       NotificationCategory
+  expiresAt      DateTime?
+  readAt         DateTime?
+  createdAt      DateTime             @default(now())
+
+  notification Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@unique([notificationId, userId])
+  // Inbox paging (cursor = createdAt + id, newest first). Unread: partial index in the migration.
+  @@index([userId, app, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("notification_recipients")
+}
+
+model NotificationDelivery {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  notificationId    String               @db.Uuid
+  recipientId       String               @db.Uuid
+  userId            String               @db.Uuid
+  channel           NotificationChannel
+  priority          NotificationPriority @default(NORMAL)
+  status            DeliveryStatus       @default(PENDING)
+  /// OPTED_OUT | NO_DEVICE | NO_ADDRESS | USER_INACTIVE | EXPIRED | CANCELLED
+  skipReason        String?              @db.VarChar(30)
+  attempts          Int                  @default(0)
+  nextAttemptAt     DateTime?
+  lockedAt          DateTime?
+  /// Provider error code / message, trimmed. Never addresses or tokens.
+  lastError         String?              @db.VarChar(300)
+  provider          String?              @db.VarChar(20)
+  providerMessageId String?              @db.VarChar(200)
+  sentAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @default(now()) @updatedAt
+
+  notification Notification          @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipient    NotificationRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientId, channel])
+  @@index([notificationId, channel, status])
+  @@index([channel, status, createdAt(sort: Desc)])
+  @@map("notification_deliveries")
+}

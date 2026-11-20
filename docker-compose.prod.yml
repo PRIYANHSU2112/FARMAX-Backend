@@ -1,0 +1,6 @@
+# Production Compose file for FarmX Backend
+# Usage:
+#   docker compose --env-file .env -f docker-compose.prod.yml up -d --build
+
+include:
+  - path: ./docker-compose.yml

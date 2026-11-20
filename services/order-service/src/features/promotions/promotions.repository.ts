@@ -189,7 +189,10 @@ export class PromotionsRepository {
       where: { redemptionId: { in: ids } },
       data: { status: 'REVERSED' },
     });
-    await tx.promoRedemption.updateMany({ where: { id: { in: ids } }, data: { status: 'REVERSED' } });
+    await tx.promoRedemption.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'REVERSED' },
+    });
     await tx.$executeRaw`
       UPDATE "promotions" SET "usedCount" = GREATEST(0, "usedCount" - 1)
       WHERE "id" = ANY(${live.map((r) => r.promotionId)}::uuid[])`;

@@ -401,7 +401,60 @@ MANUALLY_RESOLVED) records the decision; payment-service `Refund` (CREATED → P
 RETRYING → FAILED_FINAL) executes it. Both keyed by a unique `sourceRef`, so retries never refund
 twice. `paymentStatus` changes only on completion.
 
+### D-46 · Notification service
+
+One notification-service (:3010) for every app and channel: in-app inbox (+ SSE live updates over
+Redis pub/sub), push (FCM HTTP v1 called directly, no firebase-admin), email (SMTP) and SMS
+(adapter; console until a DLT gateway is chosen). Producers never call it: it consumes published
+events (outbox → RabbitMQ) and staff sends. At-least-once with idempotency: inbox + business dedupe
+keys, `Idempotency-Key` for admin sends, atomic delivery claims, one BullMQ job per attempt,
+backoff ≤ 1 h, FAILED deliveries as the DLQ. The consumer transaction does DB work only; audiences
+that need auth-service (staff by permission / warehouse, whole apps) fan out in a background job.
+Each app has its own inbox, chosen by the token's user type. No email / phone is stored: workers
+fetch verified contacts from auth-service at send time. SECURITY / CRITICAL bypass opt-outs and
+are system-only; PROMO is opt-in. Details: `docs/notifications/`.
+
+### D-47 · Order money ledger
+
+order-service keeps an immutable `order_transactions` ledger: one row per capture
+(`payment.captured.v1`) and per refund (`payment.refund_processed.v1`), in integer paise, keyed
+`capture:<paymentId>` / `refund:<refundId>` (unique), written in the same inbox transaction as the
+event, before the lifecycle. Append-only (trigger), positive amounts (CHECK); totals are always sums,
+so event order never matters. A 15-minute job reconciles settled rows per payment with
+payment-service totals into `order_ledger_checks` (MISMATCH listed for finance, nothing
+auto-corrected). payment-service stays the executor (D-37). Wallet / split tender is out of scope.
+
+### D-48 · GST invoice core (order-service)
+
+Tax documents (tax invoice, bill of supply, credit note) live in order-service (`tax_documents` +
+`tax_document_lines`), issued **per shipment at dispatch** through
+`ordersService.issueShipmentInvoiceInTx` (the F1 hook; nothing issues until F1 calls it). The
+order's checkout snapshot is billed, never re-priced: each line's share for a shipment is
+`round_half_up(amount × cumulativeQty / orderedQty)` minus the same for earlier shipments, so all
+documents of an order add up to it exactly; freight is billed on the first invoice. Numbers
+`<series>/<fy>/<7 digits>` (≤ 16 chars) come from `invoice_sequences` in the issuing transaction
+(row-locked, gapless; lock order order row → sequence row). Idempotent per shipment
+(`ship:<id>`); invalid data → 409 INVOICE_INVALID (dispatch blocked). A DB trigger makes issued
+documents immutable except PDF / IRN / credit-status columns. E-invoice (IRN) fields exist but are
+off (< ₹5 crore). GST assumptions awaiting business confirmation: docs/invoices (plan).
+
+### D-49 · Product reviews & ratings (product-service `reviews` feature)
+
+Reviews live in product-service (`product_reviews`, `review_eligibilities`, `review_votes`,
+`review_reports`, `product_rating_summaries`). **Verified purchase only**: a customer may review a
+product only after `order.delivered.v1` (contract defined ahead of its producer, F1 shipments/POD)
+created an eligibility row, within `REVIEW_WINDOW_DAYS` (180). One live review per customer per
+product (partial unique index); deleting frees the slot. Moderation is **auto-publish + flag**:
+a rating or clean text publishes at once; images, links, phone, email, banned words, ALL-CAPS or
+repeated characters → PENDING. `REVIEW_AUTO_HIDE_REPORTS` (3) open reports auto-hide a review until
+an admin decides. Admin state machine approve / reject / hide / restore (reason for reject / hide,
+`reviews.view` / `reviews.moderate`). Ratings count PUBLISHED reviews only and are kept as running
+totals updated by **deltas** in the review transaction (atomic upsert), denormalised to
+`products.ratingAvg` / `ratingCount` for cards, `sort=rating` and `minRating`. Author names are a
+masked snapshot ("Ramesh K.") from auth-service. Events: `product.review_moderated.v1`,
+`product.rating_changed.v1`.
+
 ---
 
-**Open questions:** how OTPs are delivered (auth-service sends them directly, or calls the
-notification service), production Postgres hosting, and the Node 24 upgrade.
+**Open questions:** how OTPs are delivered (auth-service still sends them directly; moving them
+to the notification service would need an internal send API and an SMS gateway), production Postgres hosting, and the Node 24 upgrade.

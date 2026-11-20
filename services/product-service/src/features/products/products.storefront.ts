@@ -137,6 +137,7 @@ export class StorefrontService {
       ...(query.inStock === undefined ? {} : { inStock: query.inStock }),
       ...(query.minPrice === undefined ? {} : { minPrice: query.minPrice }),
       ...(query.maxPrice === undefined ? {} : { maxPrice: query.maxPrice }),
+      ...(query.minRating === undefined ? {} : { minRating: query.minRating }),
       ...(query.isFeatured === undefined ? {} : { isFeatured: query.isFeatured }),
       attrs,
     };

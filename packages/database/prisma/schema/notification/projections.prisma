@@ -1,0 +1,11 @@
+// notification-service feature: audience (order → buyer projection). order.placed.v1 is the only order event that carries
+// the buyer; later order / payment events are routed to the owner through this row.
+
+model NotificationOrderProjection {
+  orderId   String   @id @db.Uuid
+  orderNo   String   @db.VarChar(40)
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@map("notification_order_projections")
+}

@@ -18,6 +18,14 @@ import {
   productsInternalModule,
   productsModule,
 } from '../features/products/index.js';
+import {
+  ADMIN_REVIEWS_TAG,
+  MY_REVIEWS_TAG,
+  REVIEWS_TAG,
+  reviewsAdminModule,
+  reviewsCustomerModule,
+  reviewsModule,
+} from '../features/reviews/index.js';
 
 /**
  * Every feature of product-service. The gateway maps (narrow prefixes, before `/v1/catalog`):
@@ -27,6 +35,9 @@ import {
  *   /v1/admin/catalog/lookups/*               → /admin/catalog/lookups/*
  *   /v1/admin/catalog/product-attributes/*    → /admin/catalog/product-attributes/*
  *   /v1/admin/catalog/compliance-profiles/*   → /admin/catalog/compliance-profiles/*
+ *   /v1/catalog/products/:slugOrId/reviews    → reviews (same prefix as the products storefront)
+ *   /v1/catalog/reviews/*                     → /catalog/reviews/*        customer
+ *   /v1/admin/catalog/reviews/*               → /admin/catalog/reviews/*
  *   /internal/products/*                      never routed (D-27)
  */
 export const features: readonly ServiceModule[] = [
@@ -38,6 +49,9 @@ export const features: readonly ServiceModule[] = [
   productsInternalModule,
   lookupsModule,
   lookupsAdminModule,
+  reviewsModule,
+  reviewsCustomerModule,
+  reviewsAdminModule,
 ];
 
 /** Spec only (`/api-docs.json`); the gateway merges it into the single FarmX Swagger UI. */
@@ -59,6 +73,20 @@ export const createDocsOptions = (config: ProductConfig): DocsOptions => ({
         'Admin: products, variants, media, review/publish workflow (`catalogue.manage`, `catalogue.publish`).',
     },
     { name: ADMIN_LOOKUPS_TAG, description: 'Admin: dynamic master values (`catalogue.manage`).' },
+    {
+      name: REVIEWS_TAG,
+      description: 'Storefront: verified-purchase reviews and the rating summary of a product.',
+    },
+    {
+      name: MY_REVIEWS_TAG,
+      description:
+        'Customer: products to review, write / edit / delete my review, helpful votes, reports.',
+    },
+    {
+      name: ADMIN_REVIEWS_TAG,
+      description:
+        'Admin: moderation queue, search, approve / reject / hide / restore, reported content, analytics, audit (`reviews.view`, `reviews.moderate`).',
+    },
     {
       name: ADMIN_ATTRIBUTES_TAG,
       description: 'Admin: per-category attributes and compliance profiles (`catalogue.manage`).',

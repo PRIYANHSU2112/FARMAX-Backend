@@ -59,6 +59,7 @@ export const CACHE_VERSIONS = {
   order: 'v1',
   inventory: 'v1',
   payment: 'v1',
+  notification: 'v1',
 } as const;
 
 const authKeyspace = createKeyspace({ service: 'auth', version: CACHE_VERSIONS.auth });
@@ -128,6 +129,21 @@ export const farmKeys = {
     farmKeyspace.key('rl', action, dimension, value),
   /** Stored response of an idempotent POST, per user + Idempotency-Key. TTL 24 h. */
   idempotency: (userId: string, key: string) => farmKeyspace.key('idem', userId, key),
+  /** Content generation: INCR on every reader-visible change; feed/detail keys embed it (no scans). */
+  contentGen: () => farmKeyspace.key('content', 'gen'),
+  /** One feed / search page for a reader segment (hash of the normalised query + gen). TTL 60 s. */
+  contentPage: (gen: string, hash: string) => farmKeyspace.key('content', 'page', gen, hash),
+  /** Published item detail by id or slug (+ gen). TTL 5 min. */
+  contentDetail: (gen: string, idOrSlug: string) =>
+    farmKeyspace.key('content', 'detail', gen, idOrSlug),
+  /** Reader context (territory, production types, coordinates — server-side only). TTL 5 min. */
+  contentReader: (userId: string, farmId: string) =>
+    farmKeyspace.key('content', 'reader', userId, farmId),
+  /** Per-reader daily view dedupe. TTL 24 h. */
+  contentViewed: (contentId: string, userId: string) =>
+    farmKeyspace.key('content', 'viewed', contentId, userId),
+  /** Buffered engagement counters (hash field `<id>:<counter>`), flushed by content-tick. */
+  contentCounters: () => farmKeyspace.key('content', 'counters'),
 };
 
 const catalogKeyspace = createKeyspace({ service: 'catalog', version: CACHE_VERSIONS.catalog });
@@ -160,6 +176,17 @@ export const productKeys = {
     productKeyspace.key('rl', action, dimension, value),
   /** Stored response of an idempotent POST, per user + Idempotency-Key. TTL 24 h. */
   idempotency: (userId: string, key: string) => productKeyspace.key('idem', userId, key),
+  /** Bumped (INCR) when a product's published reviews change: review-page keys embed it. */
+  reviewsVersion: (productId: string) => productKeyspace.key('reviews-version', productId),
+  /** One storefront review page (product + version + hash of the query). TTL 120 s. */
+  reviewsPage: (productId: string, version: string, hash: string) =>
+    productKeyspace.key('reviews', productId, version, hash),
+  /** Public rating summary of a product. TTL 10 min; deleted after a change. */
+  ratingSummary: (productId: string) => productKeyspace.key('rating-summary', productId),
+  /** Masked reviewer name from auth-service ("Ramesh K."). TTL 24 h. */
+  reviewAuthor: (userId: string) => productKeyspace.key('review-author', userId),
+  /** Admin review analytics for one normalised query. TTL 5 min. */
+  reviewAnalytics: (hash: string) => productKeyspace.key('review-analytics', hash),
 };
 
 const userKeyspace = createKeyspace({ service: 'user', version: CACHE_VERSIONS.user });
@@ -186,7 +213,10 @@ export const orderKeys = {
   adminStats: () => orderKeyspace.key('admin-stats'),
 };
 
-const inventoryKeyspace = createKeyspace({ service: 'inventory', version: CACHE_VERSIONS.inventory });
+const inventoryKeyspace = createKeyspace({
+  service: 'inventory',
+  version: CACHE_VERSIONS.inventory,
+});
 
 export const inventoryKeys = {
   keyspace: inventoryKeyspace,
@@ -210,7 +240,23 @@ export const paymentKeys = {
   /** Mock gateway payment ids of one gateway order (dev / test only). */
   mockOrder: (providerOrderId: string) => paymentKeyspace.key('mock', 'order', providerOrderId),
   /** Mock gateway refunds of one payment (dev / test only). */
-  mockRefunds: (providerPaymentId: string) => paymentKeyspace.key('mock', 'refunds', providerPaymentId),
+  mockRefunds: (providerPaymentId: string) =>
+    paymentKeyspace.key('mock', 'refunds', providerPaymentId),
+};
+
+const notificationKeyspace = createKeyspace({
+  service: 'notification',
+  version: CACHE_VERSIONS.notification,
+});
+
+export const notificationKeys = {
+  keyspace: notificationKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    notificationKeyspace.key('rl', action, dimension, value),
+  /** Pub/sub channel carrying live inbox events to SSE streams on every replica. */
+  liveChannel: () => notificationKeyspace.key('live'),
+  /** Open SSE streams of one user (INCR / DECR, TTL refreshed by heartbeats). */
+  streams: (userId: string) => notificationKeyspace.key('streams', userId),
 };
 
 export const mediaKeys = {

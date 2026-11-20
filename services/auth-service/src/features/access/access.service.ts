@@ -63,6 +63,11 @@ export class AccessService {
 
   // ── Checks ───────────────────────────────────────────────────────────────────────────────
 
+  /** Holders of `permission` at GLOBAL scope or at `warehouseId` (not yet filtered by user status). */
+  listPermissionHolderIds(permission: string, warehouseId: string | null): Promise<string[]> {
+    return this.deps.accessRepository.listPermissionHolderIds(permission, warehouseId, new Date());
+  }
+
   /** Roles, GLOBAL permissions, MFA flag and idle timeout for a user (cached). */
   async getUserAccess(userId: string): Promise<UserAccess> {
     const { redis, logger, accessRepository } = this.deps;

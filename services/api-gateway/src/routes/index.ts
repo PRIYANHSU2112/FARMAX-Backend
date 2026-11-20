@@ -12,7 +12,7 @@ import { createProxyModule } from '../features/proxy/index.js';
  *   /v1/auth/*                                proxy → auth-service
  *   /v1/upload · /v1/media/*                  proxy → media-service
  *   /v1/farms/* · /v1/admin/farms/*           proxy → farm-service
- *   /v1/catalog/products|lookups, /v1/admin/catalog/products|lookups|product-attributes|compliance-profiles → product-service
+ *   /v1/catalog/products|lookups|reviews, /v1/admin/catalog/products|lookups|reviews|product-attributes|compliance-profiles → product-service
  *   /v1/catalog/* · /v1/admin/catalog/*       proxy → catalog-service
  */
 export const createFeatures = (config: GatewayConfig, logger: Logger): readonly ServiceModule[] => [

@@ -36,7 +36,9 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     [
       '/catalog/products',
       '/catalog/lookups',
+      '/catalog/reviews',
       '/admin/catalog/products',
+      '/admin/catalog/reviews',
       '/admin/catalog/lookups',
       '/admin/catalog/product-attributes',
       '/admin/catalog/compliance-profiles',
@@ -104,6 +106,20 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
   {
     prefix: '/v1/payment-service/health',
     upstream: config.PAYMENT_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
+  // notification-service: any signed-in user (own inbox, preferences, devices, SSE stream) and
+  // staff (send, templates). `/metrics` is never routed (scraped on the service port).
+  ...(['/notifications', '/admin/notifications', '/admin/notification-templates'] as const).map(
+    (path) => ({
+      prefix: '/v1' + path,
+      upstream: config.NOTIFICATION_SERVICE_URL,
+      rewritePrefix: path,
+    }),
+  ),
+  {
+    prefix: '/v1/notification-service/health',
+    upstream: config.NOTIFICATION_SERVICE_URL,
     rewritePrefix: '/health',
   },
 ];

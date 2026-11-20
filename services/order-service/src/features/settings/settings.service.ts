@@ -68,11 +68,18 @@ export class SettingsService {
     const { reason, ...changes } = patch;
     this.cached = undefined;
     const before = await this.current();
-    const changed = SETTING_KEYS.filter((k) => changes[k] !== undefined && changes[k] !== before[k]);
+    const changed = SETTING_KEYS.filter(
+      (k) => changes[k] !== undefined && changes[k] !== before[k],
+    );
     if (changed.length > 0)
       await this.deps.runInTransaction(async (tx) => {
         for (const key of changed)
-          await this.deps.settingsRepository.set(tx, key, changes[key] ?? before[key], actor.userId);
+          await this.deps.settingsRepository.set(
+            tx,
+            key,
+            changes[key] ?? before[key],
+            actor.userId,
+          );
         await this.deps.auditService.record(tx, actor, {
           action: 'order_settings.update',
           targetType: 'order_settings',

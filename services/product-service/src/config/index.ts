@@ -22,6 +22,16 @@ export interface ProductConfig extends BaseConfig {
   RABBITMQ_URL: string;
   /** Run the outbox relay + consumers (off in tests). */
   EVENTS_ENABLED: boolean;
+  /** Reviews: days after delivery a purchase can still be reviewed. */
+  REVIEW_WINDOW_DAYS: number;
+  /** Reviews: how many times the author may edit one review. */
+  REVIEW_MAX_EDITS: number;
+  /** Reviews: open reports that auto-hide a published review until an admin decides. */
+  REVIEW_AUTO_HIDE_REPORTS: number;
+  /** Reviews: comma-separated words / phrases that send a review to moderation. */
+  REVIEW_BANNED_WORDS: string;
+  /** media-service public base URL; review image URLs must start with it (unset = any https). */
+  MEDIA_PUBLIC_BASE_URL?: string;
 }
 
 const schema = Joi.object<ProductConfig>({
@@ -53,6 +63,14 @@ const schema = Joi.object<ProductConfig>({
     .truthy('1')
     .falsy('0')
     .default((parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test'),
+  REVIEW_WINDOW_DAYS: Joi.number().integer().min(1).max(730).default(180),
+  REVIEW_MAX_EDITS: Joi.number().integer().min(0).max(50).default(5),
+  REVIEW_AUTO_HIDE_REPORTS: Joi.number().integer().min(1).max(100).default(3),
+  REVIEW_BANNED_WORDS: Joi.string()
+    .allow('')
+    .max(5000)
+    .default('whatsapp,telegram,call me,contact me,dm me,cheaper at,buy from outside'),
+  MEDIA_PUBLIC_BASE_URL: Joi.string().uri({ scheme: ['https', 'http'] }),
 });
 
 /** The root `.env` sets a generic PORT for the gateway; this service reads PRODUCT_SERVICE_PORT. */

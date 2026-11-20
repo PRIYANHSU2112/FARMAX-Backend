@@ -121,6 +121,13 @@ among live rows. Products will later reference it through a plain indexed (D-21)
 - **Projections:** selling price and stock are read-only, kept in sync from pricing and inventory events.
 - **Tables:** `products`, `product_variants`, `product_ingredients`, `product_routes`, `product_species`, `product_media`, `product_lookups`, `category_attributes`, `product_compliance_profiles`, `variant_price_projections`, `variant_availability`, `product_reference_blocks`, `product_audit_log`.
 
+**Reviews & ratings: ✅ built in product-service (D-49).**
+
+- **Storefront** (public, cached + ETag): `GET /v1/catalog/products/{slugOrId}/reviews` (PUBLISHED, sort recent / helpful / rating_high / rating_low, `rating`, `withImages`, cursor) and `/{slugOrId}/rating-summary` (avg, count, 5★…1★ with %). Product cards / detail carry `rating { avg, count }`; list adds `sort=rating` and `minRating`.
+- **Customer** (`CUSTOMER`, own only): `POST /v1/catalog/products/{slugOrId}/reviews` (delivered + window, Idempotency-Key, 10/h); `/v1/catalog/reviews`: `GET /pending`, `GET /me`, `GET /votes`, `PATCH /{id}` (If-Match, ≤ 5 edits), `DELETE /{id}`, `PUT|DELETE /{id}/helpful`, `POST /{id}/reports`.
+- **Admin** (`/v1/admin/catalog/reviews`, `reviews.view` / `reviews.moderate`): list + full-text search + filters, `/{id}`, `/{id}/history`, `POST /{id}/approve|reject|hide|restore`, `POST /bulk-status`, `GET /reports`, `POST /reports/{id}/resolve`, `GET /products/{productId}/summary`, `GET /analytics`.
+- **Tables:** `product_reviews`, `review_eligibilities`, `review_votes`, `review_reports`, `product_rating_summaries`; `products.ratingAvg` / `ratingCount`.
+
 **Offers, coupons & promotions: 🟡 Step 1 built in order-service (:3007, D-31).**
 
 - **Customer** (`CUSTOMER`, own ACTIVE farm, 60/min): `POST /v1/orders/offers` (applied / alsoEligible / bundles / nudges / ineligible) and `POST /v1/orders/preview` (per-line price trace + invoice: item subtotal, savings, freight, GST by HSN, CGST/SGST or IGST, final payable). Advisory: limits are re-checked at checkout.

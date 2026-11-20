@@ -1,4 +1,4 @@
-# FarmX full stack in Docker: infrastructure + one-shot migrations + all 9 services.
+# FarmX full stack in Docker: infrastructure + one-shot migrations + all 10 services.
 #
 #   pnpm docker:up       # build images, start everything, wait until every container is healthy
 #   pnpm docker:down     # stop (data kept)        pnpm docker:logs   # follow all logs
@@ -34,6 +34,7 @@ x-env: &env
   ORDER_SERVICE_URL: http://order-service:3007
   INVENTORY_SERVICE_URL: http://inventory-service:3008
   PAYMENT_SERVICE_URL: http://payment-service:3009
+  NOTIFICATION_SERVICE_URL: http://notification-service:3010
 
 x-service: &service
   env_file: ../../.env
@@ -194,7 +195,7 @@ services:
     image: farmx/api-gateway:local
     environment: { <<: *env, GATEWAY_PORT: 3000 }
     ports:
-      - '${GATEWAY_HOST_PORT:-3000}:3000'
+      - '${GATEWAY_HOST_PORT:-3090}:3000'
     depends_on:
       redis-cache: { condition: service_healthy }
       auth-service: { condition: service_healthy }
@@ -206,6 +207,7 @@ services:
       order-service: { condition: service_healthy }
       inventory-service: { condition: service_healthy }
       payment-service: { condition: service_healthy }
+      notification-service: { condition: service_healthy }
     healthcheck:
       <<: *health
       test:
@@ -254,4 +256,27 @@ services:
           'node',
           '-e',
           "fetch('http://127.0.0.1:3009/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  notification-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: notification-service } }
+    image: farmx/notification-service:local
+    # Providers (PUSH_PROVIDER / FCM_SERVICE_ACCOUNT_JSON, EMAIL_PROVIDER / SMTP_URL, SMS_PROVIDER)
+    # come from the root .env: console by default; console is refused in prod.
+    environment: { <<: *env, NOTIFICATION_SERVICE_PORT: 3010 }
+    # Event consumer (RabbitMQ), BullMQ delivery workers (redis-queue), SSE pub/sub (redis-cache).
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3010/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
         ]

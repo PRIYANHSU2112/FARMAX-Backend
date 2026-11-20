@@ -1,0 +1,28 @@
+// notification-service feature: templates. `{{var}}` text only (no logic, no helpers). Editing
+// creates a new version; one ACTIVE version per (key, channel, locale) — partial unique index in
+// the migration. Defaults are seeded by the migration.
+
+model NotificationTemplate {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  /// e.g. order.confirmed
+  key         String              @db.VarChar(80)
+  channel     NotificationChannel
+  locale      String              @default("en") @db.VarChar(10)
+  version     Int                 @default(1)
+  /// Push / in-app title or email subject.
+  title       String?             @db.VarChar(200)
+  body        String              @db.VarChar(4000)
+  /// Optional email HTML (values are HTML-escaped). Null = generated from `body`.
+  htmlBody    String?
+  /// [{name, type: string|number|money|date, required?, maxLength?}]
+  variables   Json                @default("[]")
+  description String?             @db.VarChar(300)
+  isActive    Boolean             @default(true)
+  createdBy   String?             @db.Uuid
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @default(now()) @updatedAt
+
+  @@unique([key, channel, locale, version])
+  @@index([key])
+  @@map("notification_templates")
+}

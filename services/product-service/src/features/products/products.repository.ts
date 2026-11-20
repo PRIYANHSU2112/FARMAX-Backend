@@ -117,6 +117,8 @@ export const DETAIL_SELECT = {
   minPrice: true,
   maxPrice: true,
   maxDiscountPercent: true,
+  ratingAvg: true,
+  ratingCount: true,
   version: true,
   createdByUserId: true,
   updatedByUserId: true,
@@ -156,6 +158,8 @@ const CARD_SELECT = {
   isFeatured: true,
   minPrice: true,
   maxPrice: true,
+  ratingAvg: true,
+  ratingCount: true,
   media: {
     where: { ...LIVE, kind: 'IMAGE', variantId: null },
     orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
@@ -220,6 +224,8 @@ export interface StorefrontFilter {
   inStock?: boolean;
   minPrice?: number;
   maxPrice?: number;
+  /** Published average ≥ this ("4★ & up"). */
+  minRating?: number;
   isFeatured?: boolean;
   attrs: { key: string; values: (string | number | boolean)[]; multi: boolean }[];
 }
@@ -589,6 +595,7 @@ export class ProductsRepository {
     const and: Prisma.ProductWhereInput[] = [];
     if (f.minPrice !== undefined) and.push({ maxPrice: { gte: f.minPrice } });
     if (f.maxPrice !== undefined) and.push({ minPrice: { lte: f.maxPrice } });
+    if (f.minRating !== undefined) and.push({ ratingAvg: { gte: f.minRating } });
     for (const attr of f.attrs) {
       and.push({
         OR: attr.values.map((value) =>
@@ -646,7 +653,9 @@ export class ProductsRepository {
               ? [{ maxDiscountPercent: nullsLast('desc') }]
               : sort === 'newest'
                 ? [{ publishedAt: nullsLast('desc') }]
-                : [{ isFeatured: 'desc' }, { name: 'asc' }];
+                : sort === 'rating'
+                  ? [{ ratingAvg: nullsLast('desc') }, { ratingCount: 'desc' as const }]
+                  : [{ isFeatured: 'desc' }, { name: 'asc' }];
     const rows = await withPrismaErrors(() =>
       this.db.product.findMany({
         where,
@@ -760,6 +769,35 @@ export class ProductsRepository {
     s: { minPrice: string | null; maxPrice: string | null; maxDiscountPercent: string | null },
   ): Promise<void> {
     await tx.product.update({ where: { id: productId }, data: s, select: { id: true } });
+  }
+
+  /** Denormalised published rating (reviews feature, same transaction as the review change). */
+  async setRating(
+    tx: Tx,
+    productId: string,
+    rating: { ratingAvg: string | null; ratingCount: number },
+  ): Promise<void> {
+    await tx.product.update({ where: { id: productId }, data: rating, select: { id: true } });
+  }
+
+  /** Minimal live product facts for the reviews feature, by id or slug (null = missing or deleted). */
+  reviewTarget(ref: { id: string } | { slug: string }) {
+    return withPrismaErrors(() =>
+      this.db.product.findFirst({
+        where: { ...ref, ...LIVE },
+        select: { id: true, name: true, slug: true, status: true, isActive: true },
+      }),
+    );
+  }
+
+  /** id → name/slug for admin review lists (deleted products included). */
+  productNames(ids: readonly string[]) {
+    return withPrismaErrors(() =>
+      this.db.product.findMany({
+        where: { id: { in: [...ids] } },
+        select: { id: true, name: true, slug: true },
+      }),
+    );
   }
 
   productsOfBrand(tx: Tx, brandId: string) {

@@ -1,0 +1,214 @@
+name: farmx
+
+services:
+  # ── Databases & Infrastructure ──
+  postgres:
+    image: postgres:17-alpine
+    container_name: farmx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farmx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farmx}
+      POSTGRES_DB: ${POSTGRES_DB:-farmx}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-cache:
+    image: redis:8-alpine
+    container_name: farmx-redis-cache
+    restart: unless-stopped
+    volumes:
+      - ./infra/docker/redis/redis-cache.conf:/usr/local/etc/redis/redis.conf:ro
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-queue:
+    image: redis:8-alpine
+    container_name: farmx-redis-queue
+    restart: unless-stopped
+    volumes:
+      - ./infra/docker/redis/redis-queue.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-queue-data:/data
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: farmx-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-farmx}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-farmx}
+    volumes:
+      - ./infra/docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/90-farmx.conf:ro
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # ── Database Migration Runner ──
+  db-migrate:
+    container_name: farmx-db-migrate
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+    restart: 'no'
+    working_dir: /app
+    command: ['pnpm', '--filter', '@farmx/database', 'run', 'db:deploy']
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Microservices ──
+  auth-service:
+    container_name: farmx-auth-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3001
+      AUTH_SERVICE_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+      REDIS_CACHE_URL: redis://redis-cache:6379
+      REDIS_QUEUE_URL: redis://redis-queue:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+
+  media-service:
+    container_name: farmx-media-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: media-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3002
+      MEDIA_SERVICE_PORT: 3002
+      REDIS_CACHE_URL: redis://redis-cache:6379
+    depends_on:
+      - redis-cache
+
+  farm-service:
+    container_name: farmx-farm-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: farm-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3003
+      FARM_SERVICE_PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+      REDIS_CACHE_URL: redis://redis-cache:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+
+  catalog-service:
+    container_name: farmx-catalog-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: catalog-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3004
+      CATALOG_SERVICE_PORT: 3004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+      REDIS_CACHE_URL: redis://redis-cache:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+
+  product-service:
+    container_name: farmx-product-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: product-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3005
+      PRODUCT_SERVICE_PORT: 3005
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+      REDIS_CACHE_URL: redis://redis-cache:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+
+  # ── Public API Gateway (Exposed on Port 3090) ──
+  api-gateway:
+    container_name: farmx-api-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api-gateway
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Exposes port 3090 on the host to internal port 3000
+      - '${HOST_PORT:-3090}:3000'
+    environment:
+      PORT: 3000
+      GATEWAY_PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      MEDIA_SERVICE_URL: http://media-service:3002
+      FARM_SERVICE_URL: http://farm-service:3003
+      CATALOG_SERVICE_URL: http://catalog-service:3004
+      PRODUCT_SERVICE_URL: http://product-service:3005
+    depends_on:
+      - auth-service
+      - media-service
+      - farm-service
+      - catalog-service
+      - product-service
+
+volumes:
+  postgres-data:
+  redis-queue-data:
+  rabbitmq-data:

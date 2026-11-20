@@ -45,9 +45,13 @@ export function planCancellation(
   want.forEach((w, i) => {
     const line = lines.find((l) => l.variantId === w.variantId);
     const left = line === undefined ? 0 : line.qty - line.cancelledQty;
-    if (line === undefined) issues.push({ path: `body.lines[${String(i)}].variantId`, message: 'is not in this order' });
+    if (line === undefined)
+      issues.push({ path: `body.lines[${String(i)}].variantId`, message: 'is not in this order' });
     else if (w.qty < 1 || w.qty > left)
-      issues.push({ path: `body.lines[${String(i)}].qty`, message: `must be 1–${String(left)} (still active)` });
+      issues.push({
+        path: `body.lines[${String(i)}].qty`,
+        message: `must be 1–${String(left)} (still active)`,
+      });
     else
       items.push({
         lineNo: line.lineNo,
@@ -59,7 +63,8 @@ export function planCancellation(
       });
   });
   if (issues.length > 0) return { ok: false, issues };
-  if (items.length === 0) return { ok: false, issues: [{ path: 'body.lines', message: 'nothing left to cancel' }] };
+  if (items.length === 0)
+    return { ok: false, issues: [{ path: 'body.lines', message: 'nothing left to cancel' }] };
   const remaining = new Map(active.map((l) => [l.variantId, l.qty - l.cancelledQty]));
   for (const it of items) remaining.set(it.variantId, (remaining.get(it.variantId) ?? 0) - it.qty);
   const full = [...remaining.values()].every((q) => q <= 0);
@@ -78,7 +83,10 @@ export function refundFor(o: {
   feePercent: number;
   chargeFee: boolean;
 }): { gross: number; fee: number; net: number } {
-  const gross = Math.max(0, Math.min(o.refundablePaise, o.full ? o.refundablePaise : o.itemsRefundPaise));
+  const gross = Math.max(
+    0,
+    Math.min(o.refundablePaise, o.full ? o.refundablePaise : o.itemsRefundPaise),
+  );
   const fee = o.chargeFee ? Math.min(gross, Math.round((gross * o.feePercent) / 100)) : 0;
   return { gross, fee, net: gross - fee };
 }

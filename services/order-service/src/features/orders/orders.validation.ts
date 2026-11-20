@@ -57,7 +57,12 @@ export const REJECT_REASONS = [
 ] as const;
 
 const CANCEL_LINES = Joi.array()
-  .items(Joi.object({ variantId: ID.required(), qty: Joi.number().integer().min(1).max(100_000).required() }))
+  .items(
+    Joi.object({
+      variantId: ID.required(),
+      qty: Joi.number().integer().min(1).max(100_000).required(),
+    }),
+  )
   .max(200)
   .unique('variantId');
 const STAFF_REASON = Joi.string().trim().min(10).max(500);
@@ -69,17 +74,40 @@ export const buyerCancelSchema = {
   ...idParams,
   body: Joi.object({
     lines: CANCEL_LINES,
-    reasonCode: Joi.string().valid(...BUYER_CANCEL_REASONS).required(),
+    reasonCode: Joi.string()
+      .valid(...BUYER_CANCEL_REASONS)
+      .required(),
     note: Joi.string().trim().max(500),
   }),
 };
 
 // ── Admin ──
 
-const STATUS = ['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'FAILED'] as const;
+const STATUS = [
+  'PENDING_ADMIN_CONFIRMATION',
+  'CONFIRMED',
+  'REJECTED',
+  'CANCELLED',
+  'FAILED',
+] as const;
 const PAYMENT = ['PENDING', 'FAILED', 'PAID', 'EXPIRED', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const;
-const STOCK = ['PENDING', 'RESERVED', 'COMMITTED', 'RELEASE_REQUESTED', 'RELEASED', 'FAILED', 'REJECTED'] as const;
-const REFUND = ['NONE', 'REQUESTED', 'IN_PROGRESS', 'COMPLETED', 'PARTIALLY_COMPLETED', 'ACTION_REQUIRED'] as const;
+const STOCK = [
+  'PENDING',
+  'RESERVED',
+  'COMMITTED',
+  'RELEASE_REQUESTED',
+  'RELEASED',
+  'FAILED',
+  'REJECTED',
+] as const;
+const REFUND = [
+  'NONE',
+  'REQUESTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'PARTIALLY_COMPLETED',
+  'ACTION_REQUIRED',
+] as const;
 
 export const adminListSchema = {
   querystring: Joi.object({
@@ -98,7 +126,9 @@ export const adminListSchema = {
 
 export const exceptionsSchema = {
   querystring: Joi.object({
-    type: Joi.string().valid('refund_failed', 'stock_release_pending', 'amount_mismatch', 'late_payment').required(),
+    type: Joi.string()
+      .valid('refund_failed', 'stock_release_pending', 'amount_mismatch', 'late_payment')
+      .required(),
   }),
 };
 
@@ -111,13 +141,17 @@ export const rejectSchema = {
   ...idParams,
   body: Joi.object({
     expectedVersion: VERSION.required(),
-    reasonCode: Joi.string().valid(...REJECT_REASONS).required(),
+    reasonCode: Joi.string()
+      .valid(...REJECT_REASONS)
+      .required(),
     reason: STAFF_REASON.required(),
   }),
 };
 
 export const bulkConfirmSchema = {
-  body: Joi.object({ orderIds: Joi.array().items(ID.required()).min(1).max(200).unique().required() }),
+  body: Joi.object({
+    orderIds: Joi.array().items(ID.required()).min(1).max(200).unique().required(),
+  }),
 };
 
 export const adminCancelSchema = {
@@ -125,15 +159,23 @@ export const adminCancelSchema = {
   body: Joi.object({
     expectedVersion: VERSION.required(),
     lines: CANCEL_LINES,
-    reasonCode: Joi.string().valid(...STAFF_CANCEL_REASONS).required(),
+    reasonCode: Joi.string()
+      .valid(...STAFF_CANCEL_REASONS)
+      .required(),
     note: STAFF_REASON.required(),
   }),
 };
 
-export const noteSchema = { ...idParams, body: Joi.object({ body: Joi.string().trim().min(2).max(2000).required() }) };
+export const noteSchema = {
+  ...idParams,
+  body: Joi.object({ body: Joi.string().trim().min(2).max(2000).required() }),
+};
 
 const refundParams = Joi.object({ id: ID.required(), refundId: ID.required() });
-export const refundRetrySchema = { params: refundParams, body: Joi.object({ reason: STAFF_REASON.required() }) };
+export const refundRetrySchema = {
+  params: refundParams,
+  body: Joi.object({ reason: STAFF_REASON.required() }),
+};
 export const refundOfflineSchema = {
   params: refundParams,
   body: Joi.object({

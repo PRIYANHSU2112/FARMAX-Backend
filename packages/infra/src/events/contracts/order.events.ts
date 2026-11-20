@@ -16,6 +16,8 @@ export const ORDER_EVENTS = {
   refundRequested: 'order.refund_requested.v1',
   confirmed: 'order.confirmed.v1',
   reviewOverdue: 'order.review_overdue.v1',
+  /** Defined ahead of its producer (F1 shipments / POD); product-service consumes it today. */
+  delivered: 'order.delivered.v1',
 } as const;
 
 export type OrderEventType = (typeof ORDER_EVENTS)[keyof typeof ORDER_EVENTS];
@@ -89,6 +91,19 @@ export interface OrderReviewOverdueV1 {
   waitingMinutes: number;
 }
 
+/**
+ * Every line of the order reached the buyer (POD done). Producer: F1 shipments (not built yet).
+ * product-service turns each line into a review eligibility (verified purchase). Ids only.
+ */
+export interface OrderDeliveredV1 {
+  orderId: string;
+  orderNo: string;
+  userId: string;
+  deliveredAt: string;
+  /** Delivered (not cancelled / returned) lines. */
+  lines: { lineNo: number; variantId: string; productId: string; qty: number }[];
+}
+
 export interface OrderEventMap {
   'order.placed.v1': OrderPlacedV1;
   'order.paid.v1': OrderPaidV1;
@@ -98,6 +113,7 @@ export interface OrderEventMap {
   'order.refund_requested.v1': OrderRefundRequestedV1;
   'order.confirmed.v1': OrderConfirmedV1;
   'order.review_overdue.v1': OrderReviewOverdueV1;
+  'order.delivered.v1': OrderDeliveredV1;
 }
 
 export type OrderEvent<T extends OrderEventType = OrderEventType> = EventEnvelope<

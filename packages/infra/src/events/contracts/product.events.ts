@@ -13,6 +13,8 @@ export const PRODUCT_EVENTS = {
   variantDeactivated: 'product.variant_deactivated.v1',
   productPublished: 'product.published.v1',
   productSuspended: 'product.suspended.v1',
+  reviewModerated: 'product.review_moderated.v1',
+  ratingChanged: 'product.rating_changed.v1',
 } as const;
 
 export type ProductEventType = (typeof PRODUCT_EVENTS)[keyof typeof PRODUCT_EVENTS];
@@ -64,12 +66,37 @@ export interface ProductStatusChangedV1 {
   reason: string | null;
 }
 
+export type ReviewStatusV1 = 'PENDING' | 'PUBLISHED' | 'REJECTED' | 'HIDDEN';
+
+/** A review changed status through moderation (admin or auto) → notification to its author. */
+export interface ReviewModeratedV1 {
+  reviewId: string;
+  productId: string;
+  userId: string;
+  status: ReviewStatusV1;
+  /** approve | reject | hide | restore | auto_hide */
+  action: string;
+  reason: string | null;
+}
+
+/** A product's published rating totals changed → search index, wishlist cards. */
+export interface RatingChangedV1 {
+  productId: string;
+  /** Decimal string ("4.35"); null = no published ratings. */
+  ratingAvg: string | null;
+  ratingCount: number;
+  /** Epoch ms of the change; consumers ignore older values. */
+  sequence: number;
+}
+
 export interface ProductEventMap {
   'product.variant_created.v1': VariantCreatedV1;
   'product.variant_updated.v1': VariantUpdatedV1;
   'product.variant_deactivated.v1': VariantDeactivatedV1;
   'product.published.v1': ProductStatusChangedV1;
   'product.suspended.v1': ProductStatusChangedV1;
+  'product.review_moderated.v1': ReviewModeratedV1;
+  'product.rating_changed.v1': RatingChangedV1;
 }
 
 export type ProductEvent<T extends ProductEventType = ProductEventType> = EventEnvelope<

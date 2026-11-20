@@ -19,6 +19,7 @@ describe('route map', () => {
         ORDER_SERVICE_URL: 'http://order:3007',
         INVENTORY_SERVICE_URL: 'http://inventory:3008',
         PAYMENT_SERVICE_URL: 'http://payment:3009',
+        NOTIFICATION_SERVICE_URL: 'http://notification:3010',
       }),
     ).toEqual([
       { prefix: '/v1/auth', upstream: 'http://auth:3001', rewritePrefix: '' },
@@ -30,7 +31,9 @@ describe('route map', () => {
       ...[
         '/catalog/products',
         '/catalog/lookups',
+        '/catalog/reviews',
         '/admin/catalog/products',
+        '/admin/catalog/reviews',
         '/admin/catalog/lookups',
         '/admin/catalog/product-attributes',
         '/admin/catalog/compliance-profiles',
@@ -69,7 +72,11 @@ describe('route map', () => {
         rewritePrefix: '/admin/promotions',
       },
       { prefix: '/v1/admin/orders', upstream: 'http://order:3007', rewritePrefix: '/admin/orders' },
-      { prefix: '/v1/order-service/health', upstream: 'http://order:3007', rewritePrefix: '/health' },
+      {
+        prefix: '/v1/order-service/health',
+        upstream: 'http://order:3007',
+        rewritePrefix: '/health',
+      },
       {
         prefix: '/v1/admin/inventory',
         upstream: 'http://inventory:3008',
@@ -88,6 +95,18 @@ describe('route map', () => {
       {
         prefix: '/v1/payment-service/health',
         upstream: 'http://payment:3009',
+        rewritePrefix: '/health',
+      },
+      ...['/notifications', '/admin/notifications', '/admin/notification-templates'].map(
+        (path) => ({
+          prefix: '/v1' + path,
+          upstream: 'http://notification:3010',
+          rewritePrefix: path,
+        }),
+      ),
+      {
+        prefix: '/v1/notification-service/health',
+        upstream: 'http://notification:3010',
         rewritePrefix: '/health',
       },
     ]);

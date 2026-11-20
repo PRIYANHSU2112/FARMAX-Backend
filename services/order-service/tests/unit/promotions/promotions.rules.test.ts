@@ -7,7 +7,10 @@ import {
   overlapping,
   promotionIssues,
 } from '../../../src/features/promotions/promotions.rules.js';
-import type { PromotionFields, PromotionRecord } from '../../../src/features/promotions/promotions.types.js';
+import type {
+  PromotionFields,
+  PromotionRecord,
+} from '../../../src/features/promotions/promotions.types.js';
 
 const T = (id: string) => ({ targetType: 'VARIANT' as const, targetId: id, bundleQty: null });
 
@@ -102,9 +105,11 @@ describe('promotion consistency [R6]', () => {
   });
 
   it('PERCENTAGE without a cap', () => {
-    expect(paths(promotionIssues(fields({ benefitType: 'PERCENTAGE', percentage: 10, flatAmount: null })))).toContain(
-      'body.maxDiscountAmount',
-    );
+    expect(
+      paths(
+        promotionIssues(fields({ benefitType: 'PERCENTAGE', percentage: 10, flatAmount: null })),
+      ),
+    ).toContain('body.maxDiscountAmount');
   });
 
   it('FLAT coupon not below its minimum order', () => {
@@ -114,7 +119,15 @@ describe('promotion consistency [R6]', () => {
   it('BUNDLE_PAIR needs ≥ 2 targets with bundleQty and is never stackable', () => {
     const issues = paths(
       promotionIssues(
-        fields({ kind: 'LINE_OFFER', code: null, benefitType: 'BUNDLE_PAIR', bundlePrice: 1420, scope: 'VARIANT', targets: [{ ...T('a'), bundleQty: 1 }], isStackable: true }),
+        fields({
+          kind: 'LINE_OFFER',
+          code: null,
+          benefitType: 'BUNDLE_PAIR',
+          bundlePrice: 1420,
+          scope: 'VARIANT',
+          targets: [{ ...T('a'), bundleQty: 1 }],
+          isStackable: true,
+        }),
       ),
     );
     expect(issues).toEqual(expect.arrayContaining(['body.targets', 'body.isStackable']));
@@ -127,14 +140,22 @@ describe('promotion consistency [R6]', () => {
 
   it('kind rules: coupon needs a code; auto bonus must auto-apply; COMBO is not a coupon benefit', () => {
     expect(paths(promotionIssues(fields({ code: null })))).toContain('body.code');
-    expect(paths(promotionIssues(fields({ kind: 'AUTO_BONUS', code: null })))).toContain('body.isAutoApply');
-    expect(paths(promotionIssues(fields({ benefitType: 'COMBO', comboBuyQty: 2, comboGetQty: 1, comboGetPercent: 100 })))).toContain(
-      'body.benefitType',
+    expect(paths(promotionIssues(fields({ kind: 'AUTO_BONUS', code: null })))).toContain(
+      'body.isAutoApply',
     );
+    expect(
+      paths(
+        promotionIssues(
+          fields({ benefitType: 'COMBO', comboBuyQty: 2, comboGetQty: 1, comboGetPercent: 100 }),
+        ),
+      ),
+    ).toContain('body.benefitType');
   });
 
   it('activation also needs endAt in the future', () => {
-    expect(paths(promotionIssues(fields(), new Date('2027-01-01T00:00:00Z')))).toContain('body.endAt');
+    expect(paths(promotionIssues(fields(), new Date('2027-01-01T00:00:00Z')))).toContain(
+      'body.endAt',
+    );
   });
 });
 
@@ -145,15 +166,32 @@ describe('live edits [R6]', () => {
   });
 
   it('endAt only extends, limits only rise', () => {
-    expect(paths(liveEditIssues(record(), { endAt: new Date('2026-12-01T00:00:00Z') }))).toEqual(['body.endAt']);
-    expect(paths(liveEditIssues(record(), { totalUsageLimit: 50 }))).toEqual(['body.totalUsageLimit']);
+    expect(paths(liveEditIssues(record(), { endAt: new Date('2026-12-01T00:00:00Z') }))).toEqual([
+      'body.endAt',
+    ]);
+    expect(paths(liveEditIssues(record(), { totalUsageLimit: 50 }))).toEqual([
+      'body.totalUsageLimit',
+    ]);
     expect(liveEditIssues(record(), { totalUsageLimit: null })).toEqual([]);
   });
 });
 
 describe('overlap check [R6]', () => {
-  const lineOffer = (id: string, targets: ReturnType<typeof T>[], status: PromotionRecord['status'] = 'ACTIVE', window = { startAt: new Date('2026-11-01'), endAt: new Date('2026-12-01') }) =>
-    ({ id, kind: 'LINE_OFFER', status, targets, accountType: 'ALL', farmHistory: 'ALL', ...window }) as const;
+  const lineOffer = (
+    id: string,
+    targets: ReturnType<typeof T>[],
+    status: PromotionRecord['status'] = 'ACTIVE',
+    window = { startAt: new Date('2026-11-01'), endAt: new Date('2026-12-01') },
+  ) =>
+    ({
+      id,
+      kind: 'LINE_OFFER',
+      status,
+      targets,
+      accountType: 'ALL',
+      farmHistory: 'ALL',
+      ...window,
+    }) as const;
 
   it('LINE_OFFER sharing a target in an overlapping window conflicts', () => {
     const me = lineOffer('me', [T('v1')]);
@@ -162,7 +200,10 @@ describe('overlap check [R6]', () => {
 
   it('no conflict when windows only touch, or the other is DRAFT', () => {
     const me = lineOffer('me', [T('v1')]);
-    const later = lineOffer('a', [T('v1')], 'ACTIVE', { startAt: new Date('2026-12-01'), endAt: new Date('2027-01-01') });
+    const later = lineOffer('a', [T('v1')], 'ACTIVE', {
+      startAt: new Date('2026-12-01'),
+      endAt: new Date('2027-01-01'),
+    });
     expect(overlapping(me, [later, lineOffer('d', [T('v1')], 'DRAFT')])).toEqual([]);
   });
 
@@ -171,8 +212,18 @@ describe('overlap check [R6]', () => {
   });
 
   it('AUTO_BONUS conflicts only when audiences overlap', () => {
-    const bonus = (id: string, farmHistory: 'ALL' | 'NEW_FARM' | 'EXISTING_FARM') =>
-      ({ id, kind: 'AUTO_BONUS' as const, status: 'ACTIVE' as const, targets: [], accountType: 'ALL' as const, farmHistory, startAt: new Date('2026-11-01'), endAt: new Date('2026-12-01') });
-    expect(overlapping(bonus('me', 'NEW_FARM'), [bonus('a', 'EXISTING_FARM'), bonus('b', 'ALL')])).toEqual(['b']);
+    const bonus = (id: string, farmHistory: 'ALL' | 'NEW_FARM' | 'EXISTING_FARM') => ({
+      id,
+      kind: 'AUTO_BONUS' as const,
+      status: 'ACTIVE' as const,
+      targets: [],
+      accountType: 'ALL' as const,
+      farmHistory,
+      startAt: new Date('2026-11-01'),
+      endAt: new Date('2026-12-01'),
+    });
+    expect(
+      overlapping(bonus('me', 'NEW_FARM'), [bonus('a', 'EXISTING_FARM'), bonus('b', 'ALL')]),
+    ).toEqual(['b']);
   });
 });

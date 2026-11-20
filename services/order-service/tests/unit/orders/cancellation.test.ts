@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { planCancellation, refundFor, shareOf } from '../../../src/features/orders/orders.cancellation.js';
+import {
+  planCancellation,
+  refundFor,
+  shareOf,
+} from '../../../src/features/orders/orders.cancellation.js';
 
 const line = (lineNo: number, qty: number, lineTotalPaise: number, cancelledQty = 0) => ({
   lineNo,
@@ -30,10 +34,13 @@ describe('planCancellation', () => {
   it('partial: refunds only the cancelled units; cancelling the rest later completes the total', () => {
     const first = planCancellation(lines, [{ variantId: 'v1', qty: 1 }]);
     expect(first).toMatchObject({ ok: true, full: false, itemsRefundPaise: 333 });
-    const rest = planCancellation([line(1, 3, 1000, 1), line(2, 2, 15_792)], [
-      { variantId: 'v1', qty: 2 },
-      { variantId: 'v2', qty: 2 },
-    ]);
+    const rest = planCancellation(
+      [line(1, 3, 1000, 1), line(2, 2, 15_792)],
+      [
+        { variantId: 'v1', qty: 2 },
+        { variantId: 'v2', qty: 2 },
+      ],
+    );
     expect(rest).toMatchObject({ ok: true, full: true, itemsRefundPaise: 667 + 15_792 });
   });
 
@@ -46,16 +53,56 @@ describe('planCancellation', () => {
 
 describe('refundFor', () => {
   it('full cancel refunds everything still refundable (incl. freight); partial never more than refundable', () => {
-    expect(refundFor({ full: true, itemsRefundPaise: 100, refundablePaise: 5_000, feePercent: 0, chargeFee: false })).toEqual({ gross: 5_000, fee: 0, net: 5_000 });
-    expect(refundFor({ full: false, itemsRefundPaise: 9_000, refundablePaise: 5_000, feePercent: 0, chargeFee: false }).net).toBe(5_000);
+    expect(
+      refundFor({
+        full: true,
+        itemsRefundPaise: 100,
+        refundablePaise: 5_000,
+        feePercent: 0,
+        chargeFee: false,
+      }),
+    ).toEqual({ gross: 5_000, fee: 0, net: 5_000 });
+    expect(
+      refundFor({
+        full: false,
+        itemsRefundPaise: 9_000,
+        refundablePaise: 5_000,
+        feePercent: 0,
+        chargeFee: false,
+      }).net,
+    ).toBe(5_000);
   });
 
   it('fee only when charged, half-up, never above the refund', () => {
-    expect(refundFor({ full: false, itemsRefundPaise: 1_005, refundablePaise: 9_999, feePercent: 10, chargeFee: true })).toEqual({ gross: 1_005, fee: 101, net: 904 });
-    expect(refundFor({ full: false, itemsRefundPaise: 1_005, refundablePaise: 9_999, feePercent: 10, chargeFee: false }).fee).toBe(0);
+    expect(
+      refundFor({
+        full: false,
+        itemsRefundPaise: 1_005,
+        refundablePaise: 9_999,
+        feePercent: 10,
+        chargeFee: true,
+      }),
+    ).toEqual({ gross: 1_005, fee: 101, net: 904 });
+    expect(
+      refundFor({
+        full: false,
+        itemsRefundPaise: 1_005,
+        refundablePaise: 9_999,
+        feePercent: 10,
+        chargeFee: false,
+      }).fee,
+    ).toBe(0);
   });
 
   it('nothing paid → nothing to refund', () => {
-    expect(refundFor({ full: true, itemsRefundPaise: 0, refundablePaise: 0, feePercent: 5, chargeFee: true })).toEqual({ gross: 0, fee: 0, net: 0 });
+    expect(
+      refundFor({
+        full: true,
+        itemsRefundPaise: 0,
+        refundablePaise: 0,
+        feePercent: 5,
+        chargeFee: true,
+      }),
+    ).toEqual({ gross: 0, fee: 0, net: 0 });
   });
 });

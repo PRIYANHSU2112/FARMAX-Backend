@@ -18,6 +18,7 @@ export const PRODUCT_BINDINGS = [
   'catalog.brand_updated.v1',
   'inventory.availability_changed.v1',
   'pricing.price_changed.v1',
+  'order.delivered.v1',
 ];
 
 export type EventHandlerMap = Partial<
@@ -45,7 +46,7 @@ export const emitProductEvent = async <T extends ProductEventType>(
 
 /**
  * Outbox relay (product events → RabbitMQ) + one durable consumer queue (catalog, inventory,
- * pricing events → projections). Started by server.ts only; tests never open AMQP.
+ * pricing events → projections; order.delivered → review eligibility). Started by server.ts only; tests never open AMQP.
  */
 export class EventsRuntime {
   private relay: OutboxRelay | undefined;
@@ -67,7 +68,7 @@ export class EventsRuntime {
       consumer: PRODUCT_QUEUE,
       runInTransaction,
       claim: claimInboxEvent,
-      handlers: this.cradle.productEventHandlers,
+      handlers: { ...this.cradle.productEventHandlers, ...this.cradle.reviewEventHandlers },
     });
     this.consumer = new RabbitConsumer({
       url: config.RABBITMQ_URL,

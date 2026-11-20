@@ -272,8 +272,17 @@ export const publicListSchema = {
     inStock: Joi.boolean(),
     minPrice: Joi.number().min(0),
     maxPrice: Joi.number().min(0),
+    minRating: Joi.number().integer().min(1).max(5),
     isFeatured: Joi.boolean(),
-    sort: Joi.string().valid('relevance', 'name', 'price_asc', 'price_desc', 'discount', 'newest'),
+    sort: Joi.string().valid(
+      'relevance',
+      'name',
+      'price_asc',
+      'price_desc',
+      'discount',
+      'newest',
+      'rating',
+    ),
     ...PAGE,
   })
     .oxor('categoryId', 'categorySlug')

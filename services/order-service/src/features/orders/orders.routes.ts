@@ -7,7 +7,8 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import { rateLimit, requireAuth } from '../../middleware/guards.js';
 import { idempotencyKeyOf } from '../../middleware/http.js';
-import { ORDER_DOCS } from './orders.docs.js';
+import { ORDER_DOCS, ORDERS_TAG } from './orders.docs.js';
+import { ledgerDocs } from './orders.ledger.docs.js';
 import type { CancelInput, CheckoutInput, OrderListQuery } from './orders.types.js';
 import {
   buyerCancelSchema,
@@ -29,6 +30,8 @@ const userOf = (req: FastifyRequest): AuthUser => {
 };
 const ctx = (req: FastifyRequest) => ({ correlationId: req.id });
 const buyer = requireAuth('CUSTOMER');
+const AUTH_BUYER_LEDGER =
+  'Bearer access token of a `CUSTOMER` with full scope. Own orders only; any other id answers 404.';
 
 /** Mounted at `/orders` (gateway: `/v1/orders`). Buyers only; own orders only. */
 export const ordersRoutes: FastifyPluginAsync = async (app) => {
@@ -40,7 +43,12 @@ export const ordersRoutes: FastifyPluginAsync = async (app) => {
       preHandler: [buyer, rateLimit('checkout', 10, 60)],
     },
     async (req, reply) => {
-      const result = await svc(req).checkout(userOf(req), idempotencyKeyOf(req), req.body, ctx(req));
+      const result = await svc(req).checkout(
+        userOf(req),
+        idempotencyKeyOf(req),
+        req.body,
+        ctx(req),
+      );
       return reply
         .code(result.replayed ? 200 : 201)
         .send(ok({ order: result.order, payment: result.payment }));
@@ -55,6 +63,14 @@ export const ordersRoutes: FastifyPluginAsync = async (app) => {
     '/:id',
     { schema: { ...orderIdSchema, ...routeDocs(ORDER_DOCS.get) }, preHandler: buyer },
     async (req) => ok(await svc(req).get(userOf(req), req.params.id)),
+  );
+  app.get<{ Params: IdParams }>(
+    '/:id/transactions',
+    {
+      schema: { ...orderIdSchema, ...routeDocs(ledgerDocs(ORDERS_TAG, AUTH_BUYER_LEDGER)) },
+      preHandler: buyer,
+    },
+    async (req) => ok(await svc(req).transactions(userOf(req), req.params.id)),
   );
   app.post<{ Params: IdParams }>(
     '/:id/pay',
@@ -73,13 +89,28 @@ export const ordersRoutes: FastifyPluginAsync = async (app) => {
 export const ordersCancelRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: IdParams; Body: Pick<CancelInput, 'lines'> }>(
     '/:id/cancellation-quote',
-    { schema: { ...quoteSchema, ...routeDocs(ORDER_DOCS.quote) }, preHandler: [buyer, rateLimit('cancel-quote', 30, 60)] },
+    {
+      schema: { ...quoteSchema, ...routeDocs(ORDER_DOCS.quote) },
+      preHandler: [buyer, rateLimit('cancel-quote', 30, 60)],
+    },
     async (req) => ok(await svc(req).cancellationQuote(userOf(req), req.params.id, req.body.lines)),
   );
   app.post<{ Params: IdParams; Body: CancelInput }>(
     '/:id/cancel',
-    { schema: { ...buyerCancelSchema, ...routeDocs(ORDER_DOCS.cancel) }, preHandler: [buyer, rateLimit('cancel', 10, 60)] },
-    async (req) => ok(await svc(req).cancel(userOf(req), req.params.id, idempotencyKeyOf(req), req.body, ctx(req))),
+    {
+      schema: { ...buyerCancelSchema, ...routeDocs(ORDER_DOCS.cancel) },
+      preHandler: [buyer, rateLimit('cancel', 10, 60)],
+    },
+    async (req) =>
+      ok(
+        await svc(req).cancel(
+          userOf(req),
+          req.params.id,
+          idempotencyKeyOf(req),
+          req.body,
+          ctx(req),
+        ),
+      ),
   );
 };
 

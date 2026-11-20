@@ -284,6 +284,35 @@ export class AccessRepository {
     return rows.map((row) => ({ userId: row.userId, assignment: toAssignment(row) }));
   }
 
+  /**
+   * User ids holding `permission` through an active assignment at GLOBAL scope or, when
+   * `warehouseId` is given, at that WAREHOUSE (notification audiences). Staff-sized: no paging.
+   */
+  async listPermissionHolderIds(
+    permission: string,
+    warehouseId: string | null,
+    now: Date,
+  ): Promise<string[]> {
+    const scopes: Prisma.UserRoleWhereInput[] = [{ scopeType: 'GLOBAL' }];
+    if (warehouseId !== null) scopes.push({ scopeType: 'WAREHOUSE', scopeId: warehouseId });
+    const rows = await withPrismaErrors(() =>
+      this.db.userRole.findMany({
+        where: {
+          ...activeAssignment(now),
+          role: {
+            archivedAt: null,
+            permissions: { some: { permission: { key: permission, deprecatedAt: null } } },
+          },
+          AND: [{ OR: scopes }],
+        },
+        select: { userId: true },
+        distinct: ['userId'],
+        take: 5_000,
+      }),
+    );
+    return rows.map((row) => row.userId);
+  }
+
   /** User ids with an active assignment of the role `roleKey`. */
   async listActiveHolderIds(roleKey: string, now: Date, tx?: Tx): Promise<string[]> {
     const db = tx ?? this.db;

@@ -103,6 +103,8 @@ const product = (over: Record<string, unknown> = {}) => ({
   minPrice: null,
   maxPrice: null,
   maxDiscountPercent: null,
+  ratingAvg: null,
+  ratingCount: 0,
   version: 3,
   createdByUserId: 'u',
   updatedByUserId: 'u',

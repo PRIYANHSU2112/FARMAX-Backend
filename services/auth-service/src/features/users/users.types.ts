@@ -172,3 +172,16 @@ export interface ForceLogoutResult {
   /** false if Redis was unavailable: live access tokens then expire within 15 minutes. */
   accessTokensBlocked: boolean;
 }
+
+/** `/internal/users/:id/contact`: what notification-service needs to deliver (no credentials). */
+export interface UserContact {
+  id: string;
+  userType: UserType;
+  status: UserStatus;
+  fullName: string;
+  email: string | null;
+  emailVerified: boolean;
+  phone: string | null;
+  phoneVerified: boolean;
+  preferredLanguage: string;
+}

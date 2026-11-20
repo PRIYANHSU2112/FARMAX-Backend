@@ -163,6 +163,9 @@ model Product {
   maxPrice               Decimal?                 @db.Decimal(14, 2)
   /// Best discount % across active variants ((mrp − sellingPrice) / mrp), for the discount sort.
   maxDiscountPercent     Decimal?                 @db.Decimal(5, 2)
+  /// Derived from product_rating_summaries (PUBLISHED reviews only); null = no ratings yet.
+  ratingAvg              Decimal?                 @db.Decimal(3, 2)
+  ratingCount            Int                      @default(0)
   version                Int                      @default(0)
   createdByUserId        String                   @db.Uuid
   updatedByUserId        String                   @db.Uuid
@@ -180,6 +183,7 @@ model Product {
   @@index([categoryId])
   @@index([brandId])
   @@index([status, isActive, isFeatured])
+  @@index([status, isActive, ratingAvg])
   @@map("products")
 }
 

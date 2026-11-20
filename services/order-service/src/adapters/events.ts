@@ -74,7 +74,11 @@ export class EventsRuntime {
   start(): void {
     const { config, logger, db, runInTransaction } = this.cradle;
     this.publisher = new RabbitPublisher(config.RABBITMQ_URL, logger);
-    this.relay = new OutboxRelay({ source: createOutboxSource(db), publisher: this.publisher, logger });
+    this.relay = new OutboxRelay({
+      source: createOutboxSource(db),
+      publisher: this.publisher,
+      logger,
+    });
     this.relay.start();
     const handle = createInbox<Tx>({
       consumer: ORDER_QUEUE,

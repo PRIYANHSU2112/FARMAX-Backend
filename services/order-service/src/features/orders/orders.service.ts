@@ -5,7 +5,7 @@ import {
   ValidationError,
 } from '@farmx/common/errors';
 import type { AuthUser, Paginated } from '@farmx/common/types';
-import { isUniqueViolation } from '@farmx/database';
+import { type Tx, isUniqueViolation } from '@farmx/database';
 import { ORDER_EVENTS } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
@@ -19,6 +19,9 @@ import {
 import { uuidv7 } from '../../adapters/uuid.js';
 import { requestHash } from '../../middleware/http.js';
 import { fromBasisPoints, fromPaise, toPaise } from '../pricing/index.js';
+import type { IssuedDocument, ShipmentRequest } from '../invoices/index.js';
+import type { OrderLedgerView } from '../transactions/index.js';
+import { toInvoiceFacts } from './orders.invoice-facts.js';
 import type { Ctx } from './orders.lifecycle.js';
 import {
   type CancelInput,
@@ -29,7 +32,12 @@ import {
   SYSTEM,
   UNPAID_STATUSES,
 } from './orders.types.js';
-import { type OrderDetailView, type OrderSummaryView, toDetail, toSummary } from './orders.views.js';
+import {
+  type OrderDetailView,
+  type OrderSummaryView,
+  toDetail,
+  toSummary,
+} from './orders.views.js';
 
 type Deps = Pick<
   Cradle,
@@ -43,6 +51,8 @@ type Deps = Pick<
   | 'settingsService'
   | 'inventoryClient'
   | 'paymentClient'
+  | 'transactionsService'
+  | 'invoicesService'
   | 'addressClient'
   | 'logger'
 >;
@@ -72,7 +82,12 @@ export class OrdersService {
 
   // ── Checkout ──
 
-  async checkout(user: AuthUser, key: string, input: CheckoutInput, ctx: Ctx): Promise<CheckoutResult> {
+  async checkout(
+    user: AuthUser,
+    key: string,
+    input: CheckoutInput,
+    ctx: Ctx,
+  ): Promise<CheckoutResult> {
     const hash = requestHash(input);
     const earlier = await this.deps.ordersRepository.findByKey(key);
     if (earlier !== null) return this.replay(user, earlier, hash, ctx);
@@ -82,13 +97,20 @@ export class OrdersService {
     if (cart === null || cart.lines.length === 0)
       throw new ValidationError([{ path: 'cart', message: 'is empty' }], 'Your cart is empty');
     if (cart.version !== input.cartVersion)
-      throw refusal('Your cart changed after the price was checked. Review it and try again.', 'CART_CHANGED', {
-        quotedVersion: input.cartVersion,
-        currentVersion: cart.version,
-      });
+      throw refusal(
+        'Your cart changed after the price was checked. Review it and try again.',
+        'CART_CHANGED',
+        {
+          quotedVersion: input.cartVersion,
+          currentVersion: cart.version,
+        },
+      );
     if (cart.lines.length > settings.maxOrderLines)
       throw new ValidationError([
-        { path: 'cart.lines', message: `at most ${String(settings.maxOrderLines)} lines per order` },
+        {
+          path: 'cart.lines',
+          message: `at most ${String(settings.maxOrderLines)} lines per order`,
+        },
       ]);
 
     const [priced, address] = await Promise.all([
@@ -119,7 +141,11 @@ export class OrdersService {
     try {
       await this.deps.runInTransaction(async (tx) => {
         // Same lock order as every cart write: cart → items → promotions.
-        const { cartId } = await this.deps.cartService.lockForCheckoutInTx(tx, user.id, input.cartVersion);
+        const { cartId } = await this.deps.cartService.lockForCheckoutInTx(
+          tx,
+          user.id,
+          input.cartVersion,
+        );
         // A second checkout of the same cart version now fails (no double order from one cart).
         await this.deps.cartService.touchInTx(tx, cartId);
         const orderNo = await this.deps.ordersRepository.nextOrderNo(tx, now);
@@ -131,7 +157,9 @@ export class OrdersService {
             userId: user.id,
             farmId: farm.farmId,
             itemSubtotal: fromPaise(inv.itemSubtotal),
-            discountTotal: fromPaise(inv.lineOfferDiscount + inv.couponDiscount + inv.autoBonusDiscount),
+            discountTotal: fromPaise(
+              inv.lineOfferDiscount + inv.couponDiscount + inv.autoBonusDiscount,
+            ),
             taxableAmount: fromPaise(inv.taxableAmount),
             cgst: fromPaise(inv.cgst),
             sgst: fromPaise(inv.sgst),
@@ -176,7 +204,10 @@ export class OrdersService {
             sgst: fromPaise(l.sgst),
             igst: fromPaise(l.igst),
             lineTotal: fromPaise(l.lineTotal),
-            allocations: l.allocations.map((a) => ({ promotionId: a.promotionId, amount: fromPaise(a.amount) })),
+            allocations: l.allocations.map((a) => ({
+              promotionId: a.promotionId,
+              amount: fromPaise(a.amount),
+            })),
           })),
         );
         await this.deps.promotionsService.redeemInTx(tx, {
@@ -255,7 +286,9 @@ export class OrdersService {
 
     const settings = await this.deps.settingsService.current();
     const [stock, payment] = await Promise.allSettled([
-      needsStock ? this.reserve(order, settings.paymentWindowMinutes, settings.paymentGraceSeconds) : null,
+      needsStock
+        ? this.reserve(order, settings.paymentWindowMinutes, settings.paymentGraceSeconds)
+        : null,
       payable ? this.createPayment(order) : null,
     ]);
 
@@ -292,7 +325,9 @@ export class OrdersService {
       await this.deps.runInTransaction(async (tx) => {
         const locked = await this.deps.ordersRepository.lock(tx, order.id);
         if (locked !== null && locked.activePaymentId === null)
-          await this.deps.ordersRepository.update(tx, order.id, { activePaymentId: intent.paymentId });
+          await this.deps.ordersRepository.update(tx, order.id, {
+            activePaymentId: intent.paymentId,
+          });
       });
     return { order: await this.detail(await this.mustFind(order.id)), payment: intent };
   }
@@ -300,8 +335,14 @@ export class OrdersService {
   /** "Pay now" on an unpaid order (same payment, same gateway order). */
   async pay(user: AuthUser, orderId: string, ctx: Ctx): Promise<CheckoutResult> {
     const order = await this.owned(user, orderId);
-    if (order.status !== 'PENDING_ADMIN_CONFIRMATION' || !UNPAID_STATUSES.includes(order.paymentStatus))
-      throw refusal(`This order cannot be paid (${order.status}, payment ${order.paymentStatus})`, 'NOT_PAYABLE');
+    if (
+      order.status !== 'PENDING_ADMIN_CONFIRMATION' ||
+      !UNPAID_STATUSES.includes(order.paymentStatus)
+    )
+      throw refusal(
+        `This order cannot be paid (${order.status}, payment ${order.paymentStatus})`,
+        'NOT_PAYABLE',
+      );
     if (order.paymentDueAt.getTime() <= Date.now())
       throw refusal('The payment window for this order has ended', 'PAYMENT_WINDOW_CLOSED');
     const r = await this.advance(order, ctx);
@@ -317,12 +358,22 @@ export class OrdersService {
   }
 
   /** Idempotent by key: a retried tap returns the same result, never a second cancellation. */
-  async cancel(user: AuthUser, orderId: string, key: string, input: CancelInput, ctx: Ctx): Promise<OrderDetailView> {
+  async cancel(
+    user: AuthUser,
+    orderId: string,
+    key: string,
+    input: CancelInput,
+    ctx: Ctx,
+  ): Promise<OrderDetailView> {
     await this.owned(user, orderId);
     const hash = requestHash({ orderId, ...input });
     const earlier = await this.deps.ordersRepository.cancellationByKey(key);
     if (earlier !== null) {
-      if (earlier.requestedBy !== user.id || earlier.requestHash !== hash || earlier.orderId !== orderId)
+      if (
+        earlier.requestedBy !== user.id ||
+        earlier.requestHash !== hash ||
+        earlier.orderId !== orderId
+      )
         throw new ValidationError(
           [{ path: 'headers.idempotency-key', message: 'already used for a different request' }],
           'Idempotency-Key reused with a different request',
@@ -330,7 +381,12 @@ export class OrdersService {
       return this.detail(await this.mustFind(orderId));
     }
     try {
-      await this.deps.orderCancelService.cancel(orderId, input, { type: 'CUSTOMER', id: user.id }, { ctx, key, hash });
+      await this.deps.orderCancelService.cancel(
+        orderId,
+        input,
+        { type: 'CUSTOMER', id: user.id },
+        { ctx, key, hash },
+      );
     } catch (error) {
       if (!isUniqueViolation(error)) throw error; // a double tap with the same key won the race
     }
@@ -342,6 +398,31 @@ export class OrdersService {
   async list(user: AuthUser, query: OrderListQuery): Promise<Paginated<OrderSummaryView>> {
     const page = await this.deps.ordersRepository.listForUser(user.id, query);
     return { ...page, items: page.items.map(toSummary) };
+  }
+
+  /**
+   * F1 HOOK: issue the tax invoice for a dispatched shipment, INSIDE the dispatch transaction.
+   * Locks the order row (concurrent shipments of one order serialise), reads its checkout
+   * snapshot and delegates to the invoices feature. Idempotent per shipment.
+   */
+  async issueShipmentInvoiceInTx(
+    tx: Tx,
+    orderId: string,
+    shipment: ShipmentRequest,
+    issuedBy: string | null,
+  ): Promise<IssuedDocument> {
+    const { ordersRepository, transactionsService, invoicesService } = this.deps;
+    if ((await ordersRepository.lock(tx, orderId)) === null) throw new NotFoundError('Order');
+    const order = await ordersRepository.find(orderId, tx);
+    if (order === null) throw new NotFoundError('Order');
+    const method = await transactionsService.paymentMethod(tx, orderId);
+    return invoicesService.issueForShipment(tx, toInvoiceFacts(order, method), shipment, issuedBy);
+  }
+
+  /** The buyer's money ledger for one own order (another buyer's id → 404). */
+  async transactions(user: AuthUser, orderId: string): Promise<OrderLedgerView> {
+    await this.owned(user, orderId);
+    return this.deps.transactionsService.forOrder(orderId);
   }
 
   async get(user: AuthUser, orderId: string): Promise<OrderDetailView> {
@@ -368,10 +449,15 @@ export class OrdersService {
     let failed = 0;
     for (const o of due) {
       if (o.activePaymentId !== null) {
-        const live = await this.deps.paymentClient.liveStatus(o.activePaymentId).catch((err: unknown) => {
-          this.deps.logger.warn({ err, orderId: o.id }, 'payment live check failed; retry next run');
-          return null;
-        });
+        const live = await this.deps.paymentClient
+          .liveStatus(o.activePaymentId)
+          .catch((err: unknown) => {
+            this.deps.logger.warn(
+              { err, orderId: o.id },
+              'payment live check failed; retry next run',
+            );
+            return null;
+          });
         if (live === null || ['CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(live.status))
           continue; // unknown, or paid: the payment.captured event will arrive
       }
@@ -394,7 +480,10 @@ export class OrdersService {
 
   /** Placements interrupted mid-way (R2): resume; give up after 10 minutes. */
   async resumeStuck(): Promise<{ resumed: number; failed: number }> {
-    const stuck = await this.deps.ordersRepository.stuck(new Date(Date.now() - STUCK_AFTER_MS), JOB_BATCH);
+    const stuck = await this.deps.ordersRepository.stuck(
+      new Date(Date.now() - STUCK_AFTER_MS),
+      JOB_BATCH,
+    );
     let resumed = 0;
     let failed = 0;
     for (const order of stuck) {
@@ -404,7 +493,10 @@ export class OrdersService {
         resumed += 1;
       } catch (err) {
         if (err instanceof ConflictError) continue; // refused → the order was failed by advance
-        if (Date.now() - order.placedAt.getTime() < GIVE_UP_AFTER_MS || order.stockStatus !== 'PENDING') {
+        if (
+          Date.now() - order.placedAt.getTime() < GIVE_UP_AFTER_MS ||
+          order.stockStatus !== 'PENDING'
+        ) {
           this.deps.logger.warn({ err, orderId: order.id }, 'resume failed; next run retries');
           continue;
         }
@@ -421,7 +513,11 @@ export class OrdersService {
 
   // ── Helpers ──
 
-  private async reserve(order: OrderWithLines, windowMinutes: number, graceSeconds: number): Promise<Reservation> {
+  private async reserve(
+    order: OrderWithLines,
+    windowMinutes: number,
+    graceSeconds: number,
+  ): Promise<Reservation> {
     const address = order.deliveryAddress as { pinCode: string };
     const ttl = Math.min(3_600, windowMinutes * 60 + graceSeconds);
     try {
@@ -448,7 +544,8 @@ export class OrdersService {
     await this.deps.runInTransaction(async (tx) => {
       const locked = await this.deps.ordersRepository.lock(tx, order.id);
       // Closed meanwhile (e.g. timed out): the close event already asked inventory to release.
-      if (locked?.stockStatus !== 'PENDING' || locked.status !== 'PENDING_ADMIN_CONFIRMATION') return;
+      if (locked?.stockStatus !== 'PENDING' || locked.status !== 'PENDING_ADMIN_CONFIRMATION')
+        return;
       await this.deps.orderLifecycle.apply(
         tx,
         locked,
@@ -465,7 +562,10 @@ export class OrdersService {
           order.lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
         );
     });
-    this.deps.logger.debug({ orderId: order.id, correlationId: ctx.correlationId }, 'stock reserved');
+    this.deps.logger.debug(
+      { orderId: order.id, correlationId: ctx.correlationId },
+      'stock reserved',
+    );
   }
 
   private createPayment(order: OrderRow): Promise<PaymentCheckout> {
@@ -481,7 +581,8 @@ export class OrdersService {
   private async address(userId: string, addressId: string): Promise<AddressSnapshot> {
     try {
       const a = await this.deps.addressClient.snapshot(userId, addressId);
-      if (a.deleted) throw new ValidationError([{ path: 'body.addressId', message: 'has been deleted' }]);
+      if (a.deleted)
+        throw new ValidationError([{ path: 'body.addressId', message: 'has been deleted' }]);
       return a;
     } catch (err) {
       if (err instanceof UpstreamRefusal && err.status === 404)
@@ -509,7 +610,8 @@ export class OrdersService {
       if (v === undefined) return [{ path, message: 'is not available' }];
       if (v.isPrescriptionRequired)
         return [{ path, message: 'needs a valid prescription (RX_REQUIRED); not orderable yet' }];
-      if (l.qty < v.minOrderQty) return [{ path, message: `minimum ${String(v.minOrderQty)} per order` }];
+      if (l.qty < v.minOrderQty)
+        return [{ path, message: `minimum ${String(v.minOrderQty)} per order` }];
       if (v.maxOrderQty !== null && l.qty > v.maxOrderQty)
         return [{ path, message: `maximum ${String(v.maxOrderQty)} per order` }];
       return [];

@@ -12,6 +12,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/s3-request-presigner": "^3.1172.0",
     "@farmx/common": "workspace:*",
     "@farmx/database": "workspace:*",
     "@farmx/infra": "workspace:*",
@@ -25,20 +27,24 @@
     "amqplib": "^0.10.9",
     "awilix": "catalog:",
     "bullmq": "^5.66.0",
+    "dejavu-fonts-ttf": "2.37.3",
     "fastify": "catalog:",
     "fastify-plugin": "catalog:",
     "ioredis": "catalog:",
     "joi": "catalog:",
     "joi-to-swagger": "catalog:",
+    "pdfkit": "^0.17.2",
     "pino": "catalog:",
     "pino-pretty": "catalog:"
   },
   "devDependencies": {
     "@farmx/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@types/pdfkit": "^0.17.7",
     "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
+    "unpdf": "^1.9.1",
     "vitest": "catalog:"
   }
 }

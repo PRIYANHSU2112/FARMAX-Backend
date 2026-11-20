@@ -150,6 +150,13 @@ const productCore = {
   minPrice: Joi.string().allow(null),
   maxPrice: Joi.string().allow(null),
   maxDiscountPercent: Joi.string().allow(null),
+  rating: Joi.object({
+    avg: Joi.string()
+      .allow(null)
+      .example('4.35')
+      .description('Average of PUBLISHED reviews (1–5); null = no ratings yet'),
+    count: Joi.number().integer().example(128).description('Number of published ratings'),
+  }).meta({ className: 'ProductRating' }),
   ingredients: Joi.array().items(ingredient),
   variants: Joi.array().items(variant),
   media: Joi.array().items(media),
@@ -203,6 +210,7 @@ const card = Joi.object({
   isFeatured: Joi.boolean(),
   imageUrl: Joi.string().allow(null),
   priceRange: Joi.object({ min: Joi.string().allow(null), max: Joi.string().allow(null) }),
+  rating: Joi.object({ avg: Joi.string().allow(null), count: Joi.number().integer() }),
   defaultVariant: variant.allow(null),
   inStock: Joi.boolean(),
 }).meta({ className: 'ProductCard' });
@@ -337,6 +345,7 @@ const enroCore = {
   minPrice: '162.00',
   maxPrice: '980.00',
   maxDiscountPercent: '14.78',
+  rating: { avg: '4.35', count: 128 },
   ingredients: [
     {
       id: IDS.media,
@@ -423,6 +432,7 @@ const cardExample = {
   isFeatured: true,
   imageUrl: 'https://cdn.farmx.in/products/enrocin.webp',
   priceRange: { min: '162.00', max: '980.00' },
+  rating: { avg: '4.35', count: 128 },
   defaultVariant: v100,
   inStock: true,
 };
@@ -439,6 +449,7 @@ const lasotaCard = {
   temperatureClass: 'CC_REF',
   isColdChain: true,
   priceRange: { min: '310.00', max: '560.00' },
+  rating: { avg: null, count: 0 },
   defaultVariant: {
     ...v100,
     id: IDS.variant2,
@@ -596,7 +607,8 @@ export const PRODUCT_DOCS = {
       '- `categoryId` / `categorySlug`: the category **and all its sub-categories** (any depth).\n' +
       '- Dynamic master filters by code: `dosageForm`, `species`, `route` (repeatable).\n' +
       '- `attr.<key>=value`: filterable attributes of the selected category (see `/filters`).\n' +
-      '- `inStock`, `minPrice`/`maxPrice` use the inventory / pricing projections.\n\n' +
+      '- `inStock`, `minPrice`/`maxPrice` use the inventory / pricing projections.\n' +
+      '- `minRating` (1–5): published average rating at least this ("4★ & up"); `sort=rating`: best rated first.\n\n' +
       'Cached 60 s per query; send `If-None-Match` → 304.',
     auth: AUTH_PUBLIC,
     public: true,

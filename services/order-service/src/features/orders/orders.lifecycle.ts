@@ -141,7 +141,8 @@ export class OrderLifecycle {
         source: o.refundSource ?? 'FAIL',
         sourceRef: `fail:${order.id}`,
         paymentId: order.activePaymentId,
-        amountPaise: toPaise(order.paidAmount.toFixed(2)) - toPaise(order.refundedAmount.toFixed(2)),
+        amountPaise:
+          toPaise(order.paidAmount.toFixed(2)) - toPaise(order.refundedAmount.toFixed(2)),
         reason: `Order ${order.orderNo} failed: ${failureCode}`,
         ctx,
       });
@@ -164,7 +165,8 @@ export class OrderLifecycle {
     },
   ): Promise<OrderRow> {
     if (r.amountPaise <= 0) return order;
-    if ((await this.deps.ordersRepository.lockRefundRequest(tx, r.sourceRef)) !== null) return order;
+    if ((await this.deps.ordersRepository.lockRefundRequest(tx, r.sourceRef)) !== null)
+      return order;
     const isSystem = r.isSystem ?? true;
     await this.deps.ordersRepository.createRefundRequest(tx, {
       orderId: order.id,
@@ -199,10 +201,21 @@ export class OrderLifecycle {
   async onPaymentCaptured(tx: Tx, d: PaymentCapturedV1, ctx: Ctx): Promise<void> {
     const order = await this.locked(tx, d.orderId);
     if (order === null || isPaid(order)) return;
-    const paid = { paidAt: new Date(), paidAmount: fromPaise(d.amountPaise), activePaymentId: d.paymentId };
+    const paid = {
+      paidAt: new Date(),
+      paidAmount: fromPaise(d.amountPaise),
+      activePaymentId: d.paymentId,
+    };
     if (isTerminal(order)) {
       // R5: money truth is recorded, the order is NOT revived, the money goes back.
-      const updated = await this.apply(tx, order, { paymentStatus: 'PAID' }, SERVICE, { code: 'LATE_PAYMENT' }, paid);
+      const updated = await this.apply(
+        tx,
+        order,
+        { paymentStatus: 'PAID' },
+        SERVICE,
+        { code: 'LATE_PAYMENT' },
+        paid,
+      );
       await this.requestRefundInTx(tx, updated, {
         source: 'LATE_PAYMENT',
         sourceRef: `late:${d.paymentId}`,
@@ -213,16 +226,24 @@ export class OrderLifecycle {
       });
       return;
     }
-    const mismatch = d.amountPaise !== toPaise(order.grandTotal.toFixed(2)) || d.currency !== order.currency;
+    const mismatch =
+      d.amountPaise !== toPaise(order.grandTotal.toFixed(2)) || d.currency !== order.currency;
     if (mismatch)
       this.deps.logger.error(
         { orderId: order.id, expected: order.grandTotal.toFixed(2), captured: d.amountPaise },
         'captured amount differs from the order total (R8): confirm blocked',
       );
-    await this.apply(tx, order, { paymentStatus: 'PAID' }, SERVICE, mismatch ? { code: 'AMOUNT_MISMATCH' } : {}, {
-      ...paid,
-      ...(mismatch ? { paymentException: 'AMOUNT_MISMATCH' } : {}),
-    });
+    await this.apply(
+      tx,
+      order,
+      { paymentStatus: 'PAID' },
+      SERVICE,
+      mismatch ? { code: 'AMOUNT_MISMATCH' } : {},
+      {
+        ...paid,
+        ...(mismatch ? { paymentException: 'AMOUNT_MISMATCH' } : {}),
+      },
+    );
     // Stock is committed even on a mismatch (protects it); the admin then rejects + refunds.
     await emitOrderEvent(
       tx,
@@ -251,7 +272,8 @@ export class OrderLifecycle {
   /** payment-service already re-checked the gateway before expiring: the order FAILS. */
   async onPaymentExpired(tx: Tx, d: PaymentExpiredV1, ctx: Ctx): Promise<void> {
     const order = await this.locked(tx, d.orderId);
-    if (order === null || isTerminal(order) || !UNPAID_STATUSES.includes(order.paymentStatus)) return;
+    if (order === null || isTerminal(order) || !UNPAID_STATUSES.includes(order.paymentStatus))
+      return;
     await this.failInTx(tx, order, 'PAYMENT_NOT_COMPLETED', SERVICE, ctx);
   }
 
@@ -263,7 +285,9 @@ export class OrderLifecycle {
     if (isTerminal(order)) {
       // Closed meanwhile: whatever was committed must go back.
       if (order.stockStatus === 'RELEASED') return;
-      await this.apply(tx, order, { stockStatus: 'RELEASE_REQUESTED' }, SERVICE, { code: 'ORDER_CLOSED' });
+      await this.apply(tx, order, { stockStatus: 'RELEASE_REQUESTED' }, SERVICE, {
+        code: 'ORDER_CLOSED',
+      });
       await emitOrderEvent(
         tx,
         ORDER_EVENTS.failed,
@@ -454,7 +478,9 @@ export class OrderLifecycle {
       order,
       {
         status: c.to,
-        ...(HOLDS_STOCK.includes(order.stockStatus) ? { stockStatus: 'RELEASE_REQUESTED' as const } : {}),
+        ...(HOLDS_STOCK.includes(order.stockStatus)
+          ? { stockStatus: 'RELEASE_REQUESTED' as const }
+          : {}),
       },
       c.actor,
       { code: c.reasonCode, note: c.reason },
@@ -513,7 +539,10 @@ export class OrderLifecycle {
       order.id,
       c.actor,
       [{ field: 'ITEMS', from: null, to: 'PARTIALLY_CANCELLED' }],
-      { code: c.reasonCode, note: c.items.map((i) => `line ${String(i.lineNo)} -${String(i.qty)}`).join(', ') },
+      {
+        code: c.reasonCode,
+        note: c.items.map((i) => `line ${String(i.lineNo)} -${String(i.qty)}`).join(', '),
+      },
     );
     let updated = await this.deps.ordersRepository.update(tx, order.id, {});
     await emitOrderEvent(

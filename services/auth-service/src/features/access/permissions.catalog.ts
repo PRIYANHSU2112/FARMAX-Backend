@@ -590,6 +590,18 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     ],
   },
   {
+    module: 'reviews',
+    label: 'Product reviews & ratings',
+    permissions: [
+      { key: 'reviews.view', description: 'View reviews, reports and review analytics', scopes: G },
+      {
+        key: 'reviews.moderate',
+        description: 'Approve, reject, hide or restore reviews and resolve reports',
+        scopes: G,
+      },
+    ],
+  },
+  {
     module: 'support',
     label: 'Support tickets',
     permissions: [

@@ -245,6 +245,7 @@ export interface ProductView {
   minPrice: DecimalString | null;
   maxPrice: DecimalString | null;
   maxDiscountPercent: DecimalString | null;
+  rating: RatingView;
   ingredients: IngredientView[];
   variants: VariantView[];
   media: MediaView[];
@@ -274,6 +275,7 @@ export interface ProductCard {
   isFeatured: boolean;
   imageUrl: string | null;
   priceRange: { min: DecimalString | null; max: DecimalString | null };
+  rating: RatingView;
   defaultVariant: VariantView | null;
   inStock: boolean;
 }
@@ -298,7 +300,14 @@ export interface AdminProductRow {
   version: number;
 }
 
-export type PublicSort = 'relevance' | 'name' | 'price_asc' | 'price_desc' | 'discount' | 'newest';
+export type PublicSort =
+  'relevance' | 'name' | 'price_asc' | 'price_desc' | 'discount' | 'newest' | 'rating';
+
+/** Published rating (reviews feature): average 1–5 (null = none yet) and number of ratings. */
+export interface RatingView {
+  avg: DecimalString | null;
+  count: number;
+}
 
 export interface PublicListQuery {
   q?: string;
@@ -313,6 +322,7 @@ export interface PublicListQuery {
   inStock?: boolean;
   minPrice?: number;
   maxPrice?: number;
+  minRating?: number;
   isFeatured?: boolean;
   sort?: PublicSort;
   cursor?: string;

@@ -796,6 +796,38 @@ export class ProductsService {
     }));
   }
 
+  // ── Reviews feature (rating projection) ──
+
+  /** Write the denormalised published rating in the review transaction (no version bump). */
+  setRating(
+    tx: Tx,
+    productId: string,
+    rating: { ratingAvg: string | null; ratingCount: number },
+  ): Promise<void> {
+    return this.repo.setRating(tx, productId, rating);
+  }
+
+  /** Live product facts for reviews; `reviewable` = published and active (shown on the store). */
+  async reviewTarget(
+    ref: { id: string } | { slug: string },
+  ): Promise<{ id: string; name: string; slug: string; reviewable: boolean } | null> {
+    const p = await this.repo.reviewTarget(ref);
+    if (p === null) return null;
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      reviewable: p.status === 'PUBLISHED' && p.isActive,
+    };
+  }
+
+  /** id → { name, slug } for admin review lists. */
+  async productNames(ids: readonly string[]): Promise<Map<string, { name: string; slug: string }>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.repo.productNames([...new Set(ids)]);
+    return new Map(rows.map((r) => [r.id, { name: r.name, slug: r.slug }]));
+  }
+
   // ── Helpers ──
 
   /** One transaction; unique-index races still map to a clean 409. */

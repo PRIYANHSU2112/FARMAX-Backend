@@ -6,6 +6,8 @@ import { type Redis, createCacheClient } from '@farmx/infra/redis';
 import type { Cradle } from '@fastify/awilix';
 import { type AwilixContainer, asFunction, asValue, createContainer } from 'awilix';
 
+import { type ObjectStore, buildObjectStore } from './adapters/object-store.js';
+
 import { AccessClient, buildTokenVerifier } from './adapters/auth.js';
 import { EventsRuntime } from './adapters/events.js';
 import { JobsRuntime } from './adapters/jobs.js';
@@ -22,6 +24,8 @@ declare module '@fastify/awilix' {
     redis: Redis;
     accessClient: AccessClient;
     tokenVerifier: TokenVerifier;
+    /** Private document storage (invoice PDFs): Spaces in prod, a local directory in dev / tests. */
+    objectStore: ObjectStore;
     /** Outbox relay + event consumer (started by server.ts when EVENTS_ENABLED). */
     eventsRuntime: EventsRuntime;
     /** BullMQ schedulers + worker (started by server.ts when JOBS_ENABLED). */
@@ -64,6 +68,7 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
     tokenVerifier: asFunction((cradle: Cradle) =>
       buildTokenVerifier(cradle.config, cradle.logger, () => cradle.redis),
     ).singleton(),
+    objectStore: asFunction(({ config: cfg }: Cradle) => buildObjectStore(cfg)).singleton(),
     eventsRuntime: asFunction((cradle: Cradle) => new EventsRuntime(cradle))
       .singleton()
       .disposer((runtime) => runtime.stop()),

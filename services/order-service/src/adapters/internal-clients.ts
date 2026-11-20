@@ -174,6 +174,15 @@ export class PaymentClient {
     });
   }
 
+  /** Stored totals of one payment (ledger reconciliation; no gateway call). */
+  async totals(paymentId: string): Promise<{ capturedPaise: number; refundedPaise: number }> {
+    const p = await this.http.call<{ capturedPaise: number; refundedPaise: number }>(
+      'GET',
+      `/internal/payments/${paymentId}`,
+    );
+    return { capturedPaise: p.capturedPaise, refundedPaise: p.refundedPaise };
+  }
+
   /** Gateway refetch (lost-webhook guard before timing an order out). */
   liveStatus(paymentId: string): Promise<PaymentState> {
     return this.http.call('GET', `/internal/payments/${paymentId}/live-status`, {

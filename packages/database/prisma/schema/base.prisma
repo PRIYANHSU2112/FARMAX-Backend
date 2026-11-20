@@ -23,6 +23,9 @@
 //                                                         PromoRedemption, PromoRedemptionItem
 //   order/projections.prisma  order-service "projections" OrderVariantProjection, OrderFarmProjection
 //   order/audit.prisma        order-service "audit"     OrderAuditLog
+//   notification/*.prisma     notification-service: Notification, NotificationRecipient, NotificationDelivery,
+//                             NotificationTemplate, NotificationPreference, DeviceToken,
+//                             NotificationOrderProjection, NotificationAuditLog
 //   <service>/…          add a folder per new service
 
 generator client {

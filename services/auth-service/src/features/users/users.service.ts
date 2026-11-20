@@ -22,8 +22,10 @@ import {
   MFA_MANDATORY_TYPES,
   type SetRolesInput,
   type UpdateUserInput,
+  type UserContact,
   type UserListQuery,
   type UserRecord,
+  type UserType,
   type UserView,
 } from './users.types.js';
 
@@ -115,6 +117,20 @@ export class UsersService {
 
   constructor(deps: Deps) {
     this.deps = deps;
+  }
+
+  // ── Internal (notification-service) ───────────────────────────────────────────────────
+
+  getContact(id: string): Promise<UserContact | null> {
+    return this.deps.usersRepository.findContact(id);
+  }
+
+  listActiveIds(userType: UserType, cursor: string | undefined, limit: number): Promise<string[]> {
+    return this.deps.usersRepository.listActiveIds(userType, cursor, limit);
+  }
+
+  filterActiveIds(ids: readonly string[], userType: UserType): Promise<string[]> {
+    return this.deps.usersRepository.filterActiveIds(ids, userType);
   }
 
   async list(query: UserListQuery): Promise<Paginated<UserView>> {

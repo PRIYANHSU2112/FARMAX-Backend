@@ -24,7 +24,15 @@ const users = new Map<string, AuthUser>();
 const grants = new Map<string, string[]>();
 export const customer = () => {
   const id = randomUUID();
-  users.set(id, { id, sessionId: 's', jti: 'j', userType: 'CUSTOMER', roles: [], scope: 'full', expiresAt: 0 } as unknown as AuthUser);
+  users.set(id, {
+    id,
+    sessionId: 's',
+    jti: 'j',
+    userType: 'CUSTOMER',
+    roles: [],
+    scope: 'full',
+    expiresAt: 0,
+  } as unknown as AuthUser);
   return id;
 };
 
@@ -76,15 +84,32 @@ export const payment = {
 export const address = {
   snapshot: (userId: string, addressId: string) =>
     Promise.resolve({
-      addressId, userId, version: 1, deleted: false, formatted: 'Plot 1, Tanuku, 534211',
-      contactName: 'IT Farmer', contactPhone: '9000000000', line1: 'Plot 1', line2: null,
-      landmark: null, village: null, mandal: null, district: 'West Godavari', stateCode: '37',
-      pinCode: '534211', latitude: null, longitude: null,
+      addressId,
+      userId,
+      version: 1,
+      deleted: false,
+      formatted: 'Plot 1, Tanuku, 534211',
+      contactName: 'IT Farmer',
+      contactPhone: '9000000000',
+      line1: 'Plot 1',
+      line2: null,
+      landmark: null,
+      village: null,
+      mandal: null,
+      district: 'West Godavari',
+      stateCode: '37',
+      pinCode: '534211',
+      latitude: null,
+      longitude: null,
     }),
 };
 
 // ── Helpers ──
-export const call = (method: 'GET' | 'POST' | 'PATCH', url: string, o: { user?: string; idem?: string; payload?: object; internal?: boolean } = {}) =>
+export const call = (
+  method: 'GET' | 'POST' | 'PATCH',
+  url: string,
+  o: { user?: string; idem?: string; payload?: object; internal?: boolean } = {},
+) =>
   app.inject({
     method,
     url,
@@ -96,7 +121,8 @@ export const call = (method: 'GET' | 'POST' | 'PATCH', url: string, o: { user?: 
     ...(o.payload === undefined ? {} : { payload: o.payload }),
   });
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- typed test reads
-export const data = <T = Record<string, unknown>>(res: LightMyRequestResponse) => res.json<{ data: T }>().data;
+export const data = <T = Record<string, unknown>>(res: LightMyRequestResponse) =>
+  res.json<{ data: T }>().data;
 export const reason = (res: LightMyRequestResponse) =>
   res.json<{ error: { details?: { reason?: string; orderId?: string } } }>().error.details;
 
@@ -109,19 +135,28 @@ export const deliver = async (type: string, payload: object) => {
   const handler = handlers[type];
   if (handler === undefined) throw new Error(`no handler for ${type}`);
   const envelope: EventEnvelope = {
-    id: randomUUID(), type, version: 1, occurredAt: new Date(Date.now() + (seq += 1)).toISOString(),
-    source: 'test', correlationId: 'it', data: payload,
+    id: randomUUID(),
+    type,
+    version: 1,
+    occurredAt: new Date(Date.now() + (seq += 1)).toISOString(),
+    source: 'test',
+    correlationId: 'it',
+    data: payload,
   };
   await app.diContainer.resolve('runInTransaction')((tx) => handler(envelope, tx));
 };
 
 export const outbox = async (type: string, needle: string) =>
-  (await app.diContainer.resolve('db').outboxEvent.findMany({ where: { type }, select: { payload: true } }))
+  (
+    await app.diContainer
+      .resolve('db')
+      .outboxEvent.findMany({ where: { type }, select: { payload: true } })
+  )
     .map((r) => r.payload as unknown as EventEnvelope)
     .filter((e) => JSON.stringify(e.data).includes(needle));
 
 export const orderRow = async (id: string): Promise<OrderRow> =>
-  (await app.diContainer.resolve('db').order.findUniqueOrThrow({ where: { id } }));
+  await app.diContainer.resolve('db').order.findUniqueOrThrow({ where: { id } });
 
 export interface OrderView {
   id: string;
@@ -148,9 +183,18 @@ export const buyerWithCart = async (qty = 2) => {
   const farmId = randomUUID();
   farmOwners.set(farmId, user);
   await deliver('farm.facts_changed.v1', {
-    farmId, farmCode: 'FX-WG-L-0' + String(seq), ownerUserId: user, name: 'IT Farm', category: 'POULTRY_FARM',
-    productionTypes: ['LAYER'], gstin: null, stateCode: '37', territoryCode: 'WG', pinCode: '534211',
-    status: 'ACTIVE', version: 1,
+    farmId,
+    farmCode: 'FX-WG-L-0' + String(seq),
+    ownerUserId: user,
+    name: 'IT Farm',
+    category: 'POULTRY_FARM',
+    productionTypes: ['LAYER'],
+    gstin: null,
+    stateCode: '37',
+    territoryCode: 'WG',
+    pinCode: '534211',
+    status: 'ACTIVE',
+    version: 1,
   });
   const add = await call('POST', '/cart/items', { user, payload: { variantId: variant, qty } });
   if (add.statusCode >= 300) throw new Error(add.body);
@@ -165,7 +209,12 @@ export const checkout = (
   call('POST', '/orders/checkout', {
     user: b.user,
     idem,
-    payload: { farmId: b.farmId, addressId: b.addressId, cartVersion: b.cartVersion, billToGst: false },
+    payload: {
+      farmId: b.farmId,
+      addressId: b.addressId,
+      cartVersion: b.cartVersion,
+      billToGst: false,
+    },
   });
 
 export const placed = async () => {
@@ -176,23 +225,45 @@ export const placed = async () => {
   return { ...b, order: d.order, payment: d.payment };
 };
 
-export const captured = (o: { order: OrderView; payment: { paymentId: string } }, amountPaise = 20_000) =>
+export const captured = (
+  o: { order: OrderView; payment: { paymentId: string } },
+  amountPaise = 20_000,
+) =>
   deliver('payment.captured.v1', {
-    paymentId: o.payment.paymentId, orderId: o.order.id, orderNo: o.order.orderNo, amountPaise,
-    currency: 'INR', expectedPaise: amountPaise, method: 'upi', providerPaymentId: `pay_${randomUUID().slice(0, 8)}`,
+    paymentId: o.payment.paymentId,
+    orderId: o.order.id,
+    orderNo: o.order.orderNo,
+    amountPaise,
+    currency: 'INR',
+    expectedPaise: amountPaise,
+    method: 'upi',
+    providerPaymentId: `pay_${randomUUID().slice(0, 8)}`,
   });
-
 
 /** A staff user (INTERNAL, full scope) holding these permission keys. */
 export const staff = (...permissions: string[]) => {
   const id = randomUUID();
-  users.set(id, { id, sessionId: 's', jti: 'j', userType: 'INTERNAL', roles: [], scope: 'full', expiresAt: 0 } as unknown as AuthUser);
+  users.set(id, {
+    id,
+    sessionId: 's',
+    jti: 'j',
+    userType: 'INTERNAL',
+    roles: [],
+    scope: 'full',
+    expiresAt: 0,
+  } as unknown as AuthUser);
   grants.set(id, permissions);
   return id;
 };
 
-export async function startOrdersApp(): Promise<FastifyInstance> {
-  app = await buildApp({ NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: DB_URL, INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN });
+export async function startOrdersApp(env: Record<string, string> = {}): Promise<FastifyInstance> {
+  app = await buildApp({
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'silent',
+    DATABASE_URL: DB_URL,
+    INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN,
+    ...env,
+  });
   app.diContainer.register({
     redis: asValue({
       eval: () => Promise.reject(new Error('down')),
@@ -201,7 +272,8 @@ export async function startOrdersApp(): Promise<FastifyInstance> {
       set: () => Promise.resolve('OK'),
     } as never),
     accessClient: asValue({
-      hasPermission: (userId: string, key: string) => Promise.resolve(grants.get(userId)?.includes(key) ?? false),
+      hasPermission: (userId: string, key: string) =>
+        Promise.resolve(grants.get(userId)?.includes(key) ?? false),
     } as never),
     tokenVerifier: asValue((token: string) => {
       const u = users.get(token);
@@ -213,13 +285,34 @@ export async function startOrdersApp(): Promise<FastifyInstance> {
   });
   await app.ready();
   await deliver('product.variant_created.v1', {
-    variantId: variant, productId: randomUUID(), sku: 'IT-ORD-1', barcode: null, productName: 'IT feed',
-    variantName: '25 kg', manufacturerName: null, packSize: '25', packUnit: 'KG', isPrescriptionRequired: false,
-    temperatureClass: 'AMB', shelfLifeMonths: null, isActive: true, categoryId: category, categoryPath: [category],
-    brandId: randomUUID(), hsnCode: '2309', gstRate: '0.00', minOrderQty: 1, maxOrderQty: 500, version: 1,
+    variantId: variant,
+    productId: randomUUID(),
+    sku: 'IT-ORD-1',
+    barcode: null,
+    productName: 'IT feed',
+    variantName: '25 kg',
+    manufacturerName: null,
+    packSize: '25',
+    packUnit: 'KG',
+    isPrescriptionRequired: false,
+    temperatureClass: 'AMB',
+    shelfLifeMonths: null,
+    isActive: true,
+    categoryId: category,
+    categoryPath: [category],
+    brandId: randomUUID(),
+    hsnCode: '2309',
+    gstRate: '0.00',
+    minOrderQty: 1,
+    maxOrderQty: 500,
+    version: 1,
   });
   await deliver('pricing.price_changed.v1', {
-    variantId: variant, sellingPrice: '100.00', currency: 'INR', effectiveFrom: new Date().toISOString(), sequence: 1,
+    variantId: variant,
+    sellingPrice: '100.00',
+    currency: 'INR',
+    effectiveFrom: new Date().toISOString(),
+    sequence: 1,
   });
   return app;
 }

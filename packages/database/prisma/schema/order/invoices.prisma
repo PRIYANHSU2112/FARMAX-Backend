@@ -1,0 +1,146 @@
+// order-service feature: invoices. GST tax documents (tax invoice, bill of supply, credit note),
+// issued per shipment at dispatch from an immutable snapshot of the order (never current prices or
+// addresses). Numbers come from `invoice_sequences` in the issuing transaction (gapless, unique per
+// seller GSTIN + series + financial year). Issued documents are never edited or deleted: a DB
+// trigger allows only the PDF / e-invoice (IRN) / credit status columns to change.
+
+enum TaxDocumentType {
+  TAX_INVOICE
+  /// Every line is 0 % GST (exempt / nil-rated supplies).
+  BILL_OF_SUPPLY
+  CREDIT_NOTE
+}
+
+enum TaxDocumentStatus {
+  ISSUED
+  PARTIALLY_CREDITED
+  CREDITED
+}
+
+enum TaxDocumentPdfStatus {
+  PENDING
+  RENDERING
+  READY
+  FAILED
+}
+
+enum GstSupplyType {
+  /// Seller state = place of supply → CGST + SGST.
+  INTRA
+  /// Different states → IGST.
+  INTER
+}
+
+model TaxDocument {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  docType         TaxDocumentType
+  /// e.g. FX/2627/0000123 (≤ 16 characters, GST rule 46).
+  docNo           String               @unique @db.VarChar(16)
+  series          String               @db.VarChar(8)
+  /// Financial year (April–March, IST), e.g. 2627.
+  fy              String               @db.Char(4)
+  status          TaxDocumentStatus    @default(ISSUED)
+  orderId         String               @db.Uuid
+  orderNo         String               @db.VarChar(20)
+  /// The shipment it bills (required once F1 shipments exist).
+  shipmentId      String?              @db.Uuid
+  /// Credit notes: the invoice they reduce.
+  originalDocId   String?              @db.Uuid
+  /// Buyer (ownership checks) and farm.
+  userId          String               @db.Uuid
+  farmId          String               @db.Uuid
+  sellerGstin     String               @db.Char(15)
+  sellerStateCode String               @db.Char(2)
+  buyerGstin      String?              @db.Char(15)
+  placeOfSupply   String               @db.Char(2)
+  supplyType      GstSupplyType
+  /// GSTR-1 table: B2B · B2CL · B2CS (credit notes: CDNR · CDNUR).
+  gstr1Section    String               @db.VarChar(8)
+  reverseCharge   Boolean              @default(false)
+  currency        String               @default("INR") @db.Char(3)
+  /// Totals in integer paise (header = Σ lines, validated before issue).
+  taxablePaise    BigInt
+  cgstPaise       BigInt
+  sgstPaise       BigInt
+  igstPaise       BigInt
+  totalTaxPaise   BigInt
+  roundOffPaise   BigInt               @default(0)
+  grandTotalPaise BigInt
+  amountInWords   String               @db.VarChar(300)
+  /// The complete document as issued (seller, buyer, addresses, lines, HSN summary, payment).
+  snapshot        Json
+  /// SHA-256 of the canonical snapshot (tamper evidence).
+  snapshotSha256  String               @db.Char(64)
+  /// ship:<shipmentId> · cn:<sourceRef> — the same request never issues twice.
+  idempotencyKey  String               @unique @db.VarChar(100)
+  /// Credit notes: why.
+  reason          String?              @db.VarChar(300)
+  pdfStatus       TaxDocumentPdfStatus @default(PENDING)
+  pdfKey          String?              @db.VarChar(200)
+  pdfSha256       String?              @db.Char(64)
+  pdfAttempts     Int                  @default(0)
+  pdfError        String?              @db.VarChar(300)
+  pdfRenderedAt   DateTime?
+  /// E-invoice (IRN) — off until turnover requires it; filled by the IRP integration later.
+  irn             String?              @db.VarChar(64)
+  ackNo           String?              @db.VarChar(20)
+  ackDate         DateTime?
+  signedQr        String?
+  issuedAt        DateTime
+  issuedBy        String?              @db.Uuid
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @default(now()) @updatedAt
+
+  lines TaxDocumentLine[]
+
+  @@index([orderId])
+  @@index([userId, issuedAt(sort: Desc)])
+  @@index([issuedAt, id])
+  @@index([docType, status])
+  @@index([originalDocId])
+  @@map("tax_documents")
+}
+
+model TaxDocumentLine {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  documentId     String  @db.Uuid
+  /// Denormalised for "already invoiced / credited" sums per order line.
+  orderId        String  @db.Uuid
+  lineNo         Int
+  /// GOODS · FREIGHT
+  kind           String  @db.VarChar(8)
+  /// The order line billed (null for freight).
+  orderLineNo    Int?
+  variantId      String? @db.Uuid
+  sku            String? @db.VarChar(40)
+  description    String  @db.VarChar(250)
+  hsnSac         String  @db.VarChar(8)
+  qty            Int
+  unitPricePaise BigInt
+  grossPaise     BigInt
+  discountPaise  BigInt
+  taxablePaise   BigInt
+  /// GST rate in basis points (1800 = 18 %).
+  gstRateBp      Int
+  cgstPaise      BigInt
+  sgstPaise      BigInt
+  igstPaise      BigInt
+  totalPaise     BigInt
+
+  document TaxDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, lineNo])
+  @@index([orderId, orderLineNo])
+  @@map("tax_document_lines")
+}
+
+/// Gapless counter per seller GSTIN + series + financial year (row-locked in the issuing tx).
+model InvoiceSequence {
+  sellerGstin String @db.Char(15)
+  series      String @db.VarChar(8)
+  fy          String @db.Char(4)
+  last        Int
+
+  @@id([sellerGstin, series, fy])
+  @@map("invoice_sequences")
+}

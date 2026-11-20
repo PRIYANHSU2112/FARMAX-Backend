@@ -52,16 +52,27 @@ export class OrderCancelService {
   constructor(private readonly deps: Deps) {}
 
   /** What a cancel would do now (no change). */
-  async quote(order: OrderWithLines, input: Pick<CancelInput, 'lines'>, actor: Actor): Promise<CancellationQuote> {
+  async quote(
+    order: OrderWithLines,
+    input: Pick<CancelInput, 'lines'>,
+    actor: Actor,
+  ): Promise<CancellationQuote> {
     const settings = await this.deps.settingsService.current();
-    const freeWindowEndsAt = new Date(order.placedAt.getTime() + settings.freeCancelMinutes * 60_000);
+    const freeWindowEndsAt = new Date(
+      order.placedAt.getTime() + settings.freeCancelMinutes * 60_000,
+    );
     const empty = { full: false, freeWindowEndsAt, fee: '0.00', refundAmount: '0.00', lines: [] };
     const why = this.blocker(order);
     if (why !== null) return { eligible: false, reason: why, ...empty };
     const plan = planCancellation(linesOf(order), input.lines);
-    if (!plan.ok) return { eligible: false, reason: plan.issues.map((i) => i.message).join('; '), ...empty };
+    if (!plan.ok)
+      return { eligible: false, reason: plan.issues.map((i) => i.message).join('; '), ...empty };
     if (!plan.full && !this.paid(order))
-      return { eligible: false, reason: 'An unpaid order can only be cancelled as a whole', ...empty };
+      return {
+        eligible: false,
+        reason: 'An unpaid order can only be cancelled as a whole',
+        ...empty,
+      };
     const refund = this.money(order, plan, settings, actor, await this.decidedPaise(order));
     return {
       eligible: true,
@@ -70,7 +81,12 @@ export class OrderCancelService {
       freeWindowEndsAt,
       fee: fromPaise(refund.fee),
       refundAmount: fromPaise(refund.net),
-      lines: plan.items.map((i) => ({ lineNo: i.lineNo, variantId: i.variantId, qty: i.qty, refund: fromPaise(i.refundPaise) })),
+      lines: plan.items.map((i) => ({
+        lineNo: i.lineNo,
+        variantId: i.variantId,
+        qty: i.qty,
+        refund: fromPaise(i.refundPaise),
+      })),
     };
   }
 
@@ -92,7 +108,10 @@ export class OrderCancelService {
       const order = await repo.find(orderId, tx);
       if (order === null) throw new NotFoundError('Order');
       const why = this.blocker(order);
-      if (why !== null) throw new ConflictError(why, { details: { reason: 'NOT_CANCELLABLE', status: order.status } });
+      if (why !== null)
+        throw new ConflictError(why, {
+          details: { reason: 'NOT_CANCELLABLE', status: order.status },
+        });
       const plan = planCancellation(linesOf(order), input.lines);
       if (!plan.ok) throw new ValidationError(plan.issues, 'Nothing valid to cancel');
       if (!plan.full && !this.paid(order))
@@ -134,14 +153,22 @@ export class OrderCancelService {
             reason: input.note ?? null,
             refundSource: 'CANCEL',
           })
-        : await this.deps.orderLifecycle.partialCancelInTx(tx, order, { ...common, items: plan.items });
+        : await this.deps.orderLifecycle.partialCancelInTx(tx, order, {
+            ...common,
+            items: plan.items,
+          });
       if (o.audit !== undefined)
         await this.deps.auditService.record(tx, o.audit, {
           action: plan.full ? 'order.cancel' : 'order.cancel_items',
           targetType: 'order',
           targetId: order.id,
           before: { status: order.status },
-          after: { status: after.status, items: plan.items, refund: fromPaise(refund.net), fee: fromPaise(refund.fee) },
+          after: {
+            status: after.status,
+            items: plan.items,
+            refund: fromPaise(refund.net),
+            fee: fromPaise(refund.fee),
+          },
           reason: input.note ?? input.reasonCode,
         });
       return after;
@@ -149,7 +176,9 @@ export class OrderCancelService {
   }
 
   private blocker(order: OrderRow): string | null {
-    return CANCELLABLE.includes(order.status) ? null : `Order is ${order.status} and can no longer be cancelled`;
+    return CANCELLABLE.includes(order.status)
+      ? null
+      : `Order is ${order.status} and can no longer be cancelled`;
   }
 
   private paid(order: OrderRow): boolean {

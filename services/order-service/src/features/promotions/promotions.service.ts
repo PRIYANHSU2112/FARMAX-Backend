@@ -403,12 +403,20 @@ export class PromotionsService {
         (l.perFarmLimit !== null && used.farm >= l.perFarmLimit) ||
         (l.perUserLimit !== null && used.user >= l.perUserLimit);
       if (exhausted)
-        throw new ConflictError('An offer in your cart has just run out. Review the price and try again.', {
-          details: { reason: 'PROMO_LIMIT_REACHED', promotionId: l.id },
-        });
+        throw new ConflictError(
+          'An offer in your cart has just run out. Review the price and try again.',
+          {
+            details: { reason: 'PROMO_LIMIT_REACHED', promotionId: l.id },
+          },
+        );
     }
     for (const r of o.redemptions)
-      await repo.insertRedemption(tx, { ...r, orderId: o.orderId, farmId: o.farmId, userId: o.userId });
+      await repo.insertRedemption(tx, {
+        ...r,
+        orderId: o.orderId,
+        farmId: o.farmId,
+        userId: o.userId,
+      });
   }
 
   /** Gives an order's offers back (usedCount −1 each). */
