@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "stages:map": "node --import tsx --env-file-if-exists=../../.env scripts/map-production-stages.ts"
   },
   "dependencies": {
     "@farmx/common": "workspace:*",

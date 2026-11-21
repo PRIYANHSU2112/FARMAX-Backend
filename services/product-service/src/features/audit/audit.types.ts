@@ -11,7 +11,8 @@ export interface AuditEntry {
     | 'compliance_profile'
     | 'lookup'
     | 'review'
-    | 'review_report';
+    | 'review_report'
+    | 'disease';
   targetId: string;
   before?: object | null;
   after?: object | null;

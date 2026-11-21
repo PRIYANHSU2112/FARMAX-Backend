@@ -26,6 +26,12 @@ export interface FarmConfig extends BaseConfig {
   DEDUPE_RADIUS_M: number;
   REVIEW_SLA_HOURS: number;
   MAX_OPEN_DRAFTS: number;
+  /** redis-queue (BullMQ): content-tick / content-trending jobs. */
+  REDIS_QUEUE_URL: string;
+  /** Run the BullMQ jobs (off in tests). */
+  JOBS_ENABLED: boolean;
+  /** media-service CDN base; content image / asset URLs must start with it (unset: https only). */
+  MEDIA_PUBLIC_BASE_URL?: string;
 }
 
 const requiredOutsideLocal = (schema: Joi.Schema) =>
@@ -61,6 +67,14 @@ const schema = Joi.object<FarmConfig>({
   DEDUPE_RADIUS_M: Joi.number().integer().min(20).max(2000).default(150),
   REVIEW_SLA_HOURS: Joi.number().integer().min(1).max(168).default(4),
   MAX_OPEN_DRAFTS: Joi.number().integer().min(1).max(20).default(3),
+  REDIS_QUEUE_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .default('redis://localhost:6380'),
+  JOBS_ENABLED: Joi.boolean()
+    .truthy('1')
+    .falsy('0')
+    .default((parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test'),
+  MEDIA_PUBLIC_BASE_URL: Joi.string().uri({ scheme: ['https', 'http'] }).allow(''),
 });
 
 /** The root `.env` sets a generic PORT for the gateway; this service reads FARM_SERVICE_PORT. */

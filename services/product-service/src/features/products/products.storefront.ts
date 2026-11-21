@@ -5,10 +5,15 @@ import type { Paginated } from '@farmx/common/types';
 import { productKeys } from '@farmx/infra/redis';
 import type { Cradle } from '@fastify/awilix';
 
-import type { Crumb } from '../../adapters/catalog-client.js';
+import type { BrandRow, Crumb } from '../../adapters/catalog-client.js';
 import type { EffectiveAttribute } from '../attributes/index.js';
 import type { StorefrontFilter } from './products.repository.js';
-import type { ProductCard, PublicListQuery, PublicSort } from './products.types.js';
+import type {
+  ProductCard,
+  ProductFilterQuery,
+  PublicListQuery,
+  PublicSort,
+} from './products.types.js';
 import {
   type PublicProductDetail,
   toCard,
@@ -22,6 +27,7 @@ type Deps = Pick<
   | 'catalogClient'
   | 'attributesService'
   | 'lookupsService'
+  | 'diseasesService'
   | 'cache'
   | 'redis'
 >;
@@ -36,13 +42,69 @@ export interface PublicDetailView extends PublicProductDetail {
 }
 
 export interface FiltersView {
+  /** Products matching the whole selection ("Show X products"). */
+  total: number;
+  /** Sort chips (server-driven order); the list's default is `relevance`. */
+  sort: { code: PublicSort; label: string }[];
   attributes: Pick<EffectiveAttribute, 'key' | 'label' | 'dataType' | 'unit' | 'options'>[];
   dosageForms: { code: string; label: string }[];
   routes: { code: string; label: string }[];
-  species: { code: string; label: string }[];
+  /** Every SPECIES chip; productCount ignores the species selection itself (0 = greyed out). */
+  species: { code: string; label: string; productCount: number }[];
+  flockStages: { code: string; label: string }[];
+  /** Active diseases with products under the other filters, plus any selected one (even at 0). */
+  diseases: { id: string; slug: string; name: string; productCount: number }[];
+  /** "Manufacturer" facet: brands under the other filters, plus any selected one (even at 0). */
   brands: { id: string; name: string; productCount: number }[];
   priceRange: { min: string | null; max: string | null };
+  /** "In stock at <node>" count for the given `nodeId` (all other filters applied); null = none. */
+  node: { id: string; productCount: number } | null;
+  /** "Covered by my prescriptions": not available until the Rx service exists. */
+  rx: { available: boolean };
 }
+
+/** A list page plus the number of products matching the selection (capped at 2,000). */
+export type StorefrontPage = Paginated<ProductCard> & { total: number };
+
+const SORT_OPTIONS: FiltersView['sort'] = [
+  { code: 'price_desc', label: 'High - Low Price' },
+  { code: 'price_asc', label: 'Low - High Price' },
+  { code: 'shelf_life', label: 'Shelf life' },
+];
+
+/** A selection resolved against catalog snapshots, lookups and diseases. */
+interface Resolved {
+  filter: StorefrontFilter;
+  /** True when the selection can match nothing (unknown category slug, no live disease…). */
+  empty: boolean;
+  /** Effective attribute definitions of the selected category. */
+  attrDefs: EffectiveAttribute[];
+  /** Active brands (catalog snapshot); undefined = snapshot unavailable → no brand restriction. */
+  brands: Map<string, BrandRow> | undefined;
+  /** Ranked text-search candidates; undefined = no text search. */
+  candidates: string[] | undefined;
+}
+
+/** The filter without some dimensions (a facet's counts ignore its own selection). */
+const omit = (f: StorefrontFilter, keys: readonly (keyof StorefrontFilter)[]): StorefrontFilter =>
+  Object.fromEntries(
+    Object.entries(f).filter(([k]) => !keys.includes(k as keyof StorefrontFilter)),
+  ) as unknown as StorefrontFilter;
+
+const hashQuery = (query: object): string =>
+  createHash('sha1')
+    .update(
+      JSON.stringify(
+        Object.entries(query as Record<string, unknown>)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]): [string, unknown] => [
+            k,
+            Array.isArray(v) ? (v as unknown[]).map(String).sort() : v,
+          ])
+          .sort(([a], [b]) => a.localeCompare(b)),
+      ),
+    )
+    .digest('base64url');
 
 const intersect = (a: readonly string[], b: Set<string> | undefined) =>
   b === undefined ? [...a] : a.filter((id) => b.has(id));
@@ -83,41 +145,61 @@ export const parseAttrFilters = (
 export class StorefrontService {
   constructor(private readonly deps: Deps) {}
 
-  async list(query: PublicListQuery): Promise<Paginated<ProductCard>> {
-    const version = (await this.deps.redis.get(productKeys.listVersion()).catch(() => null)) ?? '0';
-    const hash = createHash('sha1')
-      .update(JSON.stringify(Object.entries(query).sort(([a], [b]) => a.localeCompare(b))))
-      .digest('base64url');
-    return this.deps.cache.getOrSet(productKeys.list(version, hash), LIST_TTL_SECONDS, () =>
-      this.load(query),
+  async list(query: PublicListQuery): Promise<StorefrontPage> {
+    const version = await this.listVersion();
+    return this.deps.cache.getOrSet(
+      productKeys.list(version, hashQuery(query)),
+      LIST_TTL_SECONDS,
+      () => this.load(query),
     );
   }
 
-  private async load(query: PublicListQuery): Promise<Paginated<ProductCard>> {
+  private async listVersion(): Promise<string> {
+    return (await this.deps.redis.get(productKeys.listVersion()).catch(() => null)) ?? '0';
+  }
+
+  /**
+   * One selection → StorefrontFilter, shared by the list and its facets so counts always match
+   * what a tap returns. Visibility: category effectively active + brand active (snapshots).
+   */
+  private async resolve(query: ProductFilterQuery): Promise<Resolved> {
     const { catalogClient, productsRepository: repo } = this.deps;
     const [visible, brands] = await Promise.all([
       catalogClient.visibleCategoryIds(),
       catalogClient.activeBrands(),
     ]);
     const activeBrandIds = brands === undefined ? undefined : new Set(brands.keys());
+    let attrDefs: EffectiveAttribute[] = [];
+    const nothing = (): Resolved => ({
+      filter: { ids: [], attrs: [] },
+      empty: true,
+      attrDefs,
+      brands,
+      candidates: undefined,
+    });
 
     // Category (+ all sub-categories at any depth).
     let categoryIds: string[] | undefined = visible === undefined ? undefined : [...visible];
-    let attrDefs: EffectiveAttribute[] = [];
     const categoryId =
       query.categoryId ??
       (query.categorySlug === undefined
         ? undefined
         : await catalogClient.categoryIdBySlug(query.categorySlug));
-    if (query.categorySlug !== undefined && categoryId === null)
-      return { items: [], nextCursor: null, limit: query.limit };
+    if (query.categorySlug !== undefined && categoryId === null) return nothing();
     if (categoryId !== undefined && categoryId !== null) {
       const ctx = await catalogClient.categoryContext(categoryId);
-      if (ctx === null) return { items: [], nextCursor: null, limit: query.limit };
+      if (ctx === null) return nothing();
       categoryIds = intersect(ctx.subtreeIds, visible);
       attrDefs = await this.deps.attributesService.effectiveFor(ctx.pathIds);
     }
     const attrs = parseAttrFilters(query as unknown as Record<string, unknown>, attrDefs);
+
+    // Disease chips / Shop by Problem: slugs resolve to live, active diseases only.
+    let diseaseIds = query.diseaseId;
+    if (query.diseaseSlug !== undefined) {
+      diseaseIds = await this.deps.diseasesService.activeIdsBySlugs(query.diseaseSlug);
+      if (diseaseIds.length === 0) return nothing();
+    }
 
     const q = query.q?.trim();
     const candidates = q === undefined || q === '' ? undefined : await repo.searchCandidates(q);
@@ -130,26 +212,36 @@ export class StorefrontService {
       ...(query.dosageForm === undefined ? {} : { dosageForm: query.dosageForm }),
       ...(query.species === undefined ? {} : { species: query.species }),
       ...(query.route === undefined ? {} : { route: query.route }),
+      ...(diseaseIds === undefined ? {} : { diseaseIds }),
+      ...(query.flockStage === undefined ? {} : { flockStages: query.flockStage }),
       ...(query.isPrescriptionRequired === undefined
         ? {}
         : { isPrescriptionRequired: query.isPrescriptionRequired }),
       ...(query.temperatureClass === undefined ? {} : { temperatureClass: query.temperatureClass }),
       ...(query.inStock === undefined ? {} : { inStock: query.inStock }),
+      ...(query.nodeId === undefined ? {} : { nodeId: query.nodeId }),
       ...(query.minPrice === undefined ? {} : { minPrice: query.minPrice }),
       ...(query.maxPrice === undefined ? {} : { maxPrice: query.maxPrice }),
       ...(query.minRating === undefined ? {} : { minRating: query.minRating }),
       ...(query.isFeatured === undefined ? {} : { isFeatured: query.isFeatured }),
       attrs,
     };
-    const sort: PublicSort = query.sort ?? (candidates === undefined ? 'relevance' : 'relevance');
-    let ids = await repo.storefrontIds(repo.storefrontWhere(filter), sort);
-    if (candidates !== undefined && sort === 'relevance') {
-      const rank = new Map(candidates.map((id, i) => [id, i]));
+    return { filter, empty: false, attrDefs, brands, candidates };
+  }
+
+  private async load(query: PublicListQuery): Promise<StorefrontPage> {
+    const repo = this.deps.productsRepository;
+    const empty = { items: [], nextCursor: null, limit: query.limit, total: 0 };
+    const r = await this.resolve(query);
+    if (r.empty) return empty;
+    const sort: PublicSort = query.sort ?? 'relevance';
+    let ids = await repo.storefrontIds(repo.storefrontWhere(r.filter), sort);
+    if (r.candidates !== undefined && sort === 'relevance') {
+      const rank = new Map(r.candidates.map((id, i) => [id, i]));
       ids = [...ids].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
     }
     const start = query.cursor === undefined ? 0 : ids.indexOf(query.cursor) + 1;
-    if (query.cursor !== undefined && start === 0)
-      return { items: [], nextCursor: null, limit: query.limit };
+    if (query.cursor !== undefined && start === 0) return { ...empty, total: ids.length };
     const pageIds = ids.slice(start, start + query.limit);
     const byId = new Map((await repo.cards(pageIds)).map((c) => [c.id, toCard(c)]));
     const items = pageIds.flatMap((id) => {
@@ -157,7 +249,12 @@ export class StorefrontService {
       return card === undefined ? [] : [card];
     });
     const hasMore = start + query.limit < ids.length;
-    return { items, nextCursor: hasMore ? (pageIds.at(-1) ?? null) : null, limit: query.limit };
+    return {
+      items,
+      nextCursor: hasMore ? (pageIds.at(-1) ?? null) : null,
+      limit: query.limit,
+      total: ids.length,
+    };
   }
 
   async detail(slugOrId: string): Promise<PublicDetailView> {
@@ -188,7 +285,10 @@ export class StorefrontService {
   ): Promise<PublicDetailView | null> {
     const record = await this.deps.productsRepository.findDetailBy(where);
     if (record?.status !== 'PUBLISHED' || !record.isActive) return null;
-    const view = toPublicDetail(toProductView(record));
+    const stages = await this.deps.lookupsService.publicList('FLOCK_STAGE');
+    const view = toPublicDetail(
+      toProductView(record, new Map(stages.map((s) => [s.code, s.label]))),
+    );
     if (view.variants.length === 0) return null;
     const ctx = await this.deps.catalogClient.categoryContext(record.categoryId);
     return {
@@ -228,29 +328,64 @@ export class StorefrontService {
     return cards.filter((c) => visible === undefined || visible.has(c.categoryId));
   }
 
-  async filters(categoryId: string | undefined): Promise<FiltersView> {
-    const { catalogClient, productsRepository: repo } = this.deps;
-    const visible = await catalogClient.visibleCategoryIds();
-    let categoryIds = visible === undefined ? undefined : [...visible];
-    let defs: EffectiveAttribute[] = [];
-    if (categoryId !== undefined) {
-      const ctx = await catalogClient.categoryContext(categoryId);
-      if (ctx === null) throw new NotFoundError('Category');
-      categoryIds = intersect(ctx.subtreeIds, visible);
-      defs = await this.deps.attributesService.effectiveFor(ctx.pathIds);
-    }
-    const where = repo.storefrontWhere({
-      ...(categoryIds === undefined ? {} : { categoryIds }),
-      attrs: [],
-    });
-    const [facets, lookups] = await Promise.all([
-      repo.facets(where),
-      this.deps.lookupsService.publicList(undefined),
-    ]);
+  /**
+   * Facets for the Filter & sort sheet under the CURRENT selection (same query as the list).
+   * Disjunctive counts: each multi-select facet ignores its own dimension, so picking "Layer" still
+   * shows how many products the other species chips would add. Cached 60 s per selection.
+   */
+  async filters(query: ProductFilterQuery): Promise<FiltersView> {
+    const version = await this.listVersion();
+    return this.deps.cache.getOrSet(
+      productKeys.filters(version, hashQuery(query)),
+      LIST_TTL_SECONDS,
+      () => this.loadFilters(query),
+    );
+  }
+
+  private async loadFilters(query: ProductFilterQuery): Promise<FiltersView> {
+    const { productsRepository: repo, lookupsService, diseasesService } = this.deps;
+    const r = await this.resolve(query);
+    const f = r.filter;
+    const where = (x: StorefrontFilter) => repo.storefrontWhere(x);
+    const activeBrandIds = r.brands === undefined ? undefined : [...r.brands.keys()];
+    const brandFilter: StorefrontFilter = {
+      ...omit(f, ['brandIds']),
+      ...(activeBrandIds === undefined ? {} : { brandIds: activeBrandIds }),
+    };
+    const nodeId = query.nodeId;
+
+    const [facets, lookups, diseases, diseaseCounts, speciesCounts, total, nodeCount] =
+      await Promise.all([
+        repo.facets(where(brandFilter), where(omit(f, ['minPrice', 'maxPrice']))),
+        lookupsService.publicList(undefined),
+        diseasesService.activeAll(),
+        diseasesService.productCounts(where(omit(f, ['diseaseIds']))),
+        repo.speciesCounts(where(omit(f, ['species']))),
+        repo.count(where(f)),
+        nodeId === undefined
+          ? Promise.resolve(null)
+          : repo.count(where({ ...f, inStock: true, nodeId })),
+      ]);
+
     const pick = (group: string) =>
       lookups.filter((l) => l.group === group).map(({ code, label }) => ({ code, label }));
+    const selectedDiseases = new Set(f.diseaseIds ?? []);
+    const brands = facets.brands.map((b) => ({
+      id: b.brandId,
+      name: b.brandName,
+      productCount: b._count._all,
+    }));
+    const listed = new Set(brands.map((b) => b.id));
+    for (const id of query.brandId ?? []) {
+      const brand = r.brands?.get(id);
+      if (!listed.has(id) && brand !== undefined)
+        brands.push({ id, name: brand.name, productCount: 0 });
+    }
+
     return {
-      attributes: defs
+      total,
+      sort: SORT_OPTIONS,
+      attributes: r.attrDefs
         .filter((d) => d.isFilterable)
         .map(({ key, label, dataType, unit, options }) => ({
           key,
@@ -261,14 +396,25 @@ export class StorefrontService {
         })),
       dosageForms: pick('DOSAGE_FORM'),
       routes: pick('ROUTE'),
-      species: pick('SPECIES'),
-      brands: facets.brands
-        .map((b) => ({ id: b.brandId, name: b.brandName, productCount: b._count._all }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+      species: pick('SPECIES').map((s) => ({
+        ...s,
+        productCount: speciesCounts.get(s.code) ?? 0,
+      })),
+      flockStages: pick('FLOCK_STAGE'),
+      diseases: diseases.flatMap(({ id, slug, name }) => {
+        const productCount = diseaseCounts.get(id) ?? 0;
+        return productCount === 0 && !selectedDiseases.has(id)
+          ? []
+          : [{ id, slug, name, productCount }];
+      }),
+      brands: brands.sort((a, b) => a.name.localeCompare(b.name)),
       priceRange: {
         min: facets.minPrice === null ? null : Number(facets.minPrice.toString()).toFixed(2),
         max: facets.maxPrice === null ? null : Number(facets.maxPrice.toString()).toFixed(2),
       },
+      node:
+        nodeId === undefined || nodeCount === null ? null : { id: nodeId, productCount: nodeCount },
+      rx: { available: false },
     };
   }
 }

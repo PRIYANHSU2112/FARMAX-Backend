@@ -9,6 +9,8 @@ enum ProductLookupGroup {
   ROUTE
   SPECIES
   UNIT
+  /// Flock / production stages. Codes are stored in Product.productionStages; meta.aliases maps legacy text.
+  FLOCK_STAGE
 }
 
 enum DrugSchedule {
@@ -179,12 +181,52 @@ model Product {
   ingredients ProductIngredient[]
   variants    ProductVariant[]
   media       ProductMedia[]
+  diseases    ProductDisease[]
 
   @@index([categoryId])
   @@index([brandId])
   @@index([status, isActive, isFeatured])
   @@index([status, isActive, ratingAvg])
+  @@index([shelfLifeMonths])
   @@map("products")
+}
+
+/// "Shop by Problem": admin-managed disease / problem master. Slug and name are unique among live
+/// rows only (partial unique indexes in the migration), so a deleted disease's slug can be reused.
+model Disease {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  name            String    @db.VarChar(80)
+  slug            String    @db.VarChar(100)
+  description     String?   @db.VarChar(500)
+  iconUrl         String?   @db.VarChar(500)
+  /// media-service asset id, when uploaded through it.
+  iconMediaId     String?   @db.Uuid
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  version         Int       @default(0)
+  createdByUserId String    @db.Uuid
+  updatedByUserId String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  products ProductDisease[]
+
+  @@index([isActive, sortOrder])
+  @@map("diseases")
+}
+
+/// Product ↔ disease link. Links of a soft-deleted disease are kept as history.
+model ProductDisease {
+  productId String @db.Uuid
+  diseaseId String @db.Uuid
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  disease Disease @relation(fields: [diseaseId], references: [id], onDelete: Restrict)
+
+  @@id([productId, diseaseId])
+  @@index([diseaseId])
+  @@map("product_diseases")
 }
 
 model ProductRoute {
@@ -265,11 +307,12 @@ model ProductVariant {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  product      Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
-  packUnit     ProductLookup           @relation(fields: [packUnitId], references: [id], onDelete: Restrict)
-  media        ProductMedia[]
-  price        VariantPriceProjection?
-  availability VariantAvailability?
+  product          Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packUnit         ProductLookup             @relation(fields: [packUnitId], references: [id], onDelete: Restrict)
+  media            ProductMedia[]
+  price            VariantPriceProjection?
+  availability     VariantAvailability?
+  nodeAvailability VariantNodeAvailability[]
 
   @@index([productId, sortOrder])
   @@map("product_variants")
@@ -328,6 +371,24 @@ model VariantAvailability {
 
   @@index([inStock])
   @@map("variant_availability")
+}
+
+/// Per-node (inventory warehouse) sellable stock of one variant, from availability_changed.v1
+/// `byNode`. Replaced whole per variant under the same sourceVersion guard as VariantAvailability.
+/// Powers "In stock at <node>" (storefront `nodeId` + `inStock=true`).
+model VariantNodeAvailability {
+  variantId     String   @db.Uuid
+  nodeId        String   @db.Uuid
+  availableQty  Int
+  inStock       Boolean
+  sourceVersion BigInt
+  updatedAt     DateTime @updatedAt
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, nodeId])
+  @@index([nodeId, inStock, variantId])
+  @@map("variant_node_availability")
 }
 
 /// A catalog category/brand being deleted: no product may be assigned to it (safe-delete protocol).

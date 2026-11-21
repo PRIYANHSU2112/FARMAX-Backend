@@ -1,0 +1,46 @@
+// support-service feature: settings. Business rules editable without a deploy: contacts, limits,
+// WebSocket origins (support_settings) and the business-hours calendars used by SLA clocks.
+
+/// The four apps that raise tickets (agents use the admin console).
+enum SupportApp {
+  CUSTOMER
+  VENDOR
+  LOGISTICS
+  WAREHOUSE
+}
+
+model SupportSetting {
+  /// contacts · limits · chat (see settings.rules.ts for the value shapes).
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @updatedAt
+
+  @@map("support_settings")
+}
+
+model SupportCalendar {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique @db.VarChar(80)
+  /// IANA zone, e.g. Asia/Kolkata. All SLA maths runs in this zone; results are stored in UTC.
+  timezone    String   @db.VarChar(40)
+  /// [{ weekday 0–6 (Sun=0), startMinute, endMinute }] — several windows per day allowed.
+  weeklyHours Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("support_calendars")
+}
+
+model SupportHoliday {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  calendarId String   @db.Uuid
+  /// Local calendar date in the calendar's zone.
+  date       DateTime @db.Date
+  name       String   @db.VarChar(80)
+  createdAt  DateTime @default(now())
+
+  @@unique([calendarId, date])
+  @@map("support_holidays")
+}

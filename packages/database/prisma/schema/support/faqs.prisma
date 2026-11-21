@@ -1,0 +1,49 @@
+// support-service feature: faqs. Per-app FAQ categories + items with full-text search (the
+// generated `searchVector` + GIN index live in the migration SQL) and helpful votes.
+
+model FaqCategory {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  app       SupportApp
+  code      String     @db.VarChar(40)
+  title     String     @db.VarChar(80)
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([app, code])
+  @@map("faq_categories")
+}
+
+model Faq {
+  id              String                   @id @default(uuid(7)) @db.Uuid
+  app             SupportApp
+  categoryId      String                   @db.Uuid
+  question        String                   @db.VarChar(300)
+  answer          String                   @db.VarChar(4000)
+  tags            String[]                 @default([])
+  /// Ticket topics this FAQ answers ("These may answer it" on the New ticket screen).
+  topicCodes      String[]                 @default([])
+  sortOrder       Int                      @default(0)
+  isActive        Boolean                  @default(true)
+  helpfulCount    Int                      @default(0)
+  notHelpfulCount Int                      @default(0)
+  searchVector    Unsupported("tsvector")?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([app, isActive, categoryId, sortOrder])
+  @@map("faqs")
+}
+
+/// One vote per user per FAQ (changing a vote moves the counters in the same transaction).
+model FaqVote {
+  faqId     String   @db.Uuid
+  userId    String   @db.Uuid
+  helpful   Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([faqId, userId])
+  @@map("faq_votes")
+}

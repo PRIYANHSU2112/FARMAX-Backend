@@ -51,6 +51,7 @@ type Deps = Pick<
   | 'settingsService'
   | 'inventoryClient'
   | 'paymentClient'
+  | 'walletClient'
   | 'transactionsService'
   | 'invoicesService'
   | 'addressClient'
@@ -131,6 +132,7 @@ export class OrdersService {
       );
 
     const inv = result.invoice;
+    if (input.paymentMethod === 'WALLET') await this.checkWallet(user.id, inv.finalPayable);
     const orderId = uuidv7();
     const lineIds = result.lines.map(() => uuidv7());
     const factsById = new Map(variants.map((v) => [v.variantId, v]));
@@ -180,6 +182,7 @@ export class OrdersService {
             deliveryAddress: { ...address },
             couponCode: cart.couponCode,
             cartVersion: cart.version,
+            paymentMethod: input.paymentMethod,
             idempotencyKey: key,
             requestHash: hash,
             placedAt: now,
@@ -429,8 +432,10 @@ export class OrdersService {
     return this.detail(await this.owned(user, orderId));
   }
 
-  async getInternal(orderId: string): Promise<OrderDetailView> {
-    return this.detail(await this.mustFind(orderId));
+  /** Internal callers (support, inventory) also get the owner ids for their own access checks. */
+  async getInternal(orderId: string): Promise<OrderDetailView & { userId: string; farmId: string }> {
+    const order = await this.mustFind(orderId);
+    return { ...(await this.detail(order)), userId: order.userId, farmId: order.farmId };
   }
 
   statuses(ids: readonly string[]) {
@@ -575,7 +580,28 @@ export class OrdersService {
       userId: order.userId,
       amountPaise: toPaise(order.grandTotal.toFixed(2)),
       expiresAt: order.paymentDueAt,
+      method: order.paymentMethod,
     });
+  }
+
+  /**
+   * Wallet checkout pre-check (before any order or stock hold): frozen or short → 409, nothing
+   * created. The debit in payment-service is still the authority (a race just fails the payment).
+   */
+  private async checkWallet(userId: string, payablePaise: number): Promise<void> {
+    const w = await this.deps.walletClient.balance(userId);
+    if (w.status === 'FROZEN')
+      throw refusal('Your wallet is frozen; choose another way to pay', 'WALLET_FROZEN');
+    if (w.balancePaise < payablePaise)
+      throw refusal(
+        'Your wallet balance is too low for this order',
+        'INSUFFICIENT_WALLET_BALANCE',
+        {
+          balancePaise: w.balancePaise,
+          requiredPaise: payablePaise,
+          shortPaise: payablePaise - w.balancePaise,
+        },
+      );
   }
 
   private async address(userId: string, addressId: string): Promise<AddressSnapshot> {

@@ -1,0 +1,13 @@
+// wallet-service feature: settings (seeded by the migration; validated on read). Business rules
+// only — never balances.
+
+model WalletSetting {
+  /// topupMinPaise, topupMaxPaise, topupDailyMaxPaise, maxBalancePaise, topupPresetsPaise,
+  /// topupWindowMinutes, firstTopupCashback, pointValuePaise
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@map("wallet_settings")
+}

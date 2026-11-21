@@ -112,6 +112,8 @@ model InventoryAvailabilityState {
   inStock      Boolean
   lowStock     Boolean
   sequence     BigInt
+  /// Last published per-node breakdown as "nodeId:qty,…" (sorted); a change re-publishes.
+  nodeStockKey String   @default("")
   publishedAt  DateTime
 
   @@map("inventory_availability_state")

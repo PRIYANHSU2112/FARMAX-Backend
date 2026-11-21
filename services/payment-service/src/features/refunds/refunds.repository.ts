@@ -1,11 +1,5 @@
 import type { Paginated } from '@farmx/common/types';
-import {
-  type Tx,
-  cursorArgs,
-  isUniqueViolation,
-  toPage,
-  withPrismaErrors,
-} from '@farmx/database';
+import { type Tx, cursorArgs, isUniqueViolation, toPage, withPrismaErrors } from '@farmx/database';
 import type { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
 
@@ -20,21 +14,17 @@ export class RefundsRepository {
   }
 
   async find(id: string, tx?: Tx): Promise<RefundRow | null> {
-    return (await withPrismaErrors(() =>
-      (tx ?? this.db).refund.findUnique({ where: { id } }),
-    ));
+    return await withPrismaErrors(() => (tx ?? this.db).refund.findUnique({ where: { id } }));
   }
 
   async bySourceRef(sourceRef: string, tx?: Tx): Promise<RefundRow | null> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       (tx ?? this.db).refund.findUnique({ where: { sourceRef } }),
-    ));
+    );
   }
 
   async byProviderRefundId(providerRefundId: string): Promise<RefundRow | null> {
-    return (await withPrismaErrors(() =>
-      this.db.refund.findUnique({ where: { providerRefundId } }),
-    ));
+    return await withPrismaErrors(() => this.db.refund.findUnique({ where: { providerRefundId } }));
   }
 
   /** Σ of refunds of a payment that still count against its captured amount. */
@@ -47,7 +37,7 @@ export class RefundsRepository {
   }
 
   async create(tx: Tx, data: Prisma.RefundUncheckedCreateInput): Promise<RefundRow> {
-    return (await tx.refund.create({ data }));
+    return await tx.refund.create({ data });
   }
 
   async lock(tx: Tx, id: string): Promise<RefundRow | null> {
@@ -58,10 +48,10 @@ export class RefundsRepository {
 
   async update(id: string, data: Prisma.RefundUncheckedUpdateInput, tx?: Tx): Promise<RefundRow> {
     try {
-      return (await (tx ?? this.db).refund.update({
+      return await (tx ?? this.db).refund.update({
         where: { id },
         data: { ...data, version: { increment: 1 } },
-      }));
+      });
     } catch (error) {
       if (isUniqueViolation(error))
         throw new Error('providerRefundId already linked to a refund', { cause: error });

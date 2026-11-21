@@ -29,6 +29,9 @@ type Deps = Pick<
 const STALL_MS = 60_000;
 /** A fan-out without progress for a day is given up (EXPIRED). */
 const STUCK_MS = 24 * 60 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
+/** Routine CONTENT pushes per user per rolling 24 h (then inbox only). */
+export const CONTENT_DAILY_CAP = 3;
 
 export class NotificationsService {
   constructor(private readonly deps: Deps) {}
@@ -197,6 +200,20 @@ export class NotificationsService {
       external,
       tx,
     );
+    // Routine content (news, INFO alerts) stops pushing after CONTENT_DAILY_CAP per user per
+    // 24 h; it still lands in the inbox. HIGH / CRITICAL (alerts, withdrawals) are never capped.
+    if (
+      header.category === 'CONTENT' &&
+      (header.priority === 'LOW' || header.priority === 'NORMAL')
+    ) {
+      const capped = await notificationsRepository.contentCapReached(
+        tx,
+        fresh,
+        new Date(Date.now() - DAY_MS),
+        CONTENT_DAILY_CAP,
+      );
+      for (const userId of capped) channelsByUser.set(userId, []);
+    }
     const now = new Date();
     const recipients = fresh.map((userId) => ({ id: uuidv7(), userId }));
     const deliveries = recipients.flatMap((r) =>

@@ -23,6 +23,7 @@ export const CONFIGURABLE_CATEGORIES: readonly NotificationCategory[] = [
   'ACCOUNT',
   'PROMO',
   'SYSTEM',
+  'CONTENT',
 ];
 
 export const allowedChannels = (

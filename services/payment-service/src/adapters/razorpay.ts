@@ -115,7 +115,9 @@ export class RazorpayGateway implements PaymentGateway {
   }
 
   async fetchPayment(paymentId: string) {
-    return toPayment(await this.call<RzpPayment>('GET', `/payments/${encodeURIComponent(paymentId)}`));
+    return toPayment(
+      await this.call<RzpPayment>('GET', `/payments/${encodeURIComponent(paymentId)}`),
+    );
   }
 
   async fetchOrderPayments(orderId: string) {
@@ -126,14 +128,23 @@ export class RazorpayGateway implements PaymentGateway {
     return res.items.map(toPayment);
   }
 
-  async refund(input: { paymentId: string; amountPaise: number; refundId: string; receipt: string }) {
+  async refund(input: {
+    paymentId: string;
+    amountPaise: number;
+    refundId: string;
+    receipt: string;
+  }) {
     return toRefund(
-      await this.call<RzpRefund>('POST', `/payments/${encodeURIComponent(input.paymentId)}/refund`, {
-        amount: input.amountPaise,
-        speed: 'normal',
-        receipt: input.receipt.slice(0, 40),
-        notes: { refundId: input.refundId },
-      }),
+      await this.call<RzpRefund>(
+        'POST',
+        `/payments/${encodeURIComponent(input.paymentId)}/refund`,
+        {
+          amount: input.amountPaise,
+          speed: 'normal',
+          receipt: input.receipt.slice(0, 40),
+          notes: { refundId: input.refundId },
+        },
+      ),
     );
   }
 

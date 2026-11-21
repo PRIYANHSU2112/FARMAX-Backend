@@ -16,7 +16,7 @@ interface CategoryRow {
   isActive: boolean;
 }
 /** Shape of catalog-service's cached brand snapshot rows (catalogKeys.brands(): active only). */
-interface BrandRow {
+export interface BrandRow {
   id: string;
   name: string;
   slug: string;

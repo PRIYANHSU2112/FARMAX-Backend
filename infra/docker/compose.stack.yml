@@ -1,4 +1,4 @@
-# FarmX full stack in Docker: infrastructure + one-shot migrations + all 10 services.
+# FarmX full stack in Docker: infrastructure + one-shot migrations + all services.
 #
 #   pnpm docker:up       # build images, start everything, wait until every container is healthy
 #   pnpm docker:down     # stop (data kept)        pnpm docker:logs   # follow all logs
@@ -35,6 +35,9 @@ x-env: &env
   INVENTORY_SERVICE_URL: http://inventory-service:3008
   PAYMENT_SERVICE_URL: http://payment-service:3009
   NOTIFICATION_SERVICE_URL: http://notification-service:3010
+  CALL_SERVICE_URL: http://call-service:3011
+  WALLET_SERVICE_URL: http://wallet-service:3012
+  SUPPORT_SERVICE_URL: http://support-service:3013
 
 x-service: &service
   env_file: ../../.env
@@ -208,6 +211,9 @@ services:
       inventory-service: { condition: service_healthy }
       payment-service: { condition: service_healthy }
       notification-service: { condition: service_healthy }
+      call-service: { condition: service_healthy }
+      wallet-service: { condition: service_healthy }
+      support-service: { condition: service_healthy }
     healthcheck:
       <<: *health
       test:
@@ -279,4 +285,67 @@ services:
           'node',
           '-e',
           "fetch('http://127.0.0.1:3010/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  call-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: call-service } }
+    image: farmx/call-service:local
+    # TELEPHONY_PROVIDER comes from the root .env (mock by default; refused in prod).
+    environment: { <<: *env, CALL_SERVICE_PORT: 3011 }
+    # Outbox relay (RabbitMQ) + BullMQ jobs (redis-queue); product / farm over /internal HTTP.
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3011/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  wallet-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: wallet-service } }
+    image: farmx/wallet-service:local
+    environment: { <<: *env, WALLET_SERVICE_PORT: 3012 }
+    # Outbox relay + payment.topup_* consumer (RabbitMQ), BullMQ reconcile job (redis-queue),
+    # payment-service over /internal HTTP. Balances live in Postgres only (D-54).
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3012/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  support-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: support-service } }
+    image: farmx/support-service:local
+    environment: { <<: *env, SUPPORT_SERVICE_PORT: 3013 }
+    # Tickets + live chat (WebSocket on /support/chat/ws, Redis pub/sub fan-out across replicas),
+    # outbox relay + auth user-lifecycle consumer (RabbitMQ), SLA / auto-close sweeps (redis-queue).
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3013/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
         ]

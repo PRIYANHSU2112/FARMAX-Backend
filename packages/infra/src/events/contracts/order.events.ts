@@ -102,6 +102,11 @@ export interface OrderDeliveredV1 {
   deliveredAt: string;
   /** Delivered (not cancelled / returned) lines. */
   lines: { lineNo: number; variantId: string; productId: string; qty: number }[];
+  /**
+   * Money the buyer finally paid for this order (captured − refunded so far), integer paise.
+   * Reward points are earned on it (wallet-service, D-54). Producer: F1 shipments.
+   */
+  netPaidPaise: number;
 }
 
 export interface OrderEventMap {

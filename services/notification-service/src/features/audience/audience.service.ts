@@ -1,6 +1,7 @@
 import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 
+import type { ContentAudienceScope } from '../../adapters/farm-directory.js';
 import type { NotificationApp, NotificationAudience } from '../../domain.js';
 import {
   APP_USER_TYPE,
@@ -13,7 +14,7 @@ import {
 /** Recipients created per transaction (inline in the consumer, or per fan-out page). */
 export const PAGE_SIZE = 500;
 
-type Deps = Pick<Cradle, 'audienceRepository' | 'authDirectory'>;
+type Deps = Pick<Cradle, 'audienceRepository' | 'authDirectory' | 'farmDirectory'>;
 
 /**
  * Turns an audience into user ids. Explicit user lists resolve inline (no I/O). Staff and
@@ -66,6 +67,15 @@ export class AudienceService {
         );
         return { userIds: page.ids, nextCursor: page.nextCursor };
       }
+      case 'farmContent': {
+        const page = await this.deps.farmDirectory.contentAudience(
+          spec.contentId,
+          spec.scope,
+          cursor,
+          PAGE_SIZE,
+        );
+        return { userIds: page.ids, nextCursor: page.nextCursor };
+      }
     }
   }
 }
@@ -84,11 +94,22 @@ export const toColumns = (spec: AudienceSpec): AudienceColumns => {
       };
     case 'app':
       return { audienceType: 'APP', audience: {} };
+    case 'farmContent':
+      return {
+        audienceType: 'FARM_CONTENT',
+        audience: { contentId: spec.contentId, scope: spec.scope },
+      };
   }
 };
 
 export const fromColumns = (type: NotificationAudience, audience: unknown): AudienceSpec => {
-  const a = (audience ?? {}) as { userIds?: string[]; permission?: string; warehouseId?: string };
+  const a = (audience ?? {}) as {
+    userIds?: string[];
+    permission?: string;
+    warehouseId?: string;
+    contentId?: string;
+    scope?: ContentAudienceScope;
+  };
   switch (type) {
     case 'USER':
     case 'USERS':
@@ -97,5 +118,7 @@ export const fromColumns = (type: NotificationAudience, audience: unknown): Audi
       return { kind: 'permission', permission: a.permission ?? '', warehouseId: a.warehouseId };
     case 'APP':
       return { kind: 'app' };
+    case 'FARM_CONTENT':
+      return { kind: 'farmContent', contentId: a.contentId ?? '', scope: a.scope ?? 'segment' };
   }
 };

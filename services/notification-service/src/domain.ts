@@ -16,6 +16,7 @@ export const CATEGORIES = [
   'SECURITY',
   'PROMO',
   'SYSTEM',
+  'CONTENT',
 ] as const;
 export type NotificationCategory = (typeof CATEGORIES)[number];
 
@@ -25,7 +26,7 @@ export type NotificationPriority = (typeof PRIORITIES)[number];
 export const CHANNELS = ['IN_APP', 'PUSH', 'EMAIL', 'SMS'] as const;
 export type NotificationChannel = (typeof CHANNELS)[number];
 
-export type NotificationAudience = 'USER' | 'USERS' | 'PERMISSION' | 'APP';
+export type NotificationAudience = 'USER' | 'USERS' | 'PERMISSION' | 'APP' | 'FARM_CONTENT';
 
 export type NotificationStatus = 'SCHEDULED' | 'PROCESSING' | 'SENT' | 'CANCELLED' | 'EXPIRED';
 

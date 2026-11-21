@@ -10,6 +10,7 @@ import type {
   AdminListQuery,
   CreateProductInput,
   MediaInput,
+  ProductFilterQuery,
   PublicListQuery,
   UpdateMediaInput,
   UpdateProductInput,
@@ -32,6 +33,19 @@ interface Reason {
   reason: string;
 }
 
+type One = string | string[] | undefined;
+
+/** Repeatable filters (`?species=a&species=b` or `?species=a`) always reach the service as arrays. */
+const asArrays = <Q extends ProductFilterQuery>(q: Q): Q => ({
+  ...q,
+  brandId: toArray(q.brandId as One),
+  species: toArray(q.species as One),
+  route: toArray(q.route as One),
+  flockStage: toArray(q.flockStage as One),
+  diseaseId: toArray(q.diseaseId as One),
+  diseaseSlug: toArray(q.diseaseSlug as One),
+});
+
 /** HTTP only: read the request, call the service, shape the response. */
 export class ProductsController {
   private readonly productsService: Cradle['productsService'];
@@ -48,14 +62,9 @@ export class ProductsController {
   // ── Storefront ──
 
   async publicList(request: Req<{ Querystring: PublicListQuery }>, reply: FastifyReply) {
-    const q = request.query;
-    const query: PublicListQuery = {
-      ...q,
-      brandId: toArray(q.brandId as string | string[] | undefined),
-      species: toArray(q.species as string | string[] | undefined),
-      route: toArray(q.route as string | string[] | undefined),
-    };
-    return sendConditional(request, reply, paginated(await this.storefrontService.list(query)));
+    const page = await this.storefrontService.list(asArrays(request.query));
+    const body = paginated(page);
+    return sendConditional(request, reply, { ...body, meta: { ...body.meta, total: page.total } });
   }
 
   async publicDetail(request: Req<{ Params: { slugOrId: string } }>, reply: FastifyReply) {
@@ -74,11 +83,11 @@ export class ProductsController {
     );
   }
 
-  async filters(request: Req<{ Querystring: { categoryId?: string } }>, reply: FastifyReply) {
+  async filters(request: Req<{ Querystring: ProductFilterQuery }>, reply: FastifyReply) {
     return sendConditional(
       request,
       reply,
-      ok(await this.storefrontService.filters(request.query.categoryId)),
+      ok(await this.storefrontService.filters(asArrays(request.query))),
     );
   }
 

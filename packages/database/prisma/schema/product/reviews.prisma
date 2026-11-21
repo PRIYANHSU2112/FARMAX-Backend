@@ -44,37 +44,37 @@ model ReviewEligibility {
 }
 
 model ProductReview {
-  id                String       @id @default(uuid(7)) @db.Uuid
-  productId         String       @db.Uuid
-  variantId         String       @db.Uuid
-  orderId           String       @db.Uuid
-  userId            String       @db.Uuid
+  id                String                   @id @default(uuid(7)) @db.Uuid
+  productId         String                   @db.Uuid
+  variantId         String                   @db.Uuid
+  orderId           String                   @db.Uuid
+  userId            String                   @db.Uuid
   /// Masked snapshot, e.g. "Ramesh K." (never the full name or contact).
-  authorName        String       @db.VarChar(60)
-  rating            Int          @db.SmallInt
-  title             String?      @db.VarChar(120)
-  body              String?      @db.VarChar(2000)
+  authorName        String                   @db.VarChar(60)
+  rating            Int                      @db.SmallInt
+  title             String?                  @db.VarChar(120)
+  body              String?                  @db.VarChar(2000)
   /// [{ mediaId, url }] — at most 5, media-service URLs only.
-  images            Json         @default("[]")
-  hasImages         Boolean      @default(false)
+  images            Json                     @default("[]")
+  hasImages         Boolean                  @default(false)
   status            ReviewStatus
   /// Auto-moderation reasons (LINK, PHONE, EMAIL, BANNED_WORD, SHOUTING, REPEATED, IMAGES, REPORTS).
-  flags             String[]     @default([])
-  moderationReason  String?      @db.VarChar(500)
-  helpfulCount      Int          @default(0)
-  reportCount       Int          @default(0)
-  openReportCount   Int          @default(0)
-  editCount         Int          @default(0) @db.SmallInt
+  flags             String[]                 @default([])
+  moderationReason  String?                  @db.VarChar(500)
+  helpfulCount      Int                      @default(0)
+  reportCount       Int                      @default(0)
+  openReportCount   Int                      @default(0)
+  editCount         Int                      @default(0) @db.SmallInt
   publishedAt       DateTime?
-  moderatedByUserId String?      @db.Uuid
+  moderatedByUserId String?                  @db.Uuid
   moderatedAt       DateTime?
-  version           Int          @default(0)
+  version           Int                      @default(0)
   /// title + body + authorName (service-maintained) for admin search.
-  searchText        String       @default("")
+  searchText        String                   @default("")
   /// GENERATED ALWAYS AS to_tsvector('simple', searchText) STORED (migration SQL).
   searchVector      Unsupported("tsvector")?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   deletedAt         DateTime?
 
   votes   ReviewVote[]

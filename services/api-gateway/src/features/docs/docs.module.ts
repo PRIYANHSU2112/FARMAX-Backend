@@ -72,6 +72,27 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     summary:
       'Notifications: in-app inbox + live SSE, push (FCM), email, SMS, preferences, devices; staff send, templates, delivery DLQ, analytics',
   },
+  {
+    service: 'call-service',
+    baseUrl: config.CALL_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Book a Sales Call: recommended expert, pooled availability, slot holds, bookings, consents, call journey, expert queue, admin',
+  },
+  {
+    service: 'wallet-service',
+    baseUrl: config.WALLET_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Closed-loop customer wallet + reward points on double-entry PostgreSQL ledgers: Add Money, points, conversion',
+  },
+  {
+    service: 'support-service',
+    baseUrl: config.SUPPORT_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Help & Support for all apps: priority tickets with SLA, live chat (WebSocket), FAQ, legal pages, agent queue',
+  },
 ];
 
 /**

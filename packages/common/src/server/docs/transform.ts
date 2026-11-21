@@ -35,6 +35,9 @@ const toJsonSchema = (schema: unknown, registry: ComponentRegistry): unknown => 
 const envelope = (spec: JsonObject, registry: ComponentRegistry): JsonObject => {
   const data = spec.data === undefined ? {} : toJsonSchema(spec.data, registry);
   const paginated = spec.paginated === true;
+  const pageMeta = { $ref: '#/components/schemas/PaginationMeta' };
+  const meta =
+    spec.meta === undefined ? pageMeta : { allOf: [pageMeta, toJsonSchema(spec.meta, registry)] };
   return {
     description: spec.description,
     type: 'object',
@@ -42,11 +45,31 @@ const envelope = (spec: JsonObject, registry: ComponentRegistry): JsonObject => 
     properties: {
       success: { type: 'boolean', enum: [true] },
       data: paginated ? { type: 'array', items: data } : data,
-      ...(paginated ? { meta: { $ref: '#/components/schemas/PaginationMeta' } } : {}),
+      ...(paginated ? { meta } : {}),
     },
     ...(spec.example === undefined ? {} : { example: spec.example }),
     ...(spec.headers === undefined ? {} : { headers: spec.headers }),
   };
+};
+
+/**
+ * Repeatable query params (`Joi.alternatives().try(Joi.array().items(X), X)`) convert to
+ * `anyOf: [array, scalar]`, which Swagger UI cannot edit. Documented as the array alone
+ * (form / explode: `?a=1&a=2`; a single `?a=1` is valid too). The param's description and example
+ * (set on the alternatives) are kept.
+ */
+const repeatableAsArrays = (query: JsonObject): JsonObject => {
+  if (!isObject(query.properties)) return query;
+  const properties = Object.fromEntries(
+    Object.entries(query.properties).map(([name, prop]) => {
+      if (!isObject(prop) || !Array.isArray(prop.anyOf)) return [name, prop];
+      const array = (prop.anyOf as unknown[]).find((s) => isObject(s) && s.type === 'array');
+      if (!isObject(array) || prop.anyOf.length !== 2) return [name, prop];
+      const rest = Object.fromEntries(Object.entries(prop).filter(([key]) => key !== 'anyOf'));
+      return [name, { ...array, ...rest }];
+    }),
+  );
+  return { ...query, properties };
 };
 
 /** Merges doc-only request headers into the (converted) `headers` JSON schema. */
@@ -75,6 +98,8 @@ export const createDocsTransform =
     for (const part of REQUEST_PARTS) {
       if (part in schema) converted[part] = toJsonSchema(schema[part], registry);
     }
+    if (isObject(converted.querystring))
+      converted.querystring = repeatableAsArrays(converted.querystring);
 
     const docHeaders = schema[HEADERS_KEY];
     if (isObject(docHeaders)) {

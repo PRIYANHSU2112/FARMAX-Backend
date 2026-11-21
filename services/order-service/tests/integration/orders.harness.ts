@@ -61,7 +61,10 @@ export const inventory = {
 export const payments = new Map<string, string>();
 export const payment = {
   live: 'PENDING',
-  createForOrder(input: { orderId: string; amountPaise: number; expiresAt: Date }) {
+  /** `method` of each createForOrder call, by order id. */
+  methods: new Map<string, string>(),
+  createForOrder(input: { orderId: string; amountPaise: number; expiresAt: Date; method: string }) {
+    this.methods.set(input.orderId, input.method);
     const paymentId = payments.get(input.orderId) ?? randomUUID();
     payments.set(input.orderId, paymentId);
     return Promise.resolve({
@@ -79,6 +82,16 @@ export const payment = {
   },
   liveStatus(id: string) {
     return Promise.resolve({ id, status: this.live, capturedPaise: 0 });
+  },
+};
+/** wallet-service balance pre-check (D-54): set a customer's balance / status per test. */
+export const wallet = {
+  balances: new Map<string, { balancePaise: number; status: 'ACTIVE' | 'FROZEN' }>(),
+  balance(userId: string) {
+    return Promise.resolve({
+      userId,
+      ...(this.balances.get(userId) ?? { balancePaise: 0, status: 'ACTIVE' as const }),
+    });
   },
 };
 export const address = {
@@ -205,6 +218,7 @@ export const buyerWithCart = async (qty = 2) => {
 export const checkout = (
   b: { user: string; farmId: string; addressId: string; cartVersion: number },
   idem = `chk-${randomUUID()}`,
+  paymentMethod: 'ONLINE' | 'WALLET' = 'ONLINE',
 ) =>
   call('POST', '/orders/checkout', {
     user: b.user,
@@ -214,6 +228,7 @@ export const checkout = (
       addressId: b.addressId,
       cartVersion: b.cartVersion,
       billToGst: false,
+      paymentMethod,
     },
   });
 
@@ -281,6 +296,7 @@ export async function startOrdersApp(env: Record<string, string> = {}): Promise<
     }),
     inventoryClient: asValue(inventory as never),
     paymentClient: asValue(payment as never),
+    walletClient: asValue(wallet as never),
     addressClient: asValue(address as never),
   });
   await app.ready();

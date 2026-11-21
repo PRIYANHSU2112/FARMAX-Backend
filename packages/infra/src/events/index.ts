@@ -11,3 +11,5 @@ export * from './contracts/inventory.events.js';
 export * from './contracts/order.events.js';
 export * from './contracts/payment.events.js';
 export * from './contracts/pricing.events.js';
+export * from './contracts/wallet.events.js';
+export * from './contracts/support.events.js';

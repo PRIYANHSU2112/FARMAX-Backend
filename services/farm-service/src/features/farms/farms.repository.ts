@@ -19,7 +19,9 @@ import type {
   FarmView,
   InvoiceNameSource,
   KycStatus,
+  OwnerSegment,
   ProductionType,
+  ReaderContext,
 } from './farms.types.js';
 
 /** One SELECT for a full view: farm + capacities + owner (same feature → relations allowed). */
@@ -552,5 +554,57 @@ export class FarmsRepository {
       WHERE f."id" IN (SELECT "id" FROM cand) AND f."id" <> ${farmId}::uuid
       LIMIT 10`;
     return rows;
+  }
+
+  // ── Content feature (reader context + push audience) ──
+
+  /**
+   * Targeting facts of a reader's farm: the given farm (must be theirs) or their most recently
+   * activated live farm. Coordinates stay server-side (distance buckets only).
+   */
+  async readerContext(userId: string, farmId?: string): Promise<ReaderContext | null> {
+    const row = await withPrismaErrors(() =>
+      this.db.farm.findFirst({
+        where: {
+          owner: { userId },
+          deletedAt: null,
+          ...(farmId === undefined
+            ? { status: { in: ['ACTIVE', 'UNDER_REVIEW', 'NEEDS_ATTENTION'] } }
+            : { id: farmId }),
+        },
+        orderBy: [{ activatedAt: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+        select: { territoryCode: true, productionTypes: true, latitude: true, longitude: true },
+      }),
+    );
+    if (row === null) return null;
+    return {
+      territoryCode: row.territoryCode,
+      productionTypes: [...row.productionTypes].sort(),
+      lat: row.latitude?.toNumber() ?? null,
+      lng: row.longitude?.toNumber() ?? null,
+    };
+  }
+
+  /** One keyset page (by user id) of owners with an ACTIVE farm in the segment (empty = any). */
+  async segmentOwnerIds(
+    segment: OwnerSegment,
+    after: string | null,
+    limit: number,
+  ): Promise<string[]> {
+    const rows = await withPrismaErrors(
+      () =>
+        this.db.$queryRaw<{ userId: string }[]>`
+        SELECT DISTINCT o."userId"::text AS "userId"
+        FROM "farms" f JOIN "farm_owners" o ON o."id" = f."ownerId"
+        WHERE f."status" = 'ACTIVE' AND f."deletedAt" IS NULL AND o."deletedAt" IS NULL
+          AND (cardinality(${segment.territoryCodes}::text[]) = 0
+               OR f."territoryCode" = ANY(${segment.territoryCodes}::text[]))
+          AND (cardinality(${segment.productionTypes}::text[]) = 0
+               OR f."productionTypes" && ${segment.productionTypes}::text[]::"ProductionType"[])
+          AND (${after}::uuid IS NULL OR o."userId" > ${after}::uuid)
+        ORDER BY 1
+        LIMIT ${limit}`,
+    );
+    return rows.map((r) => r.userId);
   }
 }

@@ -17,7 +17,7 @@ const notification = Joi.object({
   app: Joi.string().valid(...APPS),
   category: Joi.string().valid(...CATEGORIES),
   priority: Joi.string().valid(...PRIORITIES),
-  audienceType: Joi.string().valid('USER', 'USERS', 'PERMISSION', 'APP'),
+  audienceType: Joi.string().valid('USER', 'USERS', 'PERMISSION', 'APP', 'FARM_CONTENT'),
   audience: Joi.object().unknown(true).description('{userIds} | {permission, warehouseId} | {}'),
   channels: Joi.array().items(Joi.string().valid(...CHANNELS)),
   templateKey: Joi.string(),

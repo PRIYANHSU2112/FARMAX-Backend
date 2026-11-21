@@ -12,6 +12,7 @@ export interface OrderSummaryView {
   orderNo: string;
   status: string;
   failureCode: string | null;
+  paymentMethod: string;
   paymentStatus: string;
   stockStatus: string;
   refundStatus: string;
@@ -92,6 +93,7 @@ export const toSummary = (o: OrderWithLines): OrderSummaryView => ({
   orderNo: o.orderNo,
   status: o.status,
   failureCode: o.failureCode,
+  paymentMethod: o.paymentMethod,
   paymentStatus: o.paymentStatus,
   stockStatus: o.stockStatus,
   refundStatus: o.refundStatus,

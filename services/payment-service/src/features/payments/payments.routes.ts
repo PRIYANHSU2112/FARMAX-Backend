@@ -4,11 +4,18 @@ import { routeDocs } from '@farmx/common/server';
 import type { AuthUser } from '@farmx/common/types';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
-import { admin, adminWrite, customerWrite, internalGuard, requireCustomer } from '../../middleware/guards.js';
+import {
+  admin,
+  adminWrite,
+  customerWrite,
+  internalGuard,
+  requireCustomer,
+} from '../../middleware/guards.js';
 import { actorOf } from '../audit/index.js';
 import { PAYMENT_DOCS } from './payments.docs.js';
 import {
   type CreatePaymentInput,
+  type CreateTopupPaymentInput,
   type MockPayInput,
   type PaymentListQuery,
   type VerifyInput,
@@ -17,6 +24,7 @@ import {
 import {
   cancelSchema,
   createPaymentSchema,
+  createTopupPaymentSchema,
   getPaymentSchema,
   listPaymentsSchema,
   mockPaySchema,
@@ -37,7 +45,10 @@ const userOf = (req: FastifyRequest): AuthUser => {
 export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: IdParams }>(
     '/:id',
-    { schema: { ...getPaymentSchema, ...routeDocs(PAYMENT_DOCS.get) }, preHandler: requireCustomer },
+    {
+      schema: { ...getPaymentSchema, ...routeDocs(PAYMENT_DOCS.get) },
+      preHandler: requireCustomer,
+    },
     async (req) => ok(await svc(req).getForUser(userOf(req), req.params.id)),
   );
   app.post<{ Params: IdParams; Body: VerifyInput }>(
@@ -109,7 +120,8 @@ export const paymentsAdminRoutes: FastifyPluginAsync = async (app) => {
 
 /**
  * Mounted at `/internal/payments` (service token; never routed by the gateway; not in Swagger).
- * Called by order-service checkout ("create / reuse"), order timeout ("live status") and cancel.
+ * Called by order-service checkout ("create / reuse"), order timeout ("live status") and cancel,
+ * and by wallet-service (top-up payment, live status).
  */
 export const paymentsInternalRoutes: FastifyPluginAsync = async (app) => {
   const guard = internalGuard(app);
@@ -119,6 +131,11 @@ export const paymentsInternalRoutes: FastifyPluginAsync = async (app) => {
     '/',
     { schema: { hide: true, ...createPaymentSchema }, onRequest: [guard] },
     async (req) => ok(await svc(req).createForOrder(req.body)),
+  );
+  app.post<{ Body: CreateTopupPaymentInput }>(
+    '/topups',
+    { schema: { hide: true, ...createTopupPaymentSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).createForTopup(req.body)),
   );
   app.get<{ Params: IdParams }>(
     '/:id',

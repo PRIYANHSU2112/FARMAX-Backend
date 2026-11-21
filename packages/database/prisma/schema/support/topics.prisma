@@ -1,0 +1,79 @@
+// support-service feature: topics. Ticket topics per app, dynamic priority rules and SLA policies.
+
+enum SupportPriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+/// Queue a ticket is routed to (escalation moves it, e.g. SUPPORT → VET).
+enum SupportTeam {
+  SUPPORT
+  VET
+  LOGISTICS
+  FINANCE
+  QUALITY
+  WAREHOUSE
+}
+
+model SupportTopic {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  app             SupportApp
+  code            String          @db.VarChar(40)
+  label           String          @db.VarChar(80)
+  description     String?         @db.VarChar(200)
+  icon            String?         @db.VarChar(40)
+  sortOrder       Int             @default(0)
+  defaultPriority SupportPriority @default(MEDIUM)
+  team            SupportTeam     @default(SUPPORT)
+  requiresOrder   Boolean         @default(false)
+  allowsEvidence  Boolean         @default(true)
+  /// Shown in "Common Issues" on the Help & Support home.
+  isCommonIssue   Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([app, code])
+  @@map("support_topics")
+}
+
+/// Evaluated in sortOrder; the first match sets priority + reason (+ team). No match → topic default.
+model SupportPriorityRule {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  name        String          @db.VarChar(80)
+  /// null = any app / any topic.
+  app         SupportApp?
+  topicCode   String?         @db.VarChar(40)
+  /// { productTags?: string[], temperatureClasses?: string[], minOrderAmount?: number,
+  ///   keywords?: string[], requesterTypes?: string[] } — every present condition must hold.
+  conditions  Json
+  priority    SupportPriority
+  /// Shown with the priority, e.g. "cold chain".
+  reasonLabel String          @db.VarChar(40)
+  team        SupportTeam?
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("support_priority_rules")
+}
+
+model SupportSlaPolicy {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  app               SupportApp
+  priority          SupportPriority
+  /// Required when businessHoursOnly; null = 24×7.
+  calendarId        String?         @db.Uuid
+  firstResponseMins Int
+  resolveMins       Int
+  /// false = wall-clock minutes (24×7).
+  businessHoursOnly Boolean         @default(true)
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([app, priority])
+  @@map("support_sla_policies")
+}

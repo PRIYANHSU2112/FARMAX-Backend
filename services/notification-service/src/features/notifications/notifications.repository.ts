@@ -73,6 +73,25 @@ export class NotificationsRepository {
     return new Set(rows.map((row) => row.userId));
   }
 
+  /**
+   * Users (of `userIds`) who already received at least `cap` CONTENT notifications since `since`
+   * (inbox rows; one grouped query per fan-out page).
+   */
+  async contentCapReached(
+    tx: Tx,
+    userIds: readonly string[],
+    since: Date,
+    cap: number,
+  ): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const rows = await tx.notificationRecipient.groupBy({
+      by: ['userId'],
+      where: { userId: { in: [...userIds] }, category: 'CONTENT', createdAt: { gte: since } },
+      _count: { _all: true },
+    });
+    return new Set(rows.filter((r) => r._count._all >= cap).map((r) => r.userId));
+  }
+
   async insertRecipients(
     tx: Tx,
     rows: Prisma.NotificationRecipientCreateManyInput[],

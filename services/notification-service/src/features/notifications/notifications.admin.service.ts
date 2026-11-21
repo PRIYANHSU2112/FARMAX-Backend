@@ -241,5 +241,10 @@ const toSpec = (input: SendInput): AudienceSpec => {
       };
     case 'APP':
       return { kind: 'app' };
+    case 'FARM_CONTENT':
+      // Event-only (farm-service content pushes); never an admin send.
+      throw new ValidationError([
+        { path: 'audience.type', message: 'FARM_CONTENT audiences come from content events only' },
+      ]);
   }
 };

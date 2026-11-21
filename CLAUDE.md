@@ -47,7 +47,7 @@
 - Ads · liquidation · leads (Book a Sales Call) · content/news · support tickets · notifications ·
   reports/audit · finance/GST.
 - **Built today:** see `docs/PROGRESS.md` (auth, media, farm, catalog, product, user, order,
-  inventory, payment and notification services).
+  inventory, payment, notification, call and wallet services).
 
 ## Tech stack
 
@@ -74,7 +74,7 @@ services/<svc>/tests/{unit,integration}     services/_template = copy for a new 
                     services: api-gateway :3000 · auth-service :3001 · media-service :3002 · farm-service :3003
                     · catalog-service :3004 · product-service :3005 · user-service :3006
                     · order-service :3007 · inventory-service :3008 · payment-service :3009
-                    · notification-service :3010
+                    · notification-service :3010 · call-service :3011 · wallet-service :3012
 infra/docker        compose.yml (+ compose.prod.yml)     docs/ · implementation-plan/
 ```
 
@@ -144,6 +144,8 @@ API docs (all services, one page): `http://localhost:3000/api-docs` · spec: `ht
 - `docs/architecture.md` · `docs/decisions.md` · `docs/event-contracts.md` · `implementation-plan/`.
 - `docs/notifications/`: notification-service (D-46): architecture, consumed events, app
   integration guide, monitoring.
+- `docs/wallet/`: wallet-service (D-54): closed-loop wallet + reward points, app integration,
+  guarantees, jobs, staff console, deploy checklist (`infra/sql/wallet-roles.sql`), runbook.
 - `docs/oms/`: approved order-management + payment-service design (D-34…D-45; admin-confirmed
   orders, recovery playbook, refund lifecycles). Build order P1 inventory → P2 payment → P3 orders → P4 admin.
 

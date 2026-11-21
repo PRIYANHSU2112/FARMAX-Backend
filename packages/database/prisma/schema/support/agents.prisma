@@ -1,0 +1,36 @@
+// support-service feature: agents. Who works the queue, their load (auto-assign picks the least
+// loaded accepting agent with FOR UPDATE SKIP LOCKED) and canned replies.
+
+model SupportAgent {
+  userId         String        @id @db.Uuid
+  displayName    String        @db.VarChar(120)
+  teams          SupportTeam[]
+  apps           SupportApp[]
+  maxConcurrent  Int           @default(8)
+  /// Agent toggle "accepting new chats" (auto-assign only picks these).
+  acceptingChats Boolean       @default(false)
+  /// Open tickets assigned (maintained in the same transaction as every assignment change).
+  openCount      Int           @default(0)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([isActive, acceptingChats, openCount])
+  @@map("support_agents")
+}
+
+model SupportCannedReply {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  /// null = every app / topic.
+  app       SupportApp?
+  topicCode String?     @db.VarChar(40)
+  title     String      @db.VarChar(80)
+  body      String      @db.VarChar(2000)
+  isActive  Boolean     @default(true)
+  createdBy String      @db.Uuid
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([isActive, app])
+  @@map("support_canned_replies")
+}

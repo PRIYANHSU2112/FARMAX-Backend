@@ -108,6 +108,17 @@ Rows are written to `outbox_events` in the same transaction (relay pending, Phas
 
 `farm.facts_changed.v1` is a full snapshot (the farm row `version` after the write), so a read model never has to call farm-service back. Consumer: order-service.
 
+**Content events** (feature `content`, D-50). No coordinates, farm ids or reader ids; readers are
+resolved by the consumer through `GET /internal/farms/content/:id/audience?scope=segment|savers|both`
+(keyset pages of user ids). Every payload carries `contentId`, `contentVersion`, `kind`, `severity`,
+`title`, `placeLabel`.
+
+| Event                  | When                                               | Extra payload                | Consumer audience                     |
+| ---------------------- | -------------------------------------------------- | ---------------------------- | ------------------------------------- |
+| `content.published.v1` | An item goes live with `notify` (ALERT default)    | `summary`                    | target segment                        |
+| `content.corrected.v1` | An approved correction is applied with `notify`    | `correctionNote`             | segment + savers                      |
+| `content.retracted.v1` | A live / ended item is withdrawn as wrong (always) | `retractNote`, `wasNotified` | savers (+ segment when `wasNotified`) |
+
 Expected consumers: notification (pass, review and attention messages), loyalty, order, pricing
 (tonnage tiers from capacity). The `user.deleted.v1` consumer in farm-service is pending (Phase 2).
 
@@ -136,14 +147,14 @@ Consumers: inventory-service (inventory items), logistics master sync (FR-PRD-00
 
 ### Published by inventory-service (built 2026-11-21, D-33 / D-36)
 
-| Type                                 | When                                                                                                     | Data                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `inventory.availability_changed.v1`  | Network sellable quantity of a variant changed (publisher job, 2 s; deduplicated: only on a real change) | `variantId`, `availableQty`, `inStock`, `lowStock`, `sequence` (per variant) |
-| `inventory.low_stock.v1`             | A warehouse × variant **crossed down** to its reorder level (once per dip)                               | `variantId`, `warehouseId`, `availableQty`, `threshold`                      |
-| `inventory.reservation_committed.v1` | `order.paid` accepted (re-sent on a duplicate)                                                           | `reservationId`, `orderRef`, `recovered`                                     |
-| `inventory.reservation_rejected.v1`  | Late payment after expiry and the stock is gone (or nothing is held)                                     | `reservationId`, `orderRef`, `shortfall[]`                                   |
-| `inventory.reservation_released.v1`  | Stock given back (reject / cancel / fail / admin / orphan sweep)                                         | `reservationId`, `orderRef`, `scope` FULL·PARTIAL, `lines[]`                 |
-| `inventory.reservation_expired.v1`   | An ACTIVE (unpaid) hold passed its window                                                                | `reservationId`, `orderRef`                                                  |
+| Type                                 | When                                                                                                                              | Data                                                                                                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inventory.availability_changed.v1`  | Network sellable quantity of a variant changed (publisher job, 2 s; deduplicated: only on a real change, incl. a per-node change) | `variantId`, `availableQty`, `inStock`, `lowStock`, `byNode?` (`[{ nodeId, availableQty, inStock }]`, full allocatable set, D-52), `sequence` (per variant) |
+| `inventory.low_stock.v1`             | A warehouse × variant **crossed down** to its reorder level (once per dip)                                                        | `variantId`, `warehouseId`, `availableQty`, `threshold`                                                                                                     |
+| `inventory.reservation_committed.v1` | `order.paid` accepted (re-sent on a duplicate)                                                                                    | `reservationId`, `orderRef`, `recovered`                                                                                                                    |
+| `inventory.reservation_rejected.v1`  | Late payment after expiry and the stock is gone (or nothing is held)                                                              | `reservationId`, `orderRef`, `shortfall[]`                                                                                                                  |
+| `inventory.reservation_released.v1`  | Stock given back (reject / cancel / fail / admin / orphan sweep)                                                                  | `reservationId`, `orderRef`, `scope` FULL·PARTIAL, `lines[]`                                                                                                |
+| `inventory.reservation_expired.v1`   | An ACTIVE (unpaid) hold passed its window                                                                                         | `reservationId`, `orderRef`                                                                                                                                 |
 
 ### Published by payment-service (built 2026-11-22, D-37 / D-45)
 
@@ -158,6 +169,16 @@ Contracts: `packages/infra/src/events/contracts/payment.events.ts`. Money is int
 | `payment.refund_processed.v1` | Refund completed (re-sent if the same `sourceRef` is requested again)          | … + `arn`, `refundedPaise`, `capturedPaise`                                                                  |
 | `payment.refund_failed.v1`    | Retries exhausted / refused (EXCEEDS_CAPTURED, PAYMENT_NOT_CAPTURED …)         | `refundId`, `sourceRef`, `paymentId`, `orderId`, `amountPaise`, `reason`                                     |
 
+Built in W2 (2026-11-21, D-54) — wallet top-ups only (purpose WALLET_TOPUP; never sent as the order events above):
+
+| Type                        | When                                                              | Data                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payment.topup_captured.v1` | Money for a top-up captured (once per payment, also after expiry) | `paymentId`, `paymentNo`, `topupId`, `userId`, `amountPaise` (captured), `expectedPaise`, `currency`, `method`, masked `bank` / `cardLast4` / `cardNetwork` / `vpaMasked`, `providerPaymentId` |
+| `payment.topup_failed.v1`   | A top-up attempt failed (retry allowed)                           | `paymentId`, `topupId`, `userId`, `errorCode`, `errorReason`                                                                                                                                   |
+| `payment.topup_expired.v1`  | Not paid in time (after a live check)                             | `paymentId`, `topupId`, `userId`                                                                                                                                                               |
+
+Wallet checkout (W3, D-54): a WALLET payment (order paid in full from the wallet) publishes the same `payment.captured.v1` / `payment.failed.v1` / `payment.expired.v1` with `method: "wallet"` (failure `errorCode` `INSUFFICIENT_WALLET_BALANCE` / `WALLET_FROZEN`); its refunds publish `payment.refund_*` with `arn` = wallet journal number.
+
 ### Consumed by payment-service
 
 Queue `payment-service.events`: `order.refund_requested.v1` → refund (unique `sourceRef`; FAILED_FINAL + same sourceRef = retry); `order.rejected.v1` / `order.cancelled.v1` / `order.failed.v1` (scope FULL) → void the open payment.
@@ -168,11 +189,11 @@ Queue `inventory-service.events`: `product.variant_created.v1` / `variant_update
 
 ### Consumed by product-service
 
-| Type                                | Producer                                             | Data                                                                                                                      |
-| ----------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `inventory.availability_changed.v1` | inventory-service                                    | `variantId`, `availableQty`, `inStock`, `lowStock`, `sequence`                                                            |
-| `pricing.price_changed.v1`          | pricing-service (future)                             | `variantId`, `sellingPrice`, `currency`, `effectiveFrom`, `sequence`                                                      |
-| `order.delivered.v1`                | F1 shipments (future; contract in `order.events.ts`) | `orderId`, `orderNo`, `userId`, `deliveredAt`, `lines[{ lineNo, variantId, productId, qty }]` → review eligibility (D-49) |
+| Type                                | Producer                                             | Data                                                                                                                                                            |
+| ----------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inventory.availability_changed.v1` | inventory-service                                    | `variantId`, `availableQty`, `inStock`, `lowStock`, `sequence`                                                                                                  |
+| `pricing.price_changed.v1`          | pricing-service (future)                             | `variantId`, `sellingPrice`, `currency`, `effectiveFrom`, `sequence`                                                                                            |
+| `order.delivered.v1`                | F1 shipments (future; contract in `order.events.ts`) | `orderId`, `orderNo`, `userId`, `deliveredAt`, `lines[{ lineNo, variantId, productId, qty }]`, `netPaidPaise` (D-54: reward points) → review eligibility (D-49) |
 
 A projection applies an event only if its `sequence` is newer than the stored one.
 
@@ -213,6 +234,20 @@ The full list is in [`oms/06-events.md`](oms/06-events.md). It covers:
 - `inventory.reservation_committed`, `inventory.reservation_rejected`, `inventory.reservation_released`
 
 All are `.v1`. Logistics and WMS will consume `order.confirmed.v1` (not `order.paid`, unlike Logistics PRD §8.5). A delivery OTP never travels in an event.
+
+### Published by wallet-service (W1 built 2026-11-20, D-54)
+
+Contracts: `packages/infra/src/events/contracts/wallet.events.ts`. Ids and amounts only.
+
+| Type                           | When                                                                   | Data                                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `wallet.transaction_posted.v1` | A journal moved a customer wallet (once per journal, same transaction) | `journalId`, `journalNo`, `userId`, `kind`, `category`, `direction`, `amountPaise`, `balanceAfterPaise`, `refType`, `refId` |
+| `points.transaction_posted.v1` | A points journal changed a customer's points (W4)                      | `journalId`, `journalNo`, `userId`, `kind`, `deltaPts`, `availableAfter`, `pendingAfter`, `refType`, `refId`                |
+| `points.expiring_soon.v1`      | A lot's points expire within the notice window (once per lot)          | `userId`, `points`, `expiresAt`                                                                                             |
+
+### Consumed by wallet-service
+
+Queue `wallet-service.events`: `order.delivered.v1` → reward points (PENDING, needs `netPaidPaise`), `payment.refund_processed.v1` → pro-rata points reversal (once per refund), `payment.topup_captured.v1` → credit the top-up once (ledger key `topup:<id>`), `payment.topup_failed.v1` → FAILED (retry allowed), `payment.topup_expired.v1` → EXPIRED (a later capture still completes it).
 
 ### Consumed by notification-service (built 2026-11-19, D-46)
 

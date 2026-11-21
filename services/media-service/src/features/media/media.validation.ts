@@ -9,5 +9,10 @@ export const uploadSchema = {
       .valid(...MEDIA_KINDS)
       .description('Optional: expected kind. 422 when the file is something else.')
       .meta({ className: 'MediaKind' }),
+    purpose: Joi.string()
+      .valid('support')
+      .description(
+        'support = PRIVATE ticket evidence (photo / PDF up to 10 MB): no public URL; returns a signed `receipt` to send to support-service. PDFs are virus-scanned.',
+      ),
   }),
 };

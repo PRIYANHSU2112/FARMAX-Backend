@@ -4,7 +4,12 @@ import type { Cradle } from '@fastify/awilix';
 import { asClass, asFunction } from 'awilix';
 
 import type { EventHandlerMap } from '../../adapters/events.js';
-import { AddressClient, InventoryClient, PaymentClient } from '../../adapters/internal-clients.js';
+import {
+  AddressClient,
+  InventoryClient,
+  PaymentClient,
+  WalletClient,
+} from '../../adapters/internal-clients.js';
 import { ordersAdminRoutes } from './orders.admin.routes.js';
 import { OrdersAdminService } from './orders.admin.service.js';
 import { OrderCancelService } from './orders.cancel.service.js';
@@ -24,6 +29,7 @@ declare module '@fastify/awilix' {
     orderEventHandlers: EventHandlerMap;
     inventoryClient: InventoryClient;
     paymentClient: PaymentClient;
+    walletClient: WalletClient;
     addressClient: AddressClient;
   }
 }
@@ -44,6 +50,7 @@ export const ordersModule = defineModule({
       orderEventHandlers: asFunction(createOrderEventHandlers).singleton(),
       inventoryClient: client(InventoryClient),
       paymentClient: client(PaymentClient),
+      walletClient: client(WalletClient),
       addressClient: client(AddressClient),
     });
   },

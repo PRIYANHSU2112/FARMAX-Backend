@@ -32,6 +32,12 @@ const MONEY = Joi.number().positive().precision(2).max(99_999_999);
 const DAYS = Joi.number().integer().min(0).max(365).allow(null);
 const MM = Joi.number().integer().min(1).max(10_000).allow(null);
 const TEMP = Joi.number().min(-80).max(60).precision(1).allow(null);
+const STAGE_CODE = Joi.string()
+  .trim()
+  .uppercase()
+  .max(40)
+  .pattern(/^[A-Z0-9]+(?:_[A-Z0-9]+)*$/)
+  .messages({ 'string.pattern.base': 'must be a flock stage code (e.g. GROWER)' });
 
 const ingredient = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
@@ -83,7 +89,9 @@ const productFields = {
   dosageFormId: ID.allow(null),
   routeIds: Joi.array().items(ID).max(20).unique(),
   speciesIds: Joi.array().items(ID).max(20).unique(),
-  productionStages: Joi.array().items(Joi.string().trim().min(1).max(40)).max(20).unique(),
+  // FLOCK_STAGE lookup codes (checked against live, active values in the write tx).
+  productionStages: Joi.array().items(STAGE_CODE).max(20).unique(),
+  diseaseIds: Joi.array().items(ID).max(30).unique(),
   indications: LONG,
   dosageInstructions: LONG,
   contraindications: LONG,
@@ -240,12 +248,18 @@ export const deleteMediaSchema = {
 
 export const adminListSchema = {
   querystring: Joi.object({
-    q: Joi.string().trim().min(1).max(80),
-    status: Joi.string().valid(...PRODUCT_STATUSES),
-    categoryId: ID,
-    brandId: ID,
-    isActive: Joi.boolean(),
-    isFeatured: Joi.boolean(),
+    q: Joi.string()
+      .trim()
+      .min(1)
+      .max(80)
+      .description('Search name, generic name, SKU, code (admin).'),
+    status: Joi.string()
+      .valid(...PRODUCT_STATUSES)
+      .description('Lifecycle status.'),
+    categoryId: ID.description('Exact category (not its sub-categories).'),
+    brandId: ID.description('One brand.'),
+    isActive: Joi.boolean().description('Active flag (independent of status).'),
+    isFeatured: Joi.boolean().description('Featured flag.'),
     ...PAGE,
   }),
 };
@@ -256,48 +270,109 @@ export const historySchema = {
 };
 
 const CODE = Joi.string().trim().uppercase().max(40);
-const CODES = Joi.alternatives().try(Joi.array().items(CODE).max(20), CODE);
+const DISEASE_SLUG = Joi.string().lowercase().max(100);
+/** Repeatable param: `?x=a&x=b` (max 20) or a single `?x=a`; a product matches ANY value. */
+const many = (item: Joi.Schema) => Joi.alternatives().try(Joi.array().items(item).max(20), item);
 
-export const publicListSchema = {
-  querystring: Joi.object({
-    q: Joi.string().trim().min(1).max(100),
-    categoryId: ID,
-    categorySlug: Joi.string().lowercase().max(100),
-    brandId: Joi.alternatives().try(Joi.array().items(ID).max(20), ID),
-    dosageForm: CODE,
-    species: CODES,
-    route: CODES,
-    isPrescriptionRequired: Joi.boolean(),
-    temperatureClass: Joi.string().valid(...TEMPERATURE_CLASSES),
-    inStock: Joi.boolean(),
-    minPrice: Joi.number().min(0),
-    maxPrice: Joi.number().min(0),
-    minRating: Joi.number().integer().min(1).max(5),
-    isFeatured: Joi.boolean(),
-    sort: Joi.string().valid(
-      'relevance',
-      'name',
-      'price_asc',
-      'price_desc',
-      'discount',
-      'newest',
-      'rating',
+/** Filters shared by the list and its facets (`/filters` takes the same selection). */
+const LIST_FILTERS = {
+  q: Joi.string()
+    .trim()
+    .min(1)
+    .max(100)
+    .description(
+      'Search: name, generic name, molecule, brand, manufacturer, tags, product code (typo-tolerant).',
+    )
+    .example('enrofloxacin'),
+  categoryId: ID.description('Category and all its sub-categories. Not with `categorySlug`.'),
+  categorySlug: Joi.string()
+    .lowercase()
+    .max(100)
+    .description('Category by slug (and its sub-categories). Not with `categoryId`.')
+    .example('vaccines'),
+  brandId: many(ID).description(
+    '"Manufacturer" checkboxes: brand ids, repeatable (`?brandId=a&brandId=b`). Counts: `/filters` → `brands`.',
+  ),
+  dosageForm: CODE.description(
+    'DOSAGE_FORM lookup code (`GET /v1/catalog/lookups?group=DOSAGE_FORM`).',
+  ),
+  species: many(CODE)
+    .description(
+      'Species chips: SPECIES codes, repeatable (`?species=LAYER&species=BROILER`). Case-insensitive.',
+    )
+    .example(['LAYER']),
+  route: many(CODE).description('ROUTE codes, repeatable (e.g. DRINKING_WATER, EYE_DROP).'),
+  diseaseId: many(ID).description(
+    'Disease chips by id, repeatable. Not with `diseaseSlug`. Inactive / deleted ids never match.',
+  ),
+  diseaseSlug: many(DISEASE_SLUG)
+    .description(
+      'Disease chips / Shop by Problem by slug, repeatable (`?diseaseSlug=newcastle&diseaseSlug=ibd`). Not with `diseaseId`. Unknown / inactive slugs are dropped; none left → empty result.',
+    )
+    .example(['newcastle']),
+  flockStage: many(CODE).description(
+    'FLOCK_STAGE codes, repeatable (e.g. BROODER, GROWER, LAYER).',
+  ),
+  isPrescriptionRequired: Joi.boolean().description('true = Rx-only products; false = OTC only.'),
+  temperatureClass: Joi.string()
+    .valid(...TEMPERATURE_CLASSES)
+    .description(
+      'Storage class: AMB ambient, AMB_CTL controlled, CC_REF 2–8 °C, CC_FRZ frozen, HAZ.',
     ),
-    ...PAGE,
-  })
+  inStock: Joi.boolean().description(
+    'true = only products with sellable stock: network-wide, or at `nodeId` when given.',
+  ),
+  nodeId: ID.description(
+    '"In stock at <node>" toggle: the farm\'s `primaryNodeId` (inventory warehouse). Works only with `inStock=true`; ignored otherwise. Name for the label: `GET /v1/farms/geo/pincodes/:pin` → `primaryNode.name`.',
+  ),
+  minPrice: Joi.number().min(0).description('Lowest selling price (₹), inclusive.').example(100),
+  maxPrice: Joi.number().min(0).description('Highest selling price (₹), inclusive.').example(2000),
+  minRating: Joi.number()
+    .integer()
+    .min(1)
+    .max(5)
+    .description('Published average rating at least this ("4★ & up").'),
+  isFeatured: Joi.boolean().description('true = featured products only.'),
+};
+
+const withListRules = (schema: Joi.ObjectSchema) =>
+  schema
     .oxor('categoryId', 'categorySlug')
+    .oxor('diseaseId', 'diseaseSlug')
     // Dynamic category attributes: `attr.<key>=value` (validated against the category).
     .pattern(
       /^attr\.[a-z][a-zA-Z0-9]*$/,
       Joi.alternatives().try(Joi.string().max(80), Joi.array().items(Joi.string().max(80)).max(20)),
-    ),
+    );
+
+export const publicListSchema = {
+  querystring: withListRules(
+    Joi.object({
+      ...LIST_FILTERS,
+      sort: Joi.string()
+        .valid(
+          'relevance',
+          'name',
+          'price_asc',
+          'price_desc',
+          'discount',
+          'newest',
+          'rating',
+          'shelf_life',
+        )
+        .description(
+          'Sort chips: `price_desc` High–Low, `price_asc` Low–High, `shelf_life` longest first (unknown last). Also `relevance` (default; search rank when `q`), `name`, `discount`, `newest`, `rating`.',
+        ),
+      ...PAGE,
+    }),
+  ),
 };
 
 export const slugOrIdSchema = {
   params: Joi.object({ slugOrId: Joi.alternatives().try(ID, SLUG).required() }),
 };
 
-export const filtersSchema = { querystring: Joi.object({ categoryId: ID }) };
+export const filtersSchema = { querystring: withListRules(Joi.object(LIST_FILTERS)) };
 
 export const referenceBlockSchema = {
   body: Joi.object({

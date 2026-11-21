@@ -26,6 +26,11 @@ export interface AvailabilityChangedV1 {
   availableQty: number;
   inStock: boolean;
   lowStock: boolean;
+  /**
+   * Per allocatable node (warehouse) breakdown, sorted by nodeId. The FULL set for the variant: a
+   * node missing here has no sellable stock. Optional for older producers (additive to v1).
+   */
+  byNode?: { nodeId: string; availableQty: number; inStock: boolean }[];
   /** Monotonic per variant — consumers ignore older values. */
   sequence: number;
 }

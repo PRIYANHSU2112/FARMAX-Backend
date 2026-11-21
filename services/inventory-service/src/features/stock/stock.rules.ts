@@ -18,7 +18,8 @@ export interface LevelQty {
 }
 
 /** Units that may be promised to a new order: never negative, never safety stock. */
-export const sellableOf = (l: LevelQty): number => Math.max(0, l.onHand - l.reserved - l.safetyStock);
+export const sellableOf = (l: LevelQty): number =>
+  Math.max(0, l.onHand - l.reserved - l.safetyStock);
 
 /**
  * Low-stock alert on a threshold CROSSING only (dedup):
@@ -55,5 +56,35 @@ export const networkAvailability = (
     availableQty += sellableOf(l);
     threshold += l.reorderLevel;
   }
-  return { availableQty, inStock: availableQty > 0, lowStock: threshold > 0 && availableQty <= threshold };
+  return {
+    availableQty,
+    inStock: availableQty > 0,
+    lowStock: threshold > 0 && availableQty <= threshold,
+  };
+};
+
+export interface NodeAvailability {
+  nodeId: string;
+  availableQty: number;
+  inStock: boolean;
+}
+
+/**
+ * Per-node (warehouse) sellable quantity of one variant over the allocatable warehouses, sorted by
+ * nodeId, plus a stable key of it ("nodeId:qty,…") used to deduplicate publishes — so a transfer
+ * between depots (same network total) still re-publishes.
+ */
+export const nodeAvailability = (
+  levels: readonly NetworkLevel[],
+  allocatable: ReadonlySet<string>,
+): { byNode: NodeAvailability[]; key: string } => {
+  const qty = new Map<string, number>();
+  for (const l of levels) {
+    if (!allocatable.has(l.warehouseId)) continue;
+    qty.set(l.warehouseId, (qty.get(l.warehouseId) ?? 0) + sellableOf(l));
+  }
+  const byNode = [...qty.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([nodeId, availableQty]) => ({ nodeId, availableQty, inStock: availableQty > 0 }));
+  return { byNode, key: byNode.map((n) => `${n.nodeId}:${String(n.availableQty)}`).join(',') };
 };

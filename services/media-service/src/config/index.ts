@@ -22,6 +22,14 @@ export interface MediaConfig extends BaseConfig {
   JWT_AUDIENCE: string;
   /** Swagger UI + /api-docs.json. Default: on, except when APP_ENV=prod. */
   DOCS_ENABLED?: boolean;
+  /**
+   * Shared service-to-service token: guards /internal/media/* AND is the HMAC key of support
+   * upload receipts (verified by support-service). Unset → support uploads and internal routes off.
+   */
+  INTERNAL_SERVICE_TOKEN?: string;
+  /** clamd host for scanning support PDFs. Unset: PDFs are UNSCANNED (dev) / refused (prod). */
+  CLAMAV_HOST?: string;
+  CLAMAV_PORT: number;
 }
 
 const schema = Joi.object<MediaConfig>({
@@ -56,6 +64,9 @@ const schema = Joi.object<MediaConfig>({
   JWT_ISSUER: Joi.string().default('farmx-auth'),
   JWT_AUDIENCE: Joi.string().default('farmx'),
   DOCS_ENABLED: Joi.boolean().truthy('1').falsy('0'),
+  INTERNAL_SERVICE_TOKEN: Joi.string().min(32),
+  CLAMAV_HOST: Joi.string().hostname(),
+  CLAMAV_PORT: Joi.number().port().default(3310),
 });
 
 /** The root `.env` sets a generic PORT for the gateway; this service reads MEDIA_SERVICE_PORT. */

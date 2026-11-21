@@ -18,6 +18,8 @@ export interface PaymentConfig extends BaseConfig {
   AUTH_SERVICE_URL: string;
   /** Shared service-to-service token (≥ 32 chars). Unset → `/internal/*` routes are off. */
   INTERNAL_SERVICE_TOKEN?: string;
+  /** wallet-service `/internal/wallet/*` (WALLET provider: debit, status, refund credit). */
+  WALLET_SERVICE_URL: string;
   RABBITMQ_URL: string;
   EVENTS_ENABLED: boolean;
   JOBS_ENABLED: boolean;
@@ -63,6 +65,9 @@ const schema = Joi.object<PaymentConfig>({
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3001'),
   INTERNAL_SERVICE_TOKEN: Joi.string().min(32),
+  WALLET_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3012'),
   RABBITMQ_URL: Joi.string()
     .uri({ scheme: ['amqp', 'amqps'] })
     .default('amqp://farmx:farmx@localhost:5672'),

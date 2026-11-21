@@ -54,7 +54,8 @@ const DOCS = {
   list: {
     tag: ADMIN_REFUNDS_TAG,
     summary: 'List refunds',
-    description: 'Newest first. Filters: `status` (e.g. FAILED_FINAL, PENDING_APPROVAL), `orderId`.',
+    description:
+      'Newest first. Filters: `status` (e.g. FAILED_FINAL, PENDING_APPROVAL), `orderId`.',
     auth: AUTH_ADMIN,
     permission: 'payments.view',
     success: { status: 200, description: 'A page of refunds', data: refundSchema, paginated: true },
@@ -123,12 +124,18 @@ export const refundsAdminRoutes: FastifyPluginAsync = async (app) => {
   );
   app.post<{ Params: IdParams; Body: DecisionInput }>(
     '/:id/approve',
-    { schema: { ...decision, ...routeDocs(DOCS.approve) }, preHandler: adminWrite('refunds.approve') },
+    {
+      schema: { ...decision, ...routeDocs(DOCS.approve) },
+      preHandler: adminWrite('refunds.approve'),
+    },
     async (req) => ok(await svc(req).approve(actorOf(req), req.params.id, req.body)),
   );
   app.post<{ Params: IdParams; Body: DecisionInput }>(
     '/:id/retry',
-    { schema: { ...decision, ...routeDocs(DOCS.retry) }, preHandler: adminWrite('refunds.initiate') },
+    {
+      schema: { ...decision, ...routeDocs(DOCS.retry) },
+      preHandler: adminWrite('refunds.initiate'),
+    },
     async (req) => ok(await svc(req).retry(actorOf(req), req.params.id, req.body)),
   );
 };

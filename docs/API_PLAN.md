@@ -111,15 +111,16 @@ among live rows. Products will later reference it through a plain indexed (D-21)
 **Products: ✅ built in product-service (:3005).**
 
 - **Storefront:**
-  - `GET /v1/catalog/products`: full-text and typo-tolerant search. Filters: category subtree, brand, dosage form, species, route, Rx, temperature class, in-stock, price and `attr.<key>`. Sorts: relevance, name, price, discount, newest.
-  - `/{slugOrId}`, `/{slugOrId}/alternatives` and `/filters`.
-  - `GET /v1/catalog/lookups`.
+  - `GET /v1/catalog/products`: full-text and typo-tolerant search. Filters: category subtree, brand, dosage form, species, route, flock stage (`flockStage`), disease (`diseaseId` / `diseaseSlug`), Rx, temperature class, in-stock, price and `attr.<key>`. Sorts: relevance, name, price, discount, newest.
+  - `/{slugOrId}`, `/{slugOrId}/alternatives` and `/filters` (now also `flockStages` + `diseases` facets).
+  - `GET /v1/catalog/lookups` (groups incl. `FLOCK_STAGE`).
+  - `GET /v1/catalog/diseases`: Shop by Problem cards with storefront-visible product counts (D-51).
 - **Admin** (`/v1/admin/catalog/products`):
   - With `catalogue.manage`: CRUD, variants (exactly one active default), media, flags, compliance dry-run, history, and `submit`.
   - With `catalogue.publish`: `approve`, `reject`, `suspend`, `reinstate` and `discontinue`. The approver must not be the submitter.
-- **Admin master data:** `/v1/admin/catalog/lookups`, `/product-attributes` and `/compliance-profiles`.
+- **Admin master data:** `/v1/admin/catalog/lookups`, `/diseases`, `/product-attributes` and `/compliance-profiles`. Products take `diseaseIds` and `productionStages` (FLOCK_STAGE codes).
 - **Projections:** selling price and stock are read-only, kept in sync from pricing and inventory events.
-- **Tables:** `products`, `product_variants`, `product_ingredients`, `product_routes`, `product_species`, `product_media`, `product_lookups`, `category_attributes`, `product_compliance_profiles`, `variant_price_projections`, `variant_availability`, `product_reference_blocks`, `product_audit_log`.
+- **Tables:** `products`, `product_variants`, `product_ingredients`, `product_routes`, `product_species`, `product_media`, `product_lookups`, `diseases`, `product_diseases`, `category_attributes`, `product_compliance_profiles`, `variant_price_projections`, `variant_availability`, `product_reference_blocks`, `product_audit_log`.
 
 **Reviews & ratings: ✅ built in product-service (D-49).**
 
@@ -201,17 +202,17 @@ among live rows. Products will later reference it through a plain indexed (D-21)
 
 ## 7. Leads, ads, liquidation, loyalty, content, support, notifications
 
-| Method    | Path                                                                    | Role                       | Request → Response                      |
-| --------- | ----------------------------------------------------------------------- | -------------------------- | --------------------------------------- |
-| GET/POST  | `/leads/slots` · `/leads`                                               | CUS                        | slot + question + consent → scored lead |
-| GET/PATCH | `/vendor/leads` · `/vendor/leads/{id}/disposition`                      | VND (own)                  | SLA timers, masked call                 |
-| GET/POST  | `/vendor/ads/fares` · `/vendor/ads/bookings` · `/vendor/creatives`      | VND                        | 15-minute hold, payment, creative       |
-| POST      | `/admin/ads/bookings/{id}/authorize` · `/admin/creatives/{id}/validate` | ads (P18) / content (P19)  | different users                         |
-| GET/POST  | `/vendor/liquidation/batches` · `/vendor/liquidation/programmes`        | VND                        | within guardrails; else approval        |
-| GET       | `/loyalty/me` · `/loyalty/points` · `/referrals`                        | CUS                        | tier, points, benefits                  |
-| GET       | `/content/feed` · `/content/{id}` · CRUD `/admin/content`               | CUS / content.manage       | EN/TE, targeting                        |
-| POST/GET  | `/support/tickets` · `/support/tickets/{id}/messages`                   | CUS / support.manage       | with order context                      |
-| GET/PATCH | `/me/notifications` · `/admin/notifications/templates`                  | CUS / notifications.manage | inbox, templates                        |
+| Method    | Path                                                                                                 | Role                                    | Request → Response                      |
+| --------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| GET/POST  | `/leads/slots` · `/leads`                                                                            | CUS                                     | slot + question + consent → scored lead |
+| GET/PATCH | `/vendor/leads` · `/vendor/leads/{id}/disposition`                                                   | VND (own)                               | SLA timers, masked call                 |
+| GET/POST  | `/vendor/ads/fares` · `/vendor/ads/bookings` · `/vendor/creatives`                                   | VND                                     | 15-minute hold, payment, creative       |
+| POST      | `/admin/ads/bookings/{id}/authorize` · `/admin/creatives/{id}/validate`                              | ads (P18) / content (P19)               | different users                         |
+| GET/POST  | `/vendor/liquidation/batches` · `/vendor/liquidation/programmes`                                     | VND                                     | within guardrails; else approval        |
+| GET       | `/loyalty/me` · `/loyalty/points` · `/referrals`                                                     | CUS                                     | tier, points, benefits                  |
+| GET       | ✅ `/farms/content/feed` · `/farms/content/{idOrSlug}` · `/admin/farms/content` (farm-service, D-50) | CUS / content.manage · review · publish | EN only, targeting by farm segment      |
+| POST/GET  | `/support/tickets` · `/support/tickets/{id}/messages`                                                | CUS / support.manage                    | with order context                      |
+| GET/PATCH | `/me/notifications` · `/admin/notifications/templates`                                               | CUS / notifications.manage              | inbox, templates                        |
 
 ## 8. Logistics, warehouse, QMS (from Logistics PRD §10)
 

@@ -1,11 +1,5 @@
 import type { Paginated } from '@farmx/common/types';
-import {
-  type Tx,
-  cursorArgs,
-  isUniqueViolation,
-  toPage,
-  withPrismaErrors,
-} from '@farmx/database';
+import { type Tx, cursorArgs, isUniqueViolation, toPage, withPrismaErrors } from '@farmx/database';
 import type { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
 
@@ -34,27 +28,28 @@ export class PaymentsRepository {
   }
 
   async find(id: string, tx?: Tx): Promise<PaymentRow | null> {
-    return (await withPrismaErrors(() =>
-      (tx ?? this.db).payment.findUnique({ where: { id } }),
-    ));
+    return await withPrismaErrors(() => (tx ?? this.db).payment.findUnique({ where: { id } }));
   }
 
   async liveForOrder(orderId: string, tx?: Tx): Promise<PaymentRow | null> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       (tx ?? this.db).payment.findFirst({ where: { orderId, status: { in: LIVE } } }),
-    ));
+    );
+  }
+
+  /** The payment of a wallet top-up (referenceId is unique). */
+  async byReference(referenceId: string): Promise<PaymentRow | null> {
+    return withPrismaErrors(() => this.db.payment.findUnique({ where: { referenceId } }));
   }
 
   async byProviderOrder(providerOrderId: string): Promise<PaymentRow | null> {
-    return (await withPrismaErrors(() =>
-      this.db.payment.findUnique({ where: { providerOrderId } }),
-    ));
+    return await withPrismaErrors(() => this.db.payment.findUnique({ where: { providerOrderId } }));
   }
 
   /** Insert CREATED; null when the order already has a live payment (concurrent create). */
   async create(data: Prisma.PaymentUncheckedCreateInput): Promise<PaymentRow | null> {
     try {
-      return (await this.db.payment.create({ data }));
+      return await this.db.payment.create({ data });
     } catch (error) {
       if (isUniqueViolation(error)) return null;
       throw error;
@@ -67,15 +62,11 @@ export class PaymentsRepository {
     return rows.length === 0 ? null : this.find(id, tx);
   }
 
-  async update(
-    id: string,
-    data: Prisma.PaymentUncheckedUpdateInput,
-    tx?: Tx,
-  ): Promise<PaymentRow> {
-    return (await (tx ?? this.db).payment.update({
+  async update(id: string, data: Prisma.PaymentUncheckedUpdateInput, tx?: Tx): Promise<PaymentRow> {
+    return await (tx ?? this.db).payment.update({
       where: { id },
       data: { ...data, version: { increment: 1 } },
-    }));
+    });
   }
 
   /** Records a gateway attempt once (same gateway payment + status → no duplicate). */
@@ -121,30 +112,31 @@ export class PaymentsRepository {
     return toPage(rows as PaymentRow[], query.limit);
   }
 
-  /** Open payments with a gateway order, created before `before` (reconcile candidates). */
+  /** Open payments to re-check, created before `before` (reconcile candidates). */
   async openOlderThan(before: Date, limit: number): Promise<PaymentRow[]> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.db.payment.findMany({
         where: {
           status: { in: ['PENDING', 'FAILED'] },
-          providerOrderId: { not: null },
+          // Gateway payments with a gateway order, and WALLET payments (debit outcome unknown).
+          OR: [{ providerOrderId: { not: null } }, { provider: 'WALLET' }],
           createdAt: { lt: before },
           expiresAt: { gt: new Date() },
         },
         orderBy: { createdAt: 'asc' },
         take: limit,
       }),
-    ));
+    );
   }
 
   /** Open payments past their window (expiry candidates), oldest first. */
   async openExpired(limit: number): Promise<PaymentRow[]> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.db.payment.findMany({
         where: { status: { in: ['CREATED', 'PENDING', 'FAILED'] }, expiresAt: { lt: new Date() } },
         orderBy: { expiresAt: 'asc' },
         take: limit,
       }),
-    ));
+    );
   }
 }

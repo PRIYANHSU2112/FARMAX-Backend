@@ -17,7 +17,7 @@ export const mediaRoutes: FastifyPluginAsync = async (app) => {
     limits: { fileSize: PARSER_MAX_BYTES, files: 1, fields: 5, parts: 6, headerPairs: 100 },
   });
 
-  app.post<{ Querystring: { type?: MediaKind } }>(
+  app.post<{ Querystring: { type?: MediaKind; purpose?: 'support' } }>(
     '/upload',
     {
       schema: { ...uploadSchema, ...routeDocs(MEDIA_DOCS.upload) },

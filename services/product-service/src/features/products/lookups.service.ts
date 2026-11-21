@@ -14,7 +14,10 @@ import type {
   UpdateLookupInput,
 } from './lookups.types.js';
 
-type Deps = Pick<Cradle, 'lookupsRepository' | 'cache' | 'runInTransaction' | 'auditService'>;
+type Deps = Pick<
+  Cradle,
+  'lookupsRepository' | 'cache' | 'redis' | 'runInTransaction' | 'auditService'
+>;
 
 const CACHE_TTL_SECONDS = 600;
 const cacheKey = () => productKeys.keyspace.key('lookups');
@@ -67,6 +70,28 @@ export class LookupsService {
     });
     if (issues.length > 0) throw new ValidationError(issues);
     return byId;
+  }
+
+  /**
+   * Validates values referenced by **code** (FLOCK_STAGE codes in `productionStages`): each must be
+   * a live, active value of `group`. `path` prefixes the issue paths (`productionStages[0]`).
+   */
+  async resolveCodes(
+    tx: Tx,
+    group: LookupGroup,
+    codes: readonly string[],
+    path: string,
+  ): Promise<void> {
+    const rows = await this.deps.lookupsRepository.findByCodes(tx, group, [...new Set(codes)]);
+    const byCode = new Map(rows.map((row) => [row.code, row]));
+    const issues = codes.flatMap((code, i) => {
+      const row = byCode.get(code);
+      const at = `${path}[${String(i)}]`;
+      if (row === undefined) return [{ path: at, message: `Unknown ${group} code "${code}"` }];
+      if (!row.isActive) return [{ path: at, message: `"${row.label}" is inactive` }];
+      return [];
+    });
+    if (issues.length > 0) throw new ValidationError(issues);
   }
 
   async create(input: CreateLookupInput, actor: Actor): Promise<LookupRecord> {
@@ -123,7 +148,7 @@ export class LookupsService {
   ): Promise<void> {
     await this.deps.runInTransaction(async (tx) => {
       const current = await this.liveOrThrow(tx, id, ifMatch);
-      const used = await this.deps.lookupsRepository.usageCount(tx, id);
+      const used = await this.deps.lookupsRepository.usageCount(tx, current);
       if (used > 0) {
         throw new ConflictError('This value is in use; deactivate it instead', {
           details: { reason: 'LOOKUP_IN_USE', count: used },
@@ -152,7 +177,9 @@ export class LookupsService {
     return row;
   }
 
+  /** Lookup labels show in filters, cards and product pages → also expire every list page. */
   private async invalidate(): Promise<void> {
     await this.deps.cache.invalidate(cacheKey()).catch(() => undefined);
+    await this.deps.redis.incr(productKeys.listVersion()).catch(() => undefined);
   }
 }

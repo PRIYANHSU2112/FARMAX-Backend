@@ -1,0 +1,21 @@
+// support-service feature: audit. Same shape as call_audit_log; append-only (D-22).
+
+model SupportAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  /// null = system (jobs, event consumers).
+  actorUserId String?  @db.Uuid
+  /// topic.create, rule.update, sla.update, faq.publish, legal.publish, setting.update …
+  action      String   @db.VarChar(60)
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.VarChar(64)
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(45)
+  requestId   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("support_audit_log")
+}

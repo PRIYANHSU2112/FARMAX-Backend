@@ -60,7 +60,10 @@ export interface ProductFields {
   dosageFormId?: string | null;
   routeIds?: string[];
   speciesIds?: string[];
+  /** FLOCK_STAGE lookup codes. */
   productionStages?: string[];
+  /** "Shop by Problem" links (live, active diseases). */
+  diseaseIds?: string[];
   indications?: string | null;
   dosageInstructions?: string | null;
   contraindications?: string | null;
@@ -201,7 +204,12 @@ export interface ProductView {
   dosageForm: LookupRef | null;
   routes: LookupRef[];
   species: LookupRef[];
+  /** FLOCK_STAGE codes as stored (legacy unmapped text included until re-saved). */
   productionStages: string[];
+  /** Same, with labels; a value with no live FLOCK_STAGE row keeps its raw text as the label. */
+  flockStages: { code: string; label: string }[];
+  /** Live linked diseases (deleted ones are history only). */
+  diseases: { id: string; name: string; slug: string; iconUrl: string | null }[];
   indications: string | null;
   dosageInstructions: string | null;
   contraindications: string | null;
@@ -301,7 +309,15 @@ export interface AdminProductRow {
 }
 
 export type PublicSort =
-  'relevance' | 'name' | 'price_asc' | 'price_desc' | 'discount' | 'newest' | 'rating';
+  | 'relevance'
+  | 'name'
+  | 'price_asc'
+  | 'price_desc'
+  | 'discount'
+  | 'newest'
+  | 'rating'
+  /** Longest shelf life (Product.shelfLifeMonths) first; unknown last. */
+  | 'shelf_life';
 
 /** Published rating (reviews feature): average 1–5 (null = none yet) and number of ratings. */
 export interface RatingView {
@@ -309,7 +325,8 @@ export interface RatingView {
   count: number;
 }
 
-export interface PublicListQuery {
+/** Storefront filter selection, shared by the list and `/filters` (facet counts). */
+export interface ProductFilterQuery {
   q?: string;
   categoryId?: string;
   categorySlug?: string;
@@ -317,18 +334,32 @@ export interface PublicListQuery {
   dosageForm?: string;
   species?: string[];
   route?: string[];
+  /**
+   * Shop by Problem / disease chips: diseases by id or slug (repeatable; a product matches any).
+   * Inactive / deleted / unknown values are dropped; none left → empty page.
+   */
+  diseaseId?: string[];
+  diseaseSlug?: string[];
+  /** FLOCK_STAGE codes; a product matches when it lists any of them. */
+  flockStage?: string[];
   isPrescriptionRequired?: boolean;
   temperatureClass?: TemperatureClass;
+  /** Sellable stock somewhere (or at `nodeId` when given). */
   inStock?: boolean;
+  /** "In stock at <node>": the farm's primary node (inventory warehouse id); needs inStock=true. */
+  nodeId?: string;
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
   isFeatured?: boolean;
+  /** `attr.<key>` filters (filterable category attributes only). */
+  [attr: `attr.${string}`]: string | string[] | undefined;
+}
+
+export interface PublicListQuery extends ProductFilterQuery {
   sort?: PublicSort;
   cursor?: string;
   limit: number;
-  /** `attr.<key>` filters (filterable category attributes only). */
-  [attr: `attr.${string}`]: string | string[] | undefined;
 }
 
 export interface AdminListQuery {

@@ -18,7 +18,9 @@ declare module '@fastify/awilix' {
 }
 
 /** order.refund_requested.v1 → a refund (inside the inbox transaction; sourceRef dedups). */
-const createRefundEventHandlers = ({ refundsService }: Pick<Cradle, 'refundsService'>): EventHandlerMap => ({
+const createRefundEventHandlers = ({
+  refundsService,
+}: Pick<Cradle, 'refundsService'>): EventHandlerMap => ({
   'order.refund_requested.v1': (event, tx) =>
     refundsService.requestInTx(tx, event.data as OrderRefundRequestedV1, event.correlationId),
 });

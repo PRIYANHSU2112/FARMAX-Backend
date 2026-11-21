@@ -1,0 +1,38 @@
+// support-service feature: legal. Versioned legal pages (Privacy Policy, Terms …) shown as
+// accordion sections. One PUBLISHED version per (kind, app|ALL) — partial unique index in SQL.
+
+enum LegalDocKind {
+  PRIVACY_POLICY
+  TERMS
+  REFUND_POLICY
+  SHIPPING_POLICY
+}
+
+enum LegalDocStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model LegalDocument {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  kind          LegalDocKind
+  /// null = every app.
+  app           SupportApp?
+  version       Int
+  title         String         @db.VarChar(160)
+  /// "Your privacy matters to us" card.
+  intro         String?        @db.VarChar(2000)
+  /// [{ heading, body }] in display order.
+  sections      Json
+  status        LegalDocStatus @default(DRAFT)
+  effectiveFrom DateTime?
+  publishedAt   DateTime?
+  publishedBy   String?        @db.Uuid
+  createdBy     String         @db.Uuid
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([kind, app, status])
+  @@map("legal_documents")
+}

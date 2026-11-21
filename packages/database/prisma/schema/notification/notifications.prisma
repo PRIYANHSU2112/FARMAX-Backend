@@ -22,6 +22,8 @@ enum NotificationCategory {
   /// Opt-in only.
   PROMO
   SYSTEM
+  /// News feed, disease alerts, knowledge (opt-out; farm-service content events).
+  CONTENT
 }
 
 enum NotificationPriority {
@@ -46,6 +48,8 @@ enum NotificationAudience {
   PERMISSION
   /// Every active user of the app's user type (admin broadcast).
   APP
+  /// Readers of a farm-service content item (target segment and/or savers), paged from farm-service.
+  FARM_CONTENT
 }
 
 enum NotificationStatus {

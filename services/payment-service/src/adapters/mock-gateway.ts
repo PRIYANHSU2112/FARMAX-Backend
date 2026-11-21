@@ -44,7 +44,8 @@ export class MockGateway implements PaymentGateway {
 
   async fetchPayment(paymentId: string): Promise<GatewayPayment> {
     const raw = await this.redis().get(paymentKeys.mockPayment(paymentId));
-    if (raw === null) throw new GatewayError('The id provided does not exist', false, 'BAD_REQUEST_ERROR');
+    if (raw === null)
+      throw new GatewayError('The id provided does not exist', false, 'BAD_REQUEST_ERROR');
     return JSON.parse(raw) as GatewayPayment;
   }
 
@@ -65,7 +66,11 @@ export class MockGateway implements PaymentGateway {
     if (payment.status !== 'captured' && payment.status !== 'refunded')
       throw new GatewayError('Payment is not captured', false, 'BAD_REQUEST_ERROR');
     if (refunded + input.amountPaise > payment.amountPaise)
-      throw new GatewayError('Refund amount exceeds the captured amount', false, 'BAD_REQUEST_ERROR');
+      throw new GatewayError(
+        'Refund amount exceeds the captured amount',
+        false,
+        'BAD_REQUEST_ERROR',
+      );
     const refund: GatewayRefund = {
       id: id('rfnd'),
       paymentId: input.paymentId,

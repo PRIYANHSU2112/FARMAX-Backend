@@ -99,6 +99,15 @@ export class LookupsRepository {
     return rows.map((r) => asRecord(r) as LookupRow);
   }
 
+  async findByCodes(tx: Tx, group: LookupGroup, codes: readonly string[]): Promise<LookupRow[]> {
+    if (codes.length === 0) return [];
+    const rows = await tx.productLookup.findMany({
+      where: { group, code: { in: [...codes] }, deletedAt: null },
+      select: ROW,
+    });
+    return rows.map((r) => asRecord(r) as LookupRow);
+  }
+
   async codeTaken(tx: Tx, group: LookupGroup, code: string): Promise<boolean> {
     const row = await tx.productLookup.findFirst({
       where: { group, code, deletedAt: null },
@@ -108,7 +117,13 @@ export class LookupsRepository {
   }
 
   /** Products, routes, species, ingredients and variants referencing the lookup. */
-  async usageCount(tx: Tx, id: string): Promise<number> {
+  async usageCount(
+    tx: Tx,
+    { id, group, code }: Pick<LookupRow, 'id' | 'group' | 'code'>,
+  ): Promise<number> {
+    // FLOCK_STAGE values are referenced by code inside products.productionStages (GIN index).
+    if (group === 'FLOCK_STAGE')
+      return tx.product.count({ where: { productionStages: { has: code }, deletedAt: null } });
     const [forms, routes, species, ingredients, perUnits, variants] = await Promise.all([
       tx.product.count({ where: { dosageFormId: id, deletedAt: null } }),
       tx.productRoute.count({ where: { lookupId: id } }),

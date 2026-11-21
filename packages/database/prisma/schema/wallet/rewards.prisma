@@ -1,0 +1,159 @@
+// wallet-service feature: rewards (D-54, "Points & wallet" / Points Ledger). Reward points as a
+// DOUBLE-ENTRY, append-only ledger, separate from wallet money. A USER account holds three
+// buckets — AVAILABLE (spendable), PENDING (earned, not yet spendable) and DEBT (points owed back
+// after a refund reversed more than was left) — and every bucket must equal the SUM of its
+// postings (deferred trigger). Lots give FIFO-by-expiry consumption, exact expiry and reversal.
+
+enum PointsAccountOwner {
+  USER
+  SYSTEM
+}
+
+enum PointsBucket {
+  AVAILABLE
+  PENDING
+  /// Points owed back by the customer (stored as negative postings; debtPts = −SUM).
+  DEBT
+  /// SYSTEM accounts only.
+  SYSTEM
+}
+
+enum PointsJournalKind {
+  /// Order delivered → PENDING (or nets an open DEBT first).
+  EARN
+  /// First-UPI-top-up cashback → AVAILABLE.
+  CASHBACK
+  /// PENDING → AVAILABLE after the hold.
+  MATURE
+  /// AVAILABLE → wallet money (paired wallet journal).
+  CONVERT
+  EXPIRE
+  /// A refund took back (part of) the points an order earned.
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum PointsLotSource {
+  ORDER
+  TOPUP_CASHBACK
+  ADJUSTMENT
+}
+
+enum PointsLotStatus {
+  PENDING
+  AVAILABLE
+  EXHAUSTED
+  EXPIRED
+  REVERSED
+}
+
+model PointsAccount {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  ownerType      PointsAccountOwner
+  userId         String?            @unique @db.Uuid
+  /// SYSTEM: POINTS_ISSUED · POINTS_REDEEMED · POINTS_EXPIRED · POINTS_REVERSED
+  code           String?            @unique @db.VarChar(40)
+  availablePts   BigInt             @default(0)
+  pendingPts     BigInt             @default(0)
+  debtPts        BigInt             @default(0)
+  lifetimeEarned BigInt             @default(0)
+  version        Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @default(now()) @updatedAt
+
+  postings PointsPosting[]
+
+  @@map("points_accounts")
+}
+
+model PointsJournal {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  /// PJ-yymmdd-XXXXXXXX
+  journalNo      String            @unique @db.VarChar(24)
+  kind           PointsJournalKind
+  /// earn:<orderId> · cashback:<topupId> · mature:<lotId> · expire:<lotId> · reverse:<refundId> · convert:<userId>:<key>
+  idempotencyKey String            @unique @db.VarChar(120)
+  userId         String            @db.Uuid
+  /// Positive size of the movement; the postings give the direction.
+  points         BigInt
+  /// Signed effect on what the customer can see (+ earned / − spent, expired, reversed).
+  deltaPts       BigInt
+  refType        String?           @db.VarChar(30)
+  refId          String?           @db.VarChar(64)
+  title          String            @db.VarChar(120)
+  subtitle       String?           @db.VarChar(200)
+  metadata       Json?
+  /// Buckets right after this journal ("Bal: 18,420").
+  availableAfter BigInt
+  pendingAfter   BigInt
+  debtAfter      BigInt
+  createdBy      String?           @db.Uuid
+  createdAt      DateTime          @default(now())
+
+  postings PointsPosting[]
+
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([refType, refId])
+  @@map("points_journals")
+}
+
+model PointsPosting {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  journalId String       @db.Uuid
+  accountId String       @db.Uuid
+  bucket    PointsBucket
+  /// Signed, never 0.
+  points    BigInt
+  createdAt DateTime     @default(now())
+
+  journal PointsJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  account PointsAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalId])
+  @@index([accountId, bucket])
+  @@map("points_postings")
+}
+
+model PointsLot {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  userId         String          @db.Uuid
+  sourceType     PointsLotSource
+  /// orderId · topupId · adjustment id
+  sourceRef      String          @db.VarChar(64)
+  journalId      String          @db.Uuid
+  /// Money the points were earned on (pro-rata reversal base).
+  basePaise      BigInt          @default(0)
+  earnedPts      BigInt
+  remainingPts   BigInt
+  reversedPts    BigInt          @default(0)
+  status         PointsLotStatus
+  availableAt    DateTime
+  expiresAt      DateTime
+  expiryNoticeAt DateTime?
+  version        Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
+
+  consumptions PointsLotConsumption[]
+
+  @@unique([sourceType, sourceRef])
+  @@index([userId, status, expiresAt])
+  @@index([status, availableAt])
+  @@index([status, expiresAt])
+  @@map("points_lots")
+}
+
+/// Which journal took how many points from which lot (append-only audit of FIFO consumption).
+model PointsLotConsumption {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  lotId     String   @db.Uuid
+  journalId String   @db.Uuid
+  points    BigInt
+  createdAt DateTime @default(now())
+
+  lot PointsLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@index([lotId])
+  @@index([journalId])
+  @@map("points_lot_consumptions")
+}

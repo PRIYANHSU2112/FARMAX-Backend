@@ -72,6 +72,11 @@ export const DETAIL_SELECT = {
   routes: { select: { lookup: LOOKUP_REF } },
   species: { select: { lookup: { select: { id: true, code: true, label: true, meta: true } } } },
   productionStages: true,
+  diseases: {
+    where: { disease: { deletedAt: null } },
+    orderBy: { disease: { sortOrder: 'asc' } },
+    select: { disease: { select: { id: true, name: true, slug: true, iconUrl: true } } },
+  },
   indications: true,
   dosageInstructions: true,
   contraindications: true,
@@ -219,9 +224,16 @@ export interface StorefrontFilter {
   dosageForm?: string;
   species?: string[];
   route?: string[];
+  /** Linked to any of these diseases (already resolved to live + active ids). */
+  diseaseIds?: string[];
+  /** Lists any of these FLOCK_STAGE codes (GIN index on productionStages). */
+  flockStages?: string[];
   isPrescriptionRequired?: boolean;
   temperatureClass?: string;
+  /** true = some live variant has sellable stock (at `nodeId` when set, else network-wide). */
   inStock?: boolean;
+  /** Inventory node (warehouse) for `inStock`; ignored when inStock is not true. */
+  nodeId?: string;
   minPrice?: number;
   maxPrice?: number;
   /** Published average ≥ this ("4★ & up"). */
@@ -367,6 +379,7 @@ export class ProductsRepository {
     relations: {
       routeIds: string[];
       speciesIds: string[];
+      diseaseIds: string[];
       ingredients: IngredientInput[];
       variants: (VariantInput & { isDefault: boolean })[];
     },
@@ -379,6 +392,7 @@ export class ProductsRepository {
         updatedByUserId: actorUserId,
         routes: { create: relations.routeIds.map((lookupId) => ({ lookupId })) },
         species: { create: relations.speciesIds.map((lookupId) => ({ lookupId })) },
+        diseases: { create: relations.diseaseIds.map((diseaseId) => ({ diseaseId })) },
         ingredients: { create: relations.ingredients.map((ing, i) => this.ingredientData(ing, i)) },
         variants: {
           create: relations.variants.map((v, i) => this.variantData(v, i, actorUserId)),
@@ -392,9 +406,23 @@ export class ProductsRepository {
     tx: Tx,
     id: string,
     data: Partial<ProductData>,
-    relations: { routeIds?: string[]; speciesIds?: string[]; ingredients?: IngredientInput[] },
+    relations: {
+      routeIds?: string[];
+      speciesIds?: string[];
+      diseaseIds?: string[];
+      ingredients?: IngredientInput[];
+    },
     actorUserId: string,
   ): Promise<void> {
+    if (relations.diseaseIds !== undefined) {
+      // Links of soft-deleted diseases are history: never touched by a product edit.
+      await tx.productDisease.deleteMany({
+        where: { productId: id, disease: { deletedAt: null } },
+      });
+      await tx.productDisease.createMany({
+        data: relations.diseaseIds.map((diseaseId) => ({ productId: id, diseaseId })),
+      });
+    }
     if (relations.routeIds !== undefined) {
       await tx.productRoute.deleteMany({ where: { productId: id } });
       await tx.productRoute.createMany({
@@ -617,6 +645,17 @@ export class ProductsRepository {
         ? {}
         : { species: { some: { lookup: { code: { in: f.species } } } } }),
       ...(f.route === undefined ? {} : { routes: { some: { lookup: { code: { in: f.route } } } } }),
+      ...(f.diseaseIds === undefined
+        ? {}
+        : {
+            diseases: {
+              some: {
+                diseaseId: { in: f.diseaseIds },
+                disease: { deletedAt: null, isActive: true },
+              },
+            },
+          }),
+      ...(f.flockStages === undefined ? {} : { productionStages: { hasSome: f.flockStages } }),
       ...(f.isPrescriptionRequired === undefined
         ? {}
         : { isPrescriptionRequired: f.isPrescriptionRequired }),
@@ -628,7 +667,11 @@ export class ProductsRepository {
         some: {
           ...LIVE,
           isActive: true,
-          ...(f.inStock === true ? { availability: { inStock: true } } : {}),
+          ...(f.inStock !== true
+            ? {}
+            : f.nodeId === undefined
+              ? { availability: { inStock: true } }
+              : { nodeAvailability: { some: { nodeId: f.nodeId, inStock: true } } }),
         },
       },
       ...(and.length === 0 ? {} : { AND: and }),
@@ -655,7 +698,9 @@ export class ProductsRepository {
                 ? [{ publishedAt: nullsLast('desc') }]
                 : sort === 'rating'
                   ? [{ ratingAvg: nullsLast('desc') }, { ratingCount: 'desc' as const }]
-                  : [{ isFeatured: 'desc' }, { name: 'asc' }];
+                  : sort === 'shelf_life'
+                    ? [{ shelfLifeMonths: nullsLast('desc') }]
+                    : [{ isFeatured: 'desc' }, { name: 'asc' }];
     const rows = await withPrismaErrors(() =>
       this.db.product.findMany({
         where,
@@ -685,13 +730,54 @@ export class ProductsRepository {
     );
   }
 
-  /** Brands and price range present among visible products (facets for the filter UI). */
-  async facets(where: Prisma.ProductWhereInput) {
+  /**
+   * Brand counts and price range for the filter UI. Each takes its own `where` so a facet can
+   * ignore its own selection (brand counts without the brand filter, range without the price one).
+   */
+  async facets(brandWhere: Prisma.ProductWhereInput, priceWhere: Prisma.ProductWhereInput) {
     const [brands, range] = await Promise.all([
-      this.db.product.groupBy({ by: ['brandId', 'brandName'], where, _count: { _all: true } }),
-      this.db.product.aggregate({ where, _min: { minPrice: true }, _max: { maxPrice: true } }),
+      this.db.product.groupBy({
+        by: ['brandId', 'brandName'],
+        where: brandWhere,
+        _count: { _all: true },
+      }),
+      this.db.product.aggregate({
+        where: priceWhere,
+        _min: { minPrice: true },
+        _max: { maxPrice: true },
+      }),
     ]);
     return { brands, minPrice: range._min.minPrice, maxPrice: range._max.maxPrice };
+  }
+
+  /** Number of products matching `where` ("Show X products"). */
+  count(where: Prisma.ProductWhereInput): Promise<number> {
+    return withPrismaErrors(() => this.db.product.count({ where }));
+  }
+
+  /** Products matching `where` per species lookup code (species facet). */
+  async speciesCounts(where: Prisma.ProductWhereInput): Promise<Map<string, number>> {
+    const rows = await withPrismaErrors(() =>
+      this.db.productSpecies.groupBy({
+        by: ['lookupId'],
+        where: { product: where },
+        _count: { _all: true },
+      }),
+    );
+    if (rows.length === 0) return new Map();
+    const lookups = await withPrismaErrors(() =>
+      this.db.productLookup.findMany({
+        where: { id: { in: rows.map((r) => r.lookupId) } },
+        select: { id: true, code: true },
+      }),
+    );
+    const codeOf = new Map(lookups.map((l) => [l.id, l.code]));
+    return new Map(
+      rows.flatMap((r) => {
+        const code = codeOf.get(r.lookupId);
+        return code === undefined ? [] : [[code, r._count._all] as const];
+      }),
+    );
   }
 
   /** Visible products sharing the same ingredient set (other brands first). */
@@ -753,6 +839,26 @@ export class ProductsRepository {
         "lowStock" = EXCLUDED."lowStock", "sourceVersion" = EXCLUDED."sourceVersion", "updatedAt" = now()
       WHERE "variant_availability"."sourceVersion" < EXCLUDED."sourceVersion"`;
     return changed === 1;
+  }
+
+  /** Per-node stock of one variant = exactly `rows` (call only after upsertAvailability won). */
+  async replaceNodeAvailability(
+    tx: Tx,
+    variantId: string,
+    rows: readonly { nodeId: string; availableQty: number; inStock: boolean }[],
+    sequence: number,
+  ): Promise<void> {
+    await tx.variantNodeAvailability.deleteMany({ where: { variantId } });
+    if (rows.length === 0) return;
+    await tx.variantNodeAvailability.createMany({
+      data: rows.map((r) => ({
+        variantId,
+        nodeId: r.nodeId,
+        availableQty: r.availableQty,
+        inStock: r.inStock,
+        sourceVersion: BigInt(sequence),
+      })),
+    });
   }
 
   /** Active variants' MRP + projected selling price (for the product price summary). */

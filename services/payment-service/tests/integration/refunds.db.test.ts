@@ -30,7 +30,7 @@ const capturedPayment = async () => {
   const p = await createPayment(app, { userId: user });
   await payAndVerify(app, user, p.paymentId);
   const row = await paymentRow(app, p.paymentId);
-  return { paymentId: p.paymentId, orderId: row.orderId };
+  return { paymentId: p.paymentId, orderId: row.orderId ?? '' };
 };
 
 const requestRefund = (
@@ -67,7 +67,10 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
     const [r] = await refundsOf(app, pay.paymentId);
     expect(r).toMatchObject({ status: 'PROCESSED', attempts: 1 });
     expect(r?.arn).toMatch(/^MOCKARN/);
-    expect(await paymentRow(app, pay.paymentId)).toMatchObject({ status: 'REFUNDED', refundedPaise: 2_782_100n });
+    expect(await paymentRow(app, pay.paymentId)).toMatchObject({
+      status: 'REFUNDED',
+      refundedPaise: 2_782_100n,
+    });
     expect(await outboxEvents(app, 'payment.refund_initiated.v1', sourceRef)).toHaveLength(1);
     expect(await outboxEvents(app, 'payment.refund_processed.v1', sourceRef)).toHaveLength(1);
 
@@ -99,7 +102,7 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
     const p = await createPayment(app, { userId: user });
     const row = await paymentRow(app, p.paymentId);
     const sourceRef = `cancel:${randomUUID()}`;
-    await requestRefund({ paymentId: p.paymentId, orderId: row.orderId }, 100, { sourceRef });
+    await requestRefund({ paymentId: p.paymentId, orderId: row.orderId ?? '' }, 100, { sourceRef });
     const [r] = await refundsOf(app, p.paymentId);
     expect(r).toMatchObject({ status: 'FAILED_FINAL', lastError: 'PAYMENT_NOT_CAPTURED' });
   });
@@ -107,10 +110,14 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
   it('large manual refund waits for a DIFFERENT approver (SoD)', async () => {
     const pay = await capturedPayment();
     const requester = staff('refunds.approve', 'payments.view');
-    await db().paymentSetting.update({ where: { key: 'refundManualApprovalAbovePaise' }, data: { value: 1000 } });
+    await db().paymentSetting.update({
+      where: { key: 'refundManualApprovalAbovePaise' },
+      data: { value: 1000 },
+    });
     try {
       // settings are cached 15 s per process: drop the cache for this test
-      (app.diContainer.resolve('settingsService') as unknown as { cached: undefined }).cached = undefined;
+      (app.diContainer.resolve('settingsService') as unknown as { cached: undefined }).cached =
+        undefined;
       await requestRefund(pay, 500_000, { isSystem: false, requestedBy: requester });
       const [r] = await refundsOf(app, pay.paymentId);
       expect(r?.status).toBe('PENDING_APPROVAL');
@@ -136,7 +143,8 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
         where: { key: 'refundManualApprovalAbovePaise' },
         data: { value: 5_000_000 },
       });
-      (app.diContainer.resolve('settingsService') as unknown as { cached: undefined }).cached = undefined;
+      (app.diContainer.resolve('settingsService') as unknown as { cached: undefined }).cached =
+        undefined;
     }
   });
 
@@ -151,7 +159,10 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
     expect(r?.nextRetryAt?.getTime()).toBeGreaterThan(Date.now() + 30_000); // ~1 minute backoff
     await db().refund.update({ where: { id: r?.id ?? '' }, data: { nextRetryAt: new Date() } });
     await refunds().executeDue();
-    expect((await refundsOf(app, pay.paymentId))[0]).toMatchObject({ status: 'PROCESSED', attempts: 2 });
+    expect((await refundsOf(app, pay.paymentId))[0]).toMatchObject({
+      status: 'PROCESSED',
+      attempts: 2,
+    });
     spy.mockRestore();
   });
 
@@ -192,7 +203,12 @@ describe.skipIf(DB_URL === undefined)('refunds against Postgres (mock gateway)',
     const p = await paymentRow(app, pay.paymentId);
     const gw = app.diContainer.resolve('gateway') as MockGateway;
     // The worker sent it, then died before recording the outcome:
-    await gw.refund({ paymentId: p.providerPaymentId ?? '', amountPaise: 50_000, refundId: r?.id ?? '', receipt: 'x' });
+    await gw.refund({
+      paymentId: p.providerPaymentId ?? '',
+      amountPaise: 50_000,
+      refundId: r?.id ?? '',
+      receipt: 'x',
+    });
     await db().refund.update({
       where: { id: r?.id ?? '' },
       data: { status: 'PROCESSING', attempts: 1, updatedAt: new Date(Date.now() - 10 * 60_000) },

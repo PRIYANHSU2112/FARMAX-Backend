@@ -217,6 +217,9 @@ importers:
       ioredis:
         specifier: 'catalog:'
         version: 5.11.1
+      ws:
+        specifier: ^8.22.2
+        version: 8.22.2
     devDependencies:
       '@farmx/tsconfig':
         specifier: workspace:*
@@ -227,6 +230,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -436,6 +442,88 @@ importers:
       awilix:
         specifier: 'catalog:'
         version: 13.0.5
+      fastify:
+        specifier: 'catalog:'
+        version: 5.12.8
+      fastify-plugin:
+        specifier: 'catalog:'
+        version: 6.0.1
+      ioredis:
+        specifier: 'catalog:'
+        version: 5.11.1
+      joi:
+        specifier: 'catalog:'
+        version: 18.3.1
+      joi-to-swagger:
+        specifier: 'catalog:'
+        version: 6.2.0(joi@18.3.1)
+      pino:
+        specifier: 'catalog:'
+        version: 10.4.0
+      pino-pretty:
+        specifier: 'catalog:'
+        version: 13.2.0
+    devDependencies:
+      '@farmx/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tooling/tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      tsup:
+        specifier: 'catalog:'
+        version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  services/call-service:
+    dependencies:
+      '@farmx/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@farmx/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@farmx/infra':
+        specifier: workspace:*
+        version: link:../../packages/infra
+      '@fastify/awilix':
+        specifier: 'catalog:'
+        version: 8.3.2(awilix@13.0.5)(fastify@5.12.8)
+      '@fastify/cors':
+        specifier: 'catalog:'
+        version: 11.4.0
+      '@fastify/helmet':
+        specifier: 'catalog:'
+        version: 13.2.0
+      '@fastify/swagger':
+        specifier: 'catalog:'
+        version: 9.9.3
+      '@fastify/swagger-ui':
+        specifier: 'catalog:'
+        version: 6.1.3
+      '@prisma/adapter-pg':
+        specifier: 'catalog:'
+        version: 7.10.1
+      '@prisma/client':
+        specifier: 'catalog:'
+        version: 7.10.1(prisma@7.10.1(@types/node@24.19.2)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3))(typescript@6.0.3)
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      awilix:
+        specifier: 'catalog:'
+        version: 13.0.5
+      bullmq:
+        specifier: ^5.66.0
+        version: 5.81.5
       fastify:
         specifier: 'catalog:'
         version: 5.12.8
@@ -722,6 +810,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 'catalog:'
         version: 3.1168.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1172.0
+        version: 3.1172.0
       '@farmx/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -1148,6 +1239,94 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
+  services/support-service:
+    dependencies:
+      '@farmx/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@farmx/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@farmx/infra':
+        specifier: workspace:*
+        version: link:../../packages/infra
+      '@fastify/awilix':
+        specifier: 'catalog:'
+        version: 8.3.2(awilix@13.0.5)(fastify@5.12.8)
+      '@fastify/cors':
+        specifier: 'catalog:'
+        version: 11.4.0
+      '@fastify/helmet':
+        specifier: 'catalog:'
+        version: 13.2.0
+      '@fastify/swagger':
+        specifier: 'catalog:'
+        version: 9.9.3
+      '@fastify/swagger-ui':
+        specifier: 'catalog:'
+        version: 6.1.3
+      '@prisma/adapter-pg':
+        specifier: 'catalog:'
+        version: 7.10.1
+      '@prisma/client':
+        specifier: 'catalog:'
+        version: 7.10.1(prisma@7.10.1(@types/node@24.19.2)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3))(typescript@6.0.3)
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      awilix:
+        specifier: 'catalog:'
+        version: 13.0.5
+      bullmq:
+        specifier: ^5.66.0
+        version: 5.81.5
+      fastify:
+        specifier: 'catalog:'
+        version: 5.12.8
+      fastify-plugin:
+        specifier: 'catalog:'
+        version: 6.0.1
+      ioredis:
+        specifier: 'catalog:'
+        version: 5.11.1
+      joi:
+        specifier: 'catalog:'
+        version: 18.3.1
+      joi-to-swagger:
+        specifier: 'catalog:'
+        version: 6.2.0(joi@18.3.1)
+      luxon:
+        specifier: ^3.7.2
+        version: 3.7.2
+      pino:
+        specifier: 'catalog:'
+        version: 10.4.0
+      pino-pretty:
+        specifier: 'catalog:'
+        version: 13.2.0
+    devDependencies:
+      '@farmx/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tooling/tsconfig
+      '@types/luxon':
+        specifier: ^3.7.1
+        version: 3.7.6
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      tsup:
+        specifier: 'catalog:'
+        version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
   services/user-service:
     dependencies:
       '@farmx/common':
@@ -1211,6 +1390,97 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      tsup:
+        specifier: 'catalog:'
+        version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  services/wallet-service:
+    dependencies:
+      '@farmx/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@farmx/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@farmx/infra':
+        specifier: workspace:*
+        version: link:../../packages/infra
+      '@fastify/awilix':
+        specifier: 'catalog:'
+        version: 8.3.2(awilix@13.0.5)(fastify@5.12.8)
+      '@fastify/cors':
+        specifier: 'catalog:'
+        version: 11.4.0
+      '@fastify/helmet':
+        specifier: 'catalog:'
+        version: 13.2.0
+      '@fastify/swagger':
+        specifier: 'catalog:'
+        version: 9.9.3
+      '@fastify/swagger-ui':
+        specifier: 'catalog:'
+        version: 6.1.3
+      '@prisma/adapter-pg':
+        specifier: 'catalog:'
+        version: 7.10.1
+      '@prisma/client':
+        specifier: 'catalog:'
+        version: 7.10.1(prisma@7.10.1(@types/node@24.19.2)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3))(typescript@6.0.3)
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      awilix:
+        specifier: 'catalog:'
+        version: 13.0.5
+      bullmq:
+        specifier: ^5.66.0
+        version: 5.81.5
+      dejavu-fonts-ttf:
+        specifier: 2.37.3
+        version: 2.37.3
+      fastify:
+        specifier: 'catalog:'
+        version: 5.12.8
+      fastify-plugin:
+        specifier: 'catalog:'
+        version: 6.0.1
+      ioredis:
+        specifier: 'catalog:'
+        version: 5.11.1
+      joi:
+        specifier: 'catalog:'
+        version: 18.3.1
+      joi-to-swagger:
+        specifier: 'catalog:'
+        version: 6.2.0(joi@18.3.1)
+      pdfkit:
+        specifier: ^0.17.2
+        version: 0.17.2
+      pino:
+        specifier: 'catalog:'
+        version: 10.4.0
+      pino-pretty:
+        specifier: 'catalog:'
+        version: 13.2.0
+    devDependencies:
+      '@farmx/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tooling/tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      '@types/pdfkit':
+        specifier: ^0.17.7
+        version: 0.17.7
       tsup:
         specifier: 'catalog:'
         version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
@@ -2474,6 +2744,9 @@ packages:
   '@types/lodash@4.17.27':
     resolution: {integrity: sha512-VenMRv/eKNrspX9v3H4dbmjsrnCOYdYBG3kxXKk3dG6X+urBGcj2Prww3xw1U5K4FV/mE4h5GbWd0szEKf+9ew==}
 
+  '@types/luxon@3.7.6':
+    resolution: {integrity: sha512-6KSjliQAXK8ZLgFQO4B7iE4Rpf/B3rItzCFuXezBY/XIAGxOdLd7vRNK9/StRPwiS/yJsVbB7HKpW46B8tcEuQ==}
+
   '@types/node@10.17.60':
     resolution: {integrity: sha512-F0KIgDJfy2nA3zMLmWGKxcH2ZVEtCZXHHdOQs2gSaQ27+lNeEfGxzkIw90aXswATX7AZ33tahPbzy6KAfUreVw==}
 
@@ -2491,6 +2764,9 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@typescript-eslint/eslint-plugin@8.72.1':
     resolution: {integrity: sha512-5CokTWXpmbylfFabsbvHC0CAw3XLaGnoa+nFJX5FR592h/LoZsENUE6p/rg5xvkKrFEXz6pYmgI29AgXc2N3BQ==}
@@ -5755,6 +6031,8 @@ snapshots:
 
   '@types/lodash@4.17.27': {}
 
+  '@types/luxon@3.7.6': {}
+
   '@types/node@10.17.60': {}
 
   '@types/node@24.19.2':
@@ -5778,6 +6056,10 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 24.19.2
 
   '@typescript-eslint/eslint-plugin@8.72.1(@typescript-eslint/parser@8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)':
     dependencies:

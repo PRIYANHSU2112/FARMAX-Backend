@@ -70,6 +70,9 @@ export const createProductEventHandlers = ({
         { availableQty: data.availableQty, inStock: data.inStock, lowStock: data.lowStock },
         data.sequence,
       );
+      // Same sequence guard: node rows are replaced only when this event is the newest.
+      if (changed && data.byNode !== undefined)
+        await repo.replaceNodeAvailability(tx, data.variantId, data.byNode, data.sequence);
       if (changed) await productsService.invalidate([], variant.productId);
     },
 

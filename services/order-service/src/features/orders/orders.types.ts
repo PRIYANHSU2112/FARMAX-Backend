@@ -42,6 +42,8 @@ export interface OrderRow {
   channel: string;
   status: OrderStatus;
   failureCode: string | null;
+  /** ONLINE (gateway) or WALLET (paid in full from the FarmX wallet, D-54). */
+  paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   stockStatus: StockStatus;
   refundStatus: RefundStatus;
@@ -181,11 +183,15 @@ export interface Actor {
 export const SYSTEM: Actor = { type: 'SYSTEM', id: null };
 export const SERVICE: Actor = { type: 'SERVICE', id: null };
 
+export type PaymentMethod = 'ONLINE' | 'WALLET';
+
 export interface CheckoutInput {
   farmId: string;
   addressId: string;
   cartVersion: number;
   billToGst: boolean;
+  /** ONLINE (default) or WALLET — the whole order, never split (D-54). */
+  paymentMethod: PaymentMethod;
 }
 
 export type OrderTab = 'active' | 'completed' | 'cancelled';

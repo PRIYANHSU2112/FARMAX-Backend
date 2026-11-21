@@ -9,6 +9,8 @@ export const checkoutSchema = {
     /** `cartVersion` from the cart the buyer reviewed (stale → 409 CART_CHANGED). */
     cartVersion: Joi.number().integer().min(0).required(),
     billToGst: Joi.boolean().default(false),
+    /** WALLET = pay the whole order from the FarmX wallet (no split with the gateway). */
+    paymentMethod: Joi.string().valid('ONLINE', 'WALLET').default('ONLINE'),
   }),
 };
 

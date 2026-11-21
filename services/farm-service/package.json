@@ -24,6 +24,7 @@
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
     "awilix": "catalog:",
+    "bullmq": "^5.66.0",
     "fastify": "catalog:",
     "fastify-plugin": "catalog:",
     "ioredis": "catalog:",

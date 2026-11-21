@@ -6,8 +6,9 @@ import type { Cradle } from '@fastify/awilix';
 
 import { emitPaymentEvent } from '../../adapters/events.js';
 import { GatewayError, type GatewayRefund } from '../../adapters/gateway.js';
+import { WalletRefusal } from '../../adapters/wallet-client.js';
 import type { Actor } from '../audit/index.js';
-import { newNumber } from '../payments/index.js';
+import { type PaymentRow, newNumber } from '../payments/index.js';
 import {
   type DecisionInput,
   type RefundListQuery,
@@ -22,6 +23,7 @@ type Deps = Pick<
   | 'runInTransaction'
   | 'paymentsService'
   | 'gateway'
+  | 'walletClient'
   | 'settingsService'
   | 'auditService'
   | 'logger'
@@ -127,7 +129,12 @@ export class RefundsService {
         throw new ForbiddenError('A refund must be approved by someone other than its requester');
       const after = await this.deps.refundsRepository.update(
         id,
-        { status: 'APPROVED', approvedBy: actor.userId, approvedAt: new Date(), nextRetryAt: new Date() },
+        {
+          status: 'APPROVED',
+          approvedBy: actor.userId,
+          approvedAt: new Date(),
+          nextRetryAt: new Date(),
+        },
         tx,
       );
       await this.deps.auditService.record(tx, actor, {
@@ -178,7 +185,9 @@ export class RefundsService {
 
   private async send(r: RefundRow): Promise<void> {
     const p = await this.deps.paymentsService.get(r.paymentId);
-    if (p.providerPaymentId === null) return this.recordError(r, new GatewayError('No captured gateway payment', false));
+    if (p.provider === 'WALLET') return this.sendToWallet(r, p);
+    if (p.providerPaymentId === null)
+      return this.recordError(r, new GatewayError('No captured gateway payment', false));
     try {
       // After a crash the gateway may already have this refund: adopt it, never send twice.
       const known = (await this.deps.gateway.listRefunds(p.providerPaymentId)).find(
@@ -195,6 +204,38 @@ export class RefundsService {
       await this.applyGatewayRefund(r.id, gr);
     } catch (err) {
       await this.recordError(r, err);
+    }
+  }
+
+  /**
+   * WALLET provider (D-54): the refund is a wallet credit (idempotent per refund id in
+   * wallet-service, never above the wallet debit), processed at once. The journal number stands in
+   * for the gateway refund id and the ARN.
+   */
+  private async sendToWallet(r: RefundRow, p: PaymentRow): Promise<void> {
+    try {
+      const c = await this.deps.walletClient.credit({
+        refundId: r.id,
+        paymentId: p.id,
+        userId: p.userId,
+        amountPaise: Number(r.amountPaise),
+        reason: r.reason,
+      });
+      await this.applyGatewayRefund(r.id, {
+        id: c.journalNo,
+        paymentId: p.providerPaymentId ?? p.id,
+        amountPaise: c.amountPaise,
+        status: 'processed',
+        arn: c.journalNo,
+        refundId: r.id,
+      });
+    } catch (err) {
+      await this.recordError(
+        r,
+        err instanceof WalletRefusal
+          ? new GatewayError(err.message, false, err.reason)
+          : new GatewayError(err instanceof Error ? err.message : String(err), true),
+      );
     }
   }
 
@@ -263,7 +304,11 @@ export class RefundsService {
       } else if (gr.status === 'failed') {
         const failed = await this.deps.refundsRepository.update(
           r.id,
-          { status: 'FAILED_FINAL', failedAt: new Date(), lastError: 'Gateway reported the refund failed' },
+          {
+            status: 'FAILED_FINAL',
+            failedAt: new Date(),
+            lastError: 'Gateway reported the refund failed',
+          },
           tx,
         );
         await this.emitFailed(tx, failed, 'Gateway reported the refund failed', ctx);
@@ -293,12 +338,16 @@ export class RefundsService {
       if (r.providerRefundId === null) {
         // Claimed but the worker died before the outcome: back to RETRYING (send adopts any
         // refund the gateway already has, by our refund id).
-        await this.deps.refundsRepository.update(r.id, { status: 'RETRYING', nextRetryAt: new Date() });
+        await this.deps.refundsRepository.update(r.id, {
+          status: 'RETRYING',
+          nextRetryAt: new Date(),
+        });
         continue;
       }
       try {
         const p = await this.deps.paymentsService.get(r.paymentId);
-        if (p.providerPaymentId !== null)
+        // Wallet refunds settle in one transaction; nothing to fetch from a gateway.
+        if (p.providerPaymentId !== null && p.provider !== 'WALLET')
           await this.applyGatewayRefund(
             r.id,
             await this.deps.gateway.fetchRefund(p.providerPaymentId, r.providerRefundId),

@@ -16,12 +16,14 @@ import type { Cradle } from '@fastify/awilix';
 import { emitPaymentEvent } from '../../adapters/events.js';
 import { GatewayError, type GatewayPayment, maskVpa } from '../../adapters/gateway.js';
 import { MockGateway } from '../../adapters/mock-gateway.js';
+import { type WalletDebit, WalletRefusal } from '../../adapters/wallet-client.js';
 import type { Actor } from '../audit/index.js';
 import {
   type AttemptView,
   CAPTURED_STATUSES,
   type CheckoutView,
   type CreatePaymentInput,
+  type CreateTopupPaymentInput,
   type MockPayInput,
   OPEN_STATUSES,
   type PaymentListQuery,
@@ -40,6 +42,7 @@ type Deps = Pick<
   | 'settingsService'
   | 'auditService'
   | 'webhooksService'
+  | 'walletClient'
   | 'logger'
 >;
 
@@ -50,7 +53,55 @@ export const newNumber = (prefix: string) =>
   `${prefix}-${yymmdd()}-${randomBytes(4).toString('hex').toUpperCase()}`;
 
 const isOpen = (p: PaymentRow) => OPEN_STATUSES.includes(p.status);
+
+/** The order of an ORDER payment (the DB CHECK guarantees both are set). */
+const orderOf = (p: PaymentRow): { orderId: string; orderNo: string } => {
+  if (p.orderId === null || p.orderNo === null)
+    throw new Error(`payment ${p.id} (${p.purpose}) has no order`);
+  return { orderId: p.orderId, orderNo: p.orderNo };
+};
+
+/** The top-up id of a WALLET_TOPUP payment (the DB CHECK guarantees it is set). */
+const refOf = (p: PaymentRow): string => {
+  if (p.referenceId === null) throw new Error(`payment ${p.id} (${p.purpose}) has no reference`);
+  return p.referenceId;
+};
 const isCaptured = (p: PaymentRow) => CAPTURED_STATUSES.includes(p.status);
+
+/** Wallet refusals that end the attempt (anything else is a bug or an outage). */
+const WALLET_REFUSALS = new Set(['INSUFFICIENT_BALANCE', 'ACCOUNT_FROZEN']);
+
+/** A wallet debit as a gateway capture (the journal number is the provider payment id). */
+const walletCapture = (d: WalletDebit): GatewayPayment => ({
+  id: d.journalNo ?? '',
+  orderId: null,
+  amountPaise: d.amountPaise,
+  currency: 'INR',
+  status: 'captured',
+  method: 'wallet',
+  vpa: null,
+  cardLast4: null,
+  cardNetwork: null,
+  bank: null,
+  wallet: 'farmx',
+  errorCode: null,
+  errorReason: null,
+});
+
+/** A refused wallet debit as a failed attempt (one id per attempt). */
+const walletFailure = (p: PaymentRow, code: string, reason: string): GatewayPayment => ({
+  ...walletCapture({
+    status: 'NONE',
+    paymentId: p.id,
+    journalId: null,
+    journalNo: `WF-${p.id}-${String(p.attemptCount + 1)}`,
+    amountPaise: Number(p.amountPaise),
+    refundedPaise: 0,
+  }),
+  status: 'failed',
+  errorCode: code === 'INSUFFICIENT_BALANCE' ? 'INSUFFICIENT_WALLET_BALANCE' : 'WALLET_FROZEN',
+  errorReason: reason,
+});
 
 /** Gateway failures surface as 503 (try again) or 502 (gateway refused); never as our 500. */
 const gatewayFailure = (err: unknown): Error => {
@@ -86,7 +137,7 @@ export class PaymentsService {
           throw new ConflictError('The order amount differs from its open payment', {
             details: { reason: 'AMOUNT_CHANGED', paymentId: existing.id },
           });
-        return this.checkoutView(await this.ensureGatewayOrder(existing));
+        return this.checkoutView(await this.start(existing));
       }
       const created = await this.deps.paymentsRepository.create({
         paymentNo: newNumber('TXN'),
@@ -95,15 +146,114 @@ export class PaymentsService {
         userId: input.userId,
         amountPaise: BigInt(input.amountPaise),
         currency: input.currency,
-        provider: this.deps.gateway.name,
+        provider: input.method === 'WALLET' ? 'WALLET' : this.deps.gateway.name,
         expiresAt,
       });
-      if (created !== null) return this.checkoutView(await this.ensureGatewayOrder(created));
+      if (created !== null) return this.checkoutView(await this.start(created));
       // A concurrent create won the one-live-payment slot: loop and reuse it.
     }
     throw new ConflictError('Concurrent payment creation; retry', {
       details: { reason: 'CONCURRENT_CREATE' },
     });
+  }
+
+  /**
+   * Internal (wallet-service "Add Money"): the ONE payment of a wallet top-up, idempotent per
+   * topupId (unique referenceId). Its outcome is published as payment.topup_*.v1 only.
+   */
+  async createForTopup(input: CreateTopupPaymentInput): Promise<CheckoutView> {
+    const expiresAt = new Date(input.expiresAt);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const existing = await this.deps.paymentsRepository.byReference(input.topupId);
+      if (existing !== null) {
+        if (existing.userId !== input.userId || existing.amountPaise !== BigInt(input.amountPaise))
+          throw new ConflictError('The top-up differs from its payment', {
+            details: { reason: 'TOPUP_MISMATCH', paymentId: existing.id },
+          });
+        return this.checkoutView(
+          isOpen(existing) ? await this.ensureGatewayOrder(existing) : existing,
+        );
+      }
+      if (expiresAt.getTime() <= Date.now())
+        throw new ValidationError([{ path: 'body.expiresAt', message: 'must be in the future' }]);
+      const created = await this.deps.paymentsRepository.create({
+        paymentNo: newNumber('TXN'),
+        purpose: 'WALLET_TOPUP',
+        referenceId: input.topupId,
+        userId: input.userId,
+        amountPaise: BigInt(input.amountPaise),
+        currency: input.currency,
+        provider: this.deps.gateway.name,
+        expiresAt,
+      });
+      if (created !== null) return this.checkoutView(await this.ensureGatewayOrder(created));
+      // A concurrent create for the same top-up won (unique referenceId): loop and reuse it.
+    }
+    throw new ConflictError('Concurrent payment creation; retry', {
+      details: { reason: 'CONCURRENT_CREATE' },
+    });
+  }
+
+  /** Gateway payments open a gateway order; WALLET payments debit the wallet right away. */
+  private start(p: PaymentRow): Promise<PaymentRow> {
+    return p.provider === 'WALLET' ? this.payWithWallet(p) : this.ensureGatewayOrder(p);
+  }
+
+  /**
+   * WALLET provider (D-54): debit the whole amount (idempotent per payment in wallet-service).
+   * Debited → the normal capture path (payment.captured.v1, so the order lifecycle is unchanged).
+   * Refused (short / frozen) → FAILED (the buyer may top up and pay again until expiresAt).
+   * No answer → stays PENDING; liveStatus / the reconcile job settle it.
+   */
+  private async payWithWallet(p: PaymentRow): Promise<PaymentRow> {
+    if (!isOpen(p)) return p;
+    let current = p;
+    if (current.status === 'CREATED')
+      current = await this.deps.runInTransaction(async (tx) => {
+        const locked = await this.deps.paymentsRepository.lock(tx, p.id);
+        if (locked === null) throw new NotFoundError('Payment');
+        return locked.status === 'CREATED'
+          ? this.deps.paymentsRepository.update(p.id, { status: 'PENDING' }, tx)
+          : locked;
+      });
+    const { orderId, orderNo } = orderOf(current);
+    try {
+      const d = await this.deps.walletClient.debit({
+        paymentId: current.id,
+        userId: current.userId,
+        orderId,
+        orderNo,
+        amountPaise: Number(current.amountPaise),
+      });
+      return await this.applyGatewayPayment(current.id, walletCapture(d), 'wallet');
+    } catch (err) {
+      if (err instanceof WalletRefusal && WALLET_REFUSALS.has(err.reason ?? ''))
+        return this.applyGatewayPayment(
+          current.id,
+          walletFailure(current, err.reason ?? 'WALLET_REFUSED', err.message),
+          'wallet',
+        );
+      if (err instanceof ServiceUnavailableError) {
+        this.deps.logger.warn({ err, paymentId: current.id }, 'wallet debit outcome unknown');
+        return (await this.deps.paymentsRepository.find(current.id)) ?? current;
+      }
+      throw err;
+    }
+  }
+
+  /** WALLET: was it debited? (never debits once the window is over) */
+  private async walletLiveStatus(p: PaymentRow): Promise<PaymentRow> {
+    let d;
+    try {
+      d = await this.deps.walletClient.debitStatus(p.id);
+    } catch (err) {
+      throw err instanceof WalletRefusal ? new ExternalServiceError('wallet', { cause: err }) : err;
+    }
+    if (d.status === 'DEBITED')
+      return this.applyGatewayPayment(p.id, walletCapture(d), 'reconcile');
+    // Outcome unknown (no answer earlier) and still payable: retry the idempotent debit.
+    if (p.status === 'PENDING' && p.expiresAt.getTime() > Date.now()) return this.payWithWallet(p);
+    return p;
   }
 
   /** CREATED → PENDING with a gateway order (only the first writer's gateway order is kept). */
@@ -115,7 +265,10 @@ export class PaymentsService {
         amountPaise: Number(p.amountPaise),
         currency: p.currency,
         receipt: p.paymentNo,
-        notes: { orderId: p.orderId, orderNo: p.orderNo, paymentId: p.id },
+        notes:
+          p.purpose === 'WALLET_TOPUP'
+            ? { purpose: 'wallet_topup', topupId: p.referenceId ?? '', paymentId: p.id }
+            : { orderId: p.orderId ?? '', orderNo: p.orderNo ?? '', paymentId: p.id },
       });
     } catch (err) {
       throw gatewayFailure(err);
@@ -126,7 +279,10 @@ export class PaymentsService {
       if (locked.providerOrderId !== null) return locked;
       return this.deps.paymentsRepository.update(
         p.id,
-        { providerOrderId: order.id, status: locked.status === 'CREATED' ? 'PENDING' : locked.status },
+        {
+          providerOrderId: order.id,
+          status: locked.status === 'CREATED' ? 'PENDING' : locked.status,
+        },
         tx,
       );
     });
@@ -161,7 +317,13 @@ export class PaymentsService {
         [{ path: 'body.providerOrderId', message: 'does not belong to this payment' }],
         'Payment / gateway order mismatch',
       );
-    if (!this.deps.gateway.verifyCheckoutSignature(p.providerOrderId, input.providerPaymentId, input.signature)) {
+    if (
+      !this.deps.gateway.verifyCheckoutSignature(
+        p.providerOrderId,
+        input.providerPaymentId,
+        input.signature,
+      )
+    ) {
       this.deps.logger.warn({ paymentId: id }, 'checkout signature mismatch');
       throw new BadRequestError('Invalid payment signature', {
         details: { reason: 'SIGNATURE_INVALID' },
@@ -186,12 +348,7 @@ export class PaymentsService {
    * Razorpay returns to the app, and stores a correctly signed webhook (processed by the job), so
    * the real verify + webhook paths run.
    */
-  async mockPay(
-    user: AuthUser,
-    id: string,
-    input: MockPayInput,
-    outcome: 'captured' | 'failed',
-  ) {
+  async mockPay(user: AuthUser, id: string, input: MockPayInput, outcome: 'captured' | 'failed') {
     const gateway = this.deps.gateway;
     if (!(gateway instanceof MockGateway)) throw new NotFoundError('Route');
     const p = await this.owned(user, id);
@@ -230,7 +387,7 @@ export class PaymentsService {
   async applyGatewayPayment(
     paymentId: string,
     gp: GatewayPayment,
-    source: 'verify' | 'webhook' | 'reconcile',
+    source: 'verify' | 'webhook' | 'reconcile' | 'wallet',
   ): Promise<PaymentRow> {
     return this.deps.runInTransaction(async (tx) => {
       const repo = this.deps.paymentsRepository;
@@ -258,8 +415,7 @@ export class PaymentsService {
         }
         // OPEN, CANCELLED or EXPIRED: money moved, so the payment is CAPTURED regardless; the
         // order side decides (late payment on a closed order → automatic refund, docs/oms R5).
-        const mismatch =
-          BigInt(gp.amountPaise) !== p.amountPaise || gp.currency !== p.currency;
+        const mismatch = BigInt(gp.amountPaise) !== p.amountPaise || gp.currency !== p.currency;
         const updated = await repo.update(
           paymentId,
           {
@@ -283,21 +439,7 @@ export class PaymentsService {
             { paymentId, expected: Number(p.amountPaise), captured: gp.amountPaise },
             'captured amount differs from the order amount',
           );
-        await emitPaymentEvent(
-          tx,
-          PAYMENT_EVENTS.captured,
-          {
-            paymentId,
-            orderId: p.orderId,
-            orderNo: p.orderNo,
-            amountPaise: gp.amountPaise,
-            currency: gp.currency,
-            expectedPaise: Number(p.amountPaise),
-            method: gp.method,
-            providerPaymentId: gp.id,
-          },
-          ctx,
-        );
+        await this.emitCaptured(tx, updated, gp, ctx);
         return updated;
       }
 
@@ -312,28 +454,87 @@ export class PaymentsService {
           },
           tx,
         );
-        await emitPaymentEvent(
-          tx,
-          PAYMENT_EVENTS.failed,
-          {
-            paymentId,
-            orderId: p.orderId,
-            errorCode: gp.errorCode,
-            errorReason: gp.errorReason,
-          },
-          ctx,
-        );
+        if (p.purpose === 'WALLET_TOPUP')
+          await emitPaymentEvent(
+            tx,
+            PAYMENT_EVENTS.topupFailed,
+            {
+              paymentId,
+              topupId: refOf(p),
+              userId: p.userId,
+              errorCode: gp.errorCode,
+              errorReason: gp.errorReason,
+            },
+            ctx,
+          );
+        else
+          await emitPaymentEvent(
+            tx,
+            PAYMENT_EVENTS.failed,
+            {
+              paymentId,
+              orderId: orderOf(p).orderId,
+              errorCode: gp.errorCode,
+              errorReason: gp.errorReason,
+            },
+            ctx,
+          );
         return updated;
       }
       return p; // created / authorized (auto-capture follows) or a replayed failure
     });
   }
 
+  /** Order payments → payment.captured.v1 (order-service); top-ups → payment.topup_captured.v1. */
+  private async emitCaptured(tx: Tx, p: PaymentRow, gp: GatewayPayment, ctx: string) {
+    if (p.purpose === 'WALLET_TOPUP') {
+      await emitPaymentEvent(
+        tx,
+        PAYMENT_EVENTS.topupCaptured,
+        {
+          paymentId: p.id,
+          paymentNo: p.paymentNo,
+          topupId: refOf(p),
+          userId: p.userId,
+          amountPaise: gp.amountPaise,
+          expectedPaise: Number(p.amountPaise),
+          currency: gp.currency,
+          method: gp.method,
+          bank: p.bank,
+          cardLast4: p.cardLast4,
+          cardNetwork: p.cardNetwork,
+          vpaMasked: p.vpaMasked,
+          providerPaymentId: gp.id,
+        },
+        ctx,
+      );
+      return;
+    }
+    const { orderId, orderNo } = orderOf(p);
+    await emitPaymentEvent(
+      tx,
+      PAYMENT_EVENTS.captured,
+      {
+        paymentId: p.id,
+        orderId,
+        orderNo,
+        amountPaise: gp.amountPaise,
+        currency: gp.currency,
+        expectedPaise: Number(p.amountPaise),
+        method: gp.method,
+        providerPaymentId: gp.id,
+      },
+      ctx,
+    );
+  }
+
   /** Re-reads the gateway for an open payment (lost webhook guard; order timeout check). */
   async liveStatus(id: string): Promise<PaymentRow> {
     const p = await this.deps.paymentsRepository.find(id);
     if (p === null) throw new NotFoundError('Payment');
-    if (!isOpen(p) || p.providerOrderId === null) return p;
+    if (!isOpen(p)) return p;
+    if (p.provider === 'WALLET') return this.walletLiveStatus(p);
+    if (p.providerOrderId === null) return p;
     let attempts: GatewayPayment[];
     try {
       attempts = await this.deps.gateway.fetchOrderPayments(p.providerOrderId);
@@ -402,7 +603,7 @@ export class PaymentsService {
   async expireDue(): Promise<{ expired: number }> {
     let expired = 0;
     for (const p of await this.deps.paymentsRepository.openExpired(JOB_BATCH)) {
-      if (p.providerOrderId !== null) {
+      if (p.providerOrderId !== null || p.provider === 'WALLET') {
         const ok = await this.liveStatus(p.id).then(
           () => true,
           (err: unknown) => {
@@ -420,12 +621,20 @@ export class PaymentsService {
           { status: 'EXPIRED', expiredAt: new Date() },
           tx,
         );
-        await emitPaymentEvent(
-          tx,
-          PAYMENT_EVENTS.expired,
-          { paymentId: p.id, orderId: p.orderId },
-          `payment:${p.id}`,
-        );
+        if (p.purpose === 'WALLET_TOPUP')
+          await emitPaymentEvent(
+            tx,
+            PAYMENT_EVENTS.topupExpired,
+            { paymentId: p.id, topupId: refOf(p), userId: p.userId },
+            `payment:${p.id}`,
+          );
+        else
+          await emitPaymentEvent(
+            tx,
+            PAYMENT_EVENTS.expired,
+            { paymentId: p.id, orderId: orderOf(p).orderId },
+            `payment:${p.id}`,
+          );
         return true;
       });
       if (done) expired += 1;

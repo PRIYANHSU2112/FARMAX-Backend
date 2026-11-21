@@ -120,6 +120,40 @@ describe('storefront product routes (public)', () => {
     );
   });
 
+  it('Shop by Problem: diseaseSlug + flockStage (repeatable) combine; id+slug together → 422', async () => {
+    const { a, storefront } = await build(null);
+    await a.inject({
+      method: 'GET',
+      url: '/catalog/products?diseaseSlug=Coccidiosis&flockStage=grower&flockStage=layer&species=broiler',
+    });
+    expect(storefront.list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diseaseSlug: ['coccidiosis'],
+        flockStage: ['GROWER', 'LAYER'],
+        species: ['BROILER'],
+      }),
+    );
+    await a.inject({
+      method: 'GET',
+      url: '/catalog/products?diseaseSlug=newcastle&diseaseSlug=ibd&sort=shelf_life',
+    });
+    expect(storefront.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ diseaseSlug: ['newcastle', 'ibd'], sort: 'shelf_life' }),
+    );
+    await a.inject({ method: 'GET', url: '/catalog/products?flockStage=brooder' });
+    expect(storefront.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ flockStage: ['BROODER'] }),
+    );
+    expect(
+      (
+        await a.inject({
+          method: 'GET',
+          url: `/catalog/products?diseaseId=${ID}&diseaseSlug=crd`,
+        })
+      ).statusCode,
+    ).toBe(422);
+  });
+
   it('422 on conflicting category params or bad sort', async () => {
     const { a } = await build(null);
     expect(
@@ -133,6 +167,25 @@ describe('storefront product routes (public)', () => {
     expect(
       (await a.inject({ method: 'GET', url: '/catalog/products?sort=cheapest' })).statusCode,
     ).toBe(422);
+  });
+
+  it('/filters takes the list selection (repeatable params as arrays, node stock)', async () => {
+    const { a, storefront } = await build(null);
+    const NODE = '0193a1b2-7c4d-7e5f-8a9b-0c1d2e3f4a5c';
+    const res = await a.inject({
+      method: 'GET',
+      url: `/catalog/products/filters?species=layer&brandId=${ID}&diseaseSlug=newcastle&nodeId=${NODE}&inStock=true`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(storefront.filters).toHaveBeenCalledWith(
+      expect.objectContaining({
+        species: ['LAYER'],
+        brandId: [ID],
+        diseaseSlug: ['newcastle'],
+        nodeId: NODE,
+        inStock: true,
+      }),
+    );
   });
 
   it('serves detail, filters and lookups', async () => {

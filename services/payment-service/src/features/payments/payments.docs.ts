@@ -10,14 +10,20 @@ export const ADMIN_PAYMENTS_TAG = 'Admin Payments';
 const paymentSchema = Joi.object({
   id: Joi.string().guid(),
   paymentNo: Joi.string().example('TXN-261121-9F3A21C4'),
-  orderId: Joi.string().guid(),
-  orderNo: Joi.string().example('ORD-26-0091842'),
+  purpose: Joi.string()
+    .valid('ORDER', 'WALLET_TOPUP')
+    .description('ORDER (orderId / orderNo set) or WALLET_TOPUP (referenceId = wallet top-up id)'),
+  orderId: Joi.string().guid().allow(null),
+  orderNo: Joi.string().allow(null).example('ORD-26-0091842'),
+  referenceId: Joi.string().guid().allow(null),
   status: Joi.string()
     .valid(...PAYMENT_STATUSES)
     .description(
       'PENDING → CAPTURED; FAILED = last attempt failed (retry allowed until expiresAt); CANCELLED (order closed) · EXPIRED · PARTIALLY_REFUNDED · REFUNDED',
     ),
-  provider: Joi.string().valid('RAZORPAY', 'MOCK'),
+  provider: Joi.string()
+    .valid('RAZORPAY', 'MOCK', 'WALLET')
+    .description('WALLET = paid in full from the FarmX wallet (no gateway order)'),
   amountPaise: Joi.number().integer().example(2782100),
   amount: Joi.string().example('27821.00'),
   currency: Joi.string().example('INR'),
@@ -43,8 +49,10 @@ const paymentSchema = Joi.object({
 const example = {
   id: IDS.payment,
   paymentNo: 'TXN-261121-9F3A21C4',
+  purpose: 'ORDER',
   orderId: IDS.order,
   orderNo: 'ORD-26-0091842',
+  referenceId: null,
   status: 'CAPTURED',
   provider: 'RAZORPAY',
   amountPaise: 2782100,
@@ -90,7 +98,12 @@ export const PAYMENT_DOCS = {
       providerPaymentId: 'pay_N8xZ0q1W2e3R',
       signature: '0f6e1c2b8a…64 hex chars',
     },
-    success: { status: 200, description: 'Payment after verification', data: paymentSchema, example: ok(example) },
+    success: {
+      status: 200,
+      description: 'Payment after verification',
+      data: paymentSchema,
+      example: ok(example),
+    },
     errors: [400, 404, 422, 503],
     errorExamples: {
       400: { message: 'Invalid payment signature', details: { reason: 'SIGNATURE_INVALID' } },
@@ -123,7 +136,12 @@ export const PAYMENT_DOCS = {
     description: 'Newest first. Filters: `status`, `orderId`, `userId`.',
     auth: AUTH_ADMIN,
     permission: 'payments.view',
-    success: { status: 200, description: 'A page of payments', data: paymentSchema, paginated: true },
+    success: {
+      status: 200,
+      description: 'A page of payments',
+      data: paymentSchema,
+      paginated: true,
+    },
     errors: [422],
   },
   adminGet: {

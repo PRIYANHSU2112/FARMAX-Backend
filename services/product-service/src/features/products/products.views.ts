@@ -48,7 +48,11 @@ export const toVariantView = (v: VariantRecord): VariantView => {
   };
 };
 
-export const toProductView = (p: ProductRecord): ProductView => ({
+/** `stageLabels`: FLOCK_STAGE code → label (active lookups). */
+export const toProductView = (
+  p: ProductRecord,
+  stageLabels: ReadonlyMap<string, string> = new Map(),
+): ProductView => ({
   id: p.id,
   name: p.name,
   slug: p.slug,
@@ -63,6 +67,8 @@ export const toProductView = (p: ProductRecord): ProductView => ({
   routes: p.routes.map((r) => r.lookup),
   species: p.species.map(({ lookup: { id, code, label } }) => ({ id, code, label })),
   productionStages: p.productionStages,
+  flockStages: p.productionStages.map((code) => ({ code, label: stageLabels.get(code) ?? code })),
+  diseases: p.diseases.map(({ disease }) => disease),
   indications: p.indications,
   dosageInstructions: p.dosageInstructions,
   contraindications: p.contraindications,

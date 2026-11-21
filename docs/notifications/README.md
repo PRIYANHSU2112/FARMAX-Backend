@@ -67,24 +67,32 @@ flowchart LR
 
 Queue `notification-service.events` (binds only events that are **published today**).
 
-| Event                         | Audience · app                                                     | Template                                        | Channels                 | Dedupe key                                      |
-| ----------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `order.placed.v1`             | buyer · CUSTOMER (+ records order → buyer)                         | `order.placed`                                  | in-app, push             | `order.placed:<orderId>`                        |
-| `payment.captured.v1`         | buyer                                                              | `payment.captured`                              | in-app, push, email      | `payment.captured:<paymentId>`                  |
-| `payment.failed.v1`           | buyer                                                              | `payment.failed`                                | in-app, push             | `payment.failed:<paymentId>` (once per payment) |
-| `order.confirmed.v1`          | buyer                                                              | `order.confirmed`                               | in-app, push, email      | `order.confirmed:<orderId>`                     |
-| `order.rejected.v1`           | buyer · HIGH                                                       | `order.rejected`                                | in-app, push, email, SMS | `order.rejected:<orderId>`                      |
-| `order.failed.v1`             | buyer · HIGH (`ORDER_CLOSED` re-sends: nobody)                     | `order.failed`                                  | in-app, push, email, SMS | `order.failed:<orderId>`                        |
-| `order.cancelled.v1`          | buyer (FULL / PARTIAL)                                             | `order.cancelled` / `order.partially_cancelled` | in-app, push, email      | `<orderId>` / `<orderId>:<hash of lines>`       |
-| `payment.refund_initiated.v1` | buyer                                                              | `refund.initiated`                              | in-app, push, email      | `refund.initiated:<refundId>`                   |
-| `payment.refund_processed.v1` | buyer                                                              | `refund.processed`                              | in-app, push, email      | `refund.processed:<refundId>`                   |
-| `payment.refund_failed.v1`    | staff with `refunds.approve` · ADMIN · HIGH                        | `refund.failed`                                 | in-app, push             | `refund.failed:<refundId>`                      |
-| `order.review_overdue.v1`     | staff with `orders.confirm` · ADMIN · HIGH                         | `order.review_overdue`                          | in-app, push             | `order.review_overdue:<orderId>`                |
-| `inventory.low_stock.v1`      | staff with `inventory.view` (GLOBAL or that warehouse) · WAREHOUSE | `inventory.low_stock`                           | in-app, push             | `inventory.low_stock:<eventId>`                 |
+| Event                         | Audience · app                                                                                                                    | Template                                        | Channels                 | Dedupe key                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------ | ------------------------------------------------- |
+| `order.placed.v1`             | buyer · CUSTOMER (+ records order → buyer)                                                                                        | `order.placed`                                  | in-app, push             | `order.placed:<orderId>`                          |
+| `payment.captured.v1`         | buyer                                                                                                                             | `payment.captured`                              | in-app, push, email      | `payment.captured:<paymentId>`                    |
+| `payment.failed.v1`           | buyer                                                                                                                             | `payment.failed`                                | in-app, push             | `payment.failed:<paymentId>` (once per payment)   |
+| `order.confirmed.v1`          | buyer                                                                                                                             | `order.confirmed`                               | in-app, push, email      | `order.confirmed:<orderId>`                       |
+| `order.rejected.v1`           | buyer · HIGH                                                                                                                      | `order.rejected`                                | in-app, push, email, SMS | `order.rejected:<orderId>`                        |
+| `order.failed.v1`             | buyer · HIGH (`ORDER_CLOSED` re-sends: nobody)                                                                                    | `order.failed`                                  | in-app, push, email, SMS | `order.failed:<orderId>`                          |
+| `order.cancelled.v1`          | buyer (FULL / PARTIAL)                                                                                                            | `order.cancelled` / `order.partially_cancelled` | in-app, push, email      | `<orderId>` / `<orderId>:<hash of lines>`         |
+| `payment.refund_initiated.v1` | buyer                                                                                                                             | `refund.initiated`                              | in-app, push, email      | `refund.initiated:<refundId>`                     |
+| `payment.refund_processed.v1` | buyer                                                                                                                             | `refund.processed`                              | in-app, push, email      | `refund.processed:<refundId>`                     |
+| `payment.refund_failed.v1`    | staff with `refunds.approve` · ADMIN · HIGH                                                                                       | `refund.failed`                                 | in-app, push             | `refund.failed:<refundId>`                        |
+| `order.review_overdue.v1`     | staff with `orders.confirm` · ADMIN · HIGH                                                                                        | `order.review_overdue`                          | in-app, push             | `order.review_overdue:<orderId>`                  |
+| `inventory.low_stock.v1`      | staff with `inventory.view` (GLOBAL or that warehouse) · WAREHOUSE                                                                | `inventory.low_stock`                           | in-app, push             | `inventory.low_stock:<eventId>`                   |
+| `content.published.v1`        | readers of the item's target segment (FARM_CONTENT, fan-out) · CUSTOMER · CRITICAL alert = mandatory, WARNING = HIGH, else NORMAL | `content.alert` / `content.news`                | in-app, push             | `content.published:<contentId>:v<contentVersion>` |
+| `content.corrected.v1`        | segment + savers · CUSTOMER                                                                                                       | `content.corrected`                             | in-app, push             | `content.corrected:<contentId>:v<contentVersion>` |
+| `content.retracted.v1`        | savers (+ segment if it was pushed) · CUSTOMER · HIGH                                                                             | `content.retracted`                             | in-app, push             | `content.retracted:<contentId>:v<contentVersion>` |
 
 Only `order.placed.v1` carries the buyer, so buyer events are routed through
 `notification_order_projections`. An event that arrives before its `order.placed` fails, is
 retried (5×) and then dead-lettered (replay it from the DLQ).
+
+Content readers (`FARM_CONTENT`) are paged from farm-service (`FARM_SERVICE_URL`, internal token)
+by the resumable fan-out job. Category `CONTENT` is opt-out; routine (LOW / NORMAL) content stops
+pushing after 3 per user per rolling 24 h — later ones land in the inbox only. HIGH / CRITICAL
+(alerts, corrections of alerts, withdrawals) are never capped.
 
 ### Needed from producers (not built: no fake events)
 

@@ -13,7 +13,9 @@ export const PAYMENT_STATUSES = [
   'REFUNDED',
 ] as const;
 
-const GATEWAY_ID = Joi.string().trim().pattern(/^[A-Za-z0-9_]{6,64}$/);
+const GATEWAY_ID = Joi.string()
+  .trim()
+  .pattern(/^[A-Za-z0-9_]{6,64}$/);
 
 export const getPaymentSchema = idParams;
 
@@ -22,7 +24,10 @@ export const verifySchema = {
   body: Joi.object({
     providerOrderId: GATEWAY_ID.required(),
     providerPaymentId: GATEWAY_ID.required(),
-    signature: Joi.string().trim().pattern(/^[a-f0-9]{64}$/).required(),
+    signature: Joi.string()
+      .trim()
+      .pattern(/^[a-f0-9]{64}$/)
+      .required(),
   }),
 };
 
@@ -38,6 +43,19 @@ export const createPaymentSchema = {
     userId: ID.required(),
     /** Integer paise (₹1 … ₹1 crore). */
     amountPaise: Joi.number().integer().min(100).max(1_000_000_000).required(),
+    currency: Joi.string().valid('INR').default('INR'),
+    expiresAt: Joi.date().iso().required(),
+    method: Joi.string().valid('ONLINE', 'WALLET').default('ONLINE'),
+  }),
+};
+
+export const createTopupPaymentSchema = {
+  body: Joi.object({
+    topupId: ID.required(),
+    topupNo: Joi.string().trim().min(3).max(24).required(),
+    userId: ID.required(),
+    /** Integer paise (₹1 … ₹10 lakh; wallet-service applies the business limits). */
+    amountPaise: Joi.number().integer().min(100).max(100_000_000).required(),
     currency: Joi.string().valid('INR').default('INR'),
     expiresAt: Joi.date().iso().required(),
   }),

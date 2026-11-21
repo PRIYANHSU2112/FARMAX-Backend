@@ -26,6 +26,13 @@
 //   notification/*.prisma     notification-service: Notification, NotificationRecipient, NotificationDelivery,
 //                             NotificationTemplate, NotificationPreference, DeviceToken,
 //                             NotificationOrderProjection, NotificationAuditLog
+//   call/*.prisma             call-service (D-53): Expert (+ rules, breaks, time-off), CallHoliday,
+//                             CallOption, CallSetting, CallBooking (holds + bookings, exclusion constraint),
+//                             CallBookingEvent, CallConsent, CallAttempt, CallAuditLog
+//   wallet/ledger.prisma      wallet-service (D-54): WalletAccount, WalletJournal, WalletPosting
+//                             (double-entry, append-only, sum-zero deferred trigger), WalletTopup, WalletSetting,
+//                             PointsAccount, PointsJournal, PointsPosting, PointsLot, PointsLotConsumption,
+//                             WalletAuditLog, WalletAdjustment, WalletLedgerCheck
 //   <service>/…          add a folder per new service
 
 generator client {

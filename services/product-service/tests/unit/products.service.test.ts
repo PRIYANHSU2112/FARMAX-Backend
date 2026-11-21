@@ -58,6 +58,7 @@ const product = (over: Record<string, unknown> = {}) => ({
   routes: [],
   species: [],
   productionStages: [],
+  diseases: [],
   indications: null,
   dosageInstructions: null,
   contraindications: null,
@@ -156,9 +157,20 @@ const setup = (record = product()) => {
     setPriceSummary: vi.fn(() => Promise.resolve()),
   };
   const audit = { record: vi.fn(() => Promise.resolve()), history: vi.fn() };
+  const lookups = {
+    resolve: vi.fn(() => Promise.resolve(new Map())),
+    resolveCodes: vi.fn((): Promise<void> => Promise.resolve()),
+    publicList: vi.fn(() =>
+      Promise.resolve([
+        { id: 'l-g', group: 'FLOCK_STAGE', code: 'GROWER', label: 'Grower', meta: {} },
+      ]),
+    ),
+  };
+  const diseases = { assertLinkable: vi.fn((): Promise<void> => Promise.resolve()) };
   const service = new ProductsService({
     productsRepository: repo,
-    lookupsService: { resolve: vi.fn(() => Promise.resolve(new Map())) },
+    lookupsService: lookups,
+    diseasesService: diseases,
     attributesService: {
       effectiveFor: vi.fn(() => Promise.resolve([])),
       complianceFor: vi.fn(() => Promise.resolve(NO_PROFILE)),
@@ -173,7 +185,7 @@ const setup = (record = product()) => {
     redis: { incr: vi.fn(() => Promise.resolve(1)), del: vi.fn(() => Promise.resolve(1)) },
     logger: { warn: vi.fn() },
   } as never);
-  return { service, repo, audit, tx };
+  return { service, repo, audit, tx, lookups, diseases };
 };
 
 const variantInput = (sku: string, over: Record<string, unknown> = {}) => ({
@@ -272,6 +284,98 @@ describe('ProductsService — create', () => {
         actor,
       ),
     ).rejects.toMatchObject({ details: { reason: 'PRODUCT_DUPLICATE', fields: ['sku'] } });
+  });
+});
+
+describe('ProductsService — flock stages + Shop by Problem links', () => {
+  const base = {
+    name: 'Coccicure',
+    categoryId: 'c1',
+    brandId: 'b1',
+    hsnCode: '30042019',
+    gstRate: 12,
+    variants: [variantInput('A')],
+    reason: 'new listing for coccidiosis',
+  };
+
+  it('create: validates FLOCK_STAGE codes + diseases in the tx and stores the links', async () => {
+    const { service, repo, lookups, diseases, tx } = setup();
+    await service.create(
+      { ...base, productionStages: ['GROWER'], diseaseIds: ['d1', 'd2'] },
+      actor,
+    );
+    expect(lookups.resolveCodes).toHaveBeenCalledWith(
+      tx,
+      'FLOCK_STAGE',
+      ['GROWER'],
+      'productionStages',
+    );
+    expect(diseases.assertLinkable).toHaveBeenCalledWith(tx, ['d1', 'd2']);
+    const [, data, relations] = repo.create.mock.calls[0] as unknown as [
+      unknown,
+      Record<string, unknown>,
+      { diseaseIds: string[] },
+    ];
+    expect(relations.diseaseIds).toEqual(['d1', 'd2']);
+    expect(data.productionStages).toEqual(['GROWER']);
+    expect(data).not.toHaveProperty('diseaseIds');
+  });
+
+  it('create: unknown / inactive stage code → 422, nothing written', async () => {
+    const { service, repo, lookups } = setup();
+    lookups.resolveCodes.mockRejectedValueOnce(
+      new ValidationError([{ path: 'productionStages[0]', message: 'Unknown FLOCK_STAGE code' }]),
+    );
+    await expect(
+      service.create({ ...base, productionStages: ['NOPE'] }, actor),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('create: inactive / deleted disease → 422', async () => {
+    const { service, repo, diseases } = setup();
+    diseases.assertLinkable.mockRejectedValueOnce(
+      new ValidationError([{ path: 'diseaseIds[0]', message: 'Unknown disease' }]),
+    );
+    await expect(service.create({ ...base, diseaseIds: ['gone'] }, actor)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('update: diseaseIds replace the links; omitted = links unchanged and not re-validated', async () => {
+    const { service, repo, diseases } = setup();
+    await service.update('p1', { diseaseIds: ['d3'], reason: 'relink to CRD only' }, 3, actor);
+    expect(diseases.assertLinkable).toHaveBeenCalledTimes(1);
+    expect((repo.update.mock.calls[0] as unknown as unknown[])[3]).toMatchObject({
+      diseaseIds: ['d3'],
+    });
+
+    await service.update(
+      'p1',
+      { name: 'Coccicure Plus', reason: 'rename for the label' },
+      3,
+      actor,
+    );
+    expect(diseases.assertLinkable).toHaveBeenCalledTimes(1);
+    expect((repo.update.mock.calls[1] as unknown as unknown[])[3]).toMatchObject({
+      diseaseIds: undefined,
+    });
+  });
+
+  it('views: flock stages carry labels (legacy text keeps its raw value); diseases listed', async () => {
+    const { service } = setup(
+      product({
+        productionStages: ['GROWER', 'grower-old'],
+        diseases: [{ disease: { id: 'd1', name: 'CRD', slug: 'crd', iconUrl: null } }],
+      }),
+    );
+    const view = await service.detail('p1');
+    expect(view.flockStages).toEqual([
+      { code: 'GROWER', label: 'Grower' },
+      { code: 'grower-old', label: 'grower-old' },
+    ]);
+    expect(view.diseases).toEqual([{ id: 'd1', name: 'CRD', slug: 'crd', iconUrl: null }]);
   });
 });
 

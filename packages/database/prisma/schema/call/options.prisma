@@ -1,0 +1,39 @@
+// call-service feature: options (D-53). Every chip / list on the booking screens is a row here, and
+// every rule number (slot length, buffers, hold TTL, SLA, retention …) is a setting row. Both are
+// seeded by the migration and editable by admins (sales.configure).
+
+enum CallOptionType {
+  CHANNEL
+  INTENT
+  TIMEFRAME
+  LANGUAGE
+  CANCEL_REASON
+  DISPOSITION
+}
+
+model CallOption {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  type      CallOptionType
+  /// Upper-case code (CHANNEL codes = CallChannel values; LANGUAGE codes are lower-case ISO 639-1).
+  code      String         @db.VarChar(40)
+  label     String         @db.VarChar(80)
+  icon      String?        @db.VarChar(40)
+  sortOrder Int            @default(0) @db.SmallInt
+  isActive  Boolean        @default(true)
+  /// Type-specific: TIMEFRAME { scoreWeight }, INTENT { scoreWeight }, CHANNEL { description } …
+  meta      Json?
+  updatedAt DateTime       @updatedAt
+
+  @@unique([type, code])
+  @@index([type, isActive, sortOrder])
+  @@map("call_options")
+}
+
+model CallSetting {
+  key             String   @id @db.VarChar(60)
+  value           Json
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@map("call_settings")
+}

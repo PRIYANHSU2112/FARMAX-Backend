@@ -60,6 +60,9 @@ export const CACHE_VERSIONS = {
   inventory: 'v1',
   payment: 'v1',
   notification: 'v1',
+  call: 'v1',
+  wallet: 'v1',
+  support: 'v1',
 } as const;
 
 const authKeyspace = createKeyspace({ service: 'auth', version: CACHE_VERSIONS.auth });
@@ -170,6 +173,8 @@ export const productKeys = {
   listVersion: () => productKeyspace.key('list-version'),
   /** One storefront list page (hash of the normalised query + listVersion). TTL 60 s. */
   list: (version: string, hash: string) => productKeyspace.key('list', version, hash),
+  /** Storefront filter facets for one normalised selection (+ listVersion). TTL 60 s. */
+  filters: (version: string, hash: string) => productKeyspace.key('filters', version, hash),
   /** Public product detail by slug. TTL 10 min; deleted after a write. */
   product: (slug: string) => productKeyspace.key('product', slug),
   rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
@@ -259,8 +264,88 @@ export const notificationKeys = {
   streams: (userId: string) => notificationKeyspace.key('streams', userId),
 };
 
+const callKeyspace = createKeyspace({ service: 'call', version: CACHE_VERSIONS.call });
+
+/**
+ * call-service (D-53). Availability pages embed TWO generations, so no key is ever scanned:
+ * `poolGen` (INCR on any expert / rule / break / time-off / holiday / settings change) and
+ * `dayGen(date)` (INCR on any hold / booking change touching that IST date).
+ */
+export const callKeys = {
+  keyspace: callKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    callKeyspace.key('rl', action, dimension, value),
+  /** Stored response of an idempotent mutation, per user + Idempotency-Key. TTL 24 h. */
+  idempotency: (userId: string, key: string) => callKeyspace.key('idem', userId, key),
+  poolGen: () => callKeyspace.key('pool-gen'),
+  /** `date` = IST calendar date `YYYY-MM-DD`. */
+  dayGen: (date: string) => callKeyspace.key('day-gen', date),
+  /** Slot grid / calendar-dots page. TTL 30 s. */
+  availability: (poolGen: string, dayGen: string, hash: string) =>
+    callKeyspace.key('avail', poolGen, dayGen, hash),
+  /** Eligible expert pool for (brand, category). TTL 5 min. */
+  pool: (poolGen: string, brandId: string, categoryId: string) =>
+    callKeyspace.key('pool', poolGen, brandId, categoryId),
+  /** Recommended-expert card. TTL 30 s. */
+  recommended: (poolGen: string, hash: string) => callKeyspace.key('rec', poolGen, hash),
+  /** Options + settings snapshot (+ ETag). TTL 10 min; deleted on write. */
+  config: () => callKeyspace.key('config'),
+  /** Expert app heartbeat. TTL 90 s; alive = online. */
+  presence: (expertId: string) => callKeyspace.key('presence', expertId),
+  /** Product storefront card. TTL 60 s. */
+  productCard: (productId: string) => callKeyspace.key('product-card', productId),
+  /** Price quote for a quantity. TTL 60 s (preview only; hold + confirm re-quote). */
+  quote: (productId: string, qty: number) => callKeyspace.key('quote', productId, qty),
+  /** Category ids root → self. TTL 10 min. */
+  categoryPath: (categoryId: string) => callKeyspace.key('category-path', categoryId),
+  /** Farm snapshot (ownership, territory). TTL 60 s. */
+  farm: (farmId: string) => callKeyspace.key('farm', farmId),
+};
+
 export const mediaKeys = {
   keyspace: mediaKeyspace,
   /** Fixed-window upload counter per user (value is the user id). */
   uploadRateLimit: (userId: string) => mediaKeyspace.key('rl', 'upload', userId),
+};
+
+const walletKeyspace = createKeyspace({ service: 'wallet', version: CACHE_VERSIONS.wallet });
+
+/**
+ * wallet-service (D-54). Rate limits ONLY: balances, idempotency and ledger state live in
+ * Postgres, never in Redis.
+ */
+export const walletKeys = {
+  keyspace: walletKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    walletKeyspace.key('rl', action, dimension, value),
+};
+
+const supportKeyspace = createKeyspace({ service: 'support', version: CACHE_VERSIONS.support });
+
+/**
+ * support-service. Tickets, messages and SLA state live in Postgres; Redis holds caches, limits,
+ * WebSocket connect tokens / counters and the realtime fan-out channel only.
+ */
+export const supportKeys = {
+  keyspace: supportKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    supportKeyspace.key('rl', action, dimension, value),
+  /** Generation of the config snapshot (INCR on every admin config write). */
+  configGen: () => supportKeyspace.key('config-gen'),
+  /** Config snapshot (settings, topics, rules, SLA, calendars) of one generation. TTL 10 min. */
+  config: (gen: string) => supportKeyspace.key('config', gen),
+  /** Generation of published help content (FAQ, legal). INCR on every content write. */
+  contentGen: () => supportKeyspace.key('content-gen'),
+  /** One cached help-content page of a generation. TTL 10 min. */
+  content: (gen: string, hash: string) => supportKeyspace.key('content', gen, hash),
+  /** Single-use WebSocket connect token. TTL 60 s. */
+  wsToken: (token: string) => supportKeyspace.key('ws-token', token),
+  /** Realtime fan-out channel (all replicas). */
+  wsChannel: () => supportKeyspace.key('ws'),
+  /** Open sockets of one user across replicas. TTL refreshed by heartbeats. */
+  wsConnections: (userId: string) => supportKeyspace.key('ws-conns', userId),
+  /** Inbound frame rate limit of one user. */
+  wsRate: (userId: string) => supportKeyspace.key('ws-rl', userId),
+  /** Agent presence (an open agent socket). TTL 90 s, refreshed while connected. */
+  agentOnline: (userId: string) => supportKeyspace.key('agent-online', userId),
 };

@@ -44,13 +44,15 @@ const byteLimit = (limit: number, kind: MediaKind, onBytes: (n: number) => void)
  */
 export class MediaController {
   private readonly mediaService: Cradle['mediaService'];
+  private readonly supportUploads: Cradle['supportUploads'];
 
-  constructor({ mediaService }: Pick<Cradle, 'mediaService'>) {
+  constructor({ mediaService, supportUploads }: Pick<Cradle, 'mediaService' | 'supportUploads'>) {
     this.mediaService = mediaService;
+    this.supportUploads = supportUploads;
   }
 
   async upload(
-    request: FastifyRequest<{ Querystring: { type?: MediaKind } }>,
+    request: FastifyRequest<{ Querystring: { type?: MediaKind; purpose?: 'support' } }>,
     reply: FastifyReply,
   ) {
     if (!request.isMultipart()) {
@@ -98,10 +100,11 @@ export class MediaController {
       }
       if (size === 0) throw new BadRequestError('The file is empty');
 
-      const uploaded = await this.mediaService.uploadMedia(
-        { path: tempPath, filename: file.filename, mimetype: file.mimetype, size },
-        request.query.type,
-      );
+      const incoming = { path: tempPath, filename: file.filename, mimetype: file.mimetype, size };
+      const uploaded =
+        request.query.purpose === 'support'
+          ? await this.supportUploads.upload(incoming, request.user?.id ?? '')
+          : await this.mediaService.uploadMedia(incoming, request.query.type);
       return await reply.code(201).send(ok(uploaded));
     } catch (error) {
       if (isFileTooLarge(error)) {

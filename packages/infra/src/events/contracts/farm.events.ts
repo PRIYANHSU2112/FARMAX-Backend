@@ -16,6 +16,9 @@ export const FARM_EVENTS = {
   farmMerged: 'farm.merged.v1',
   ownerKycChanged: 'farm.owner_kyc_changed.v1',
   farmFactsChanged: 'farm.facts_changed.v1',
+  contentPublished: 'content.published.v1',
+  contentCorrected: 'content.corrected.v1',
+  contentRetracted: 'content.retracted.v1',
 } as const;
 
 export type FarmEventType = (typeof FARM_EVENTS)[keyof typeof FARM_EVENTS];
@@ -128,6 +131,47 @@ export interface FarmEventMap {
   [FARM_EVENTS.farmMerged]: FarmMergedV1;
   [FARM_EVENTS.ownerKycChanged]: OwnerKycChangedV1;
   [FARM_EVENTS.farmFactsChanged]: FarmFactsV1;
+  [FARM_EVENTS.contentPublished]: ContentPublishedV1;
+  [FARM_EVENTS.contentCorrected]: ContentCorrectedV1;
+  [FARM_EVENTS.contentRetracted]: ContentRetractedV1;
 }
 
 export type FarmEvent<T extends FarmEventType = FarmEventType> = EventEnvelope<T, FarmEventMap[T]>;
+
+// ── Content (news feed, disease alerts, knowledge library) ──
+// Privacy: no coordinates, farm ids or user ids — only the public place label. Consumers resolve
+// readers through farm-service `GET /internal/farms/content/:id/audience` (paged user ids).
+
+export type ContentKindV1 = 'NEWS' | 'ALERT' | 'GUIDE' | 'VIDEO' | 'CHECKLIST' | 'ANNOUNCEMENT';
+export type AlertSeverityV1 = 'INFO' | 'WARNING' | 'CRITICAL';
+
+/** Fields every content event carries (the push text + dedupe key inputs). */
+export interface ContentEventBaseV1 {
+  contentId: string;
+  /** Reader-visible version: dedupe key part (redelivery / re-emit never notifies twice). */
+  contentVersion: number;
+  kind: ContentKindV1;
+  severity: AlertSeverityV1 | null;
+  title: string;
+  /** Public place label ("Tanuku"), never coordinates. */
+  placeLabel: string | null;
+}
+
+/** A content item went live with `notify` (ALERT by default). Audience: target segment. */
+export interface ContentPublishedV1 extends ContentEventBaseV1 {
+  summary: string;
+}
+
+/** An approved correction was applied with `notify`. Audience: target segment + savers. */
+export interface ContentCorrectedV1 extends ContentEventBaseV1 {
+  correctionNote: string;
+}
+
+/**
+ * A live item was withdrawn as wrong. Audience: savers, plus the segment when a push had gone
+ * out for it (`wasNotified`).
+ */
+export interface ContentRetractedV1 extends ContentEventBaseV1 {
+  retractNote: string;
+  wasNotified: boolean;
+}

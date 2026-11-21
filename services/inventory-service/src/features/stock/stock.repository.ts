@@ -132,8 +132,9 @@ export class StockRepository {
     variantIds: readonly string[],
   ): Promise<{ warehouseId: string; variantId: string; sellable: number }[]> {
     if (warehouseIds.length === 0 || variantIds.length === 0) return [];
-    return withPrismaErrors(() =>
-      this.db.$queryRaw<{ warehouseId: string; variantId: string; sellable: number }[]>`
+    return withPrismaErrors(
+      () =>
+        this.db.$queryRaw<{ warehouseId: string; variantId: string; sellable: number }[]>`
         SELECT "warehouseId", "variantId",
                GREATEST(0, "onHand" - "reserved" - "safetyStock")::int AS "sellable"
         FROM "inventory_stock_levels"
@@ -183,7 +184,8 @@ export class StockRepository {
     const where: Prisma.Sql[] = [];
     if (query.warehouseId !== undefined)
       where.push(Prisma.sql`"warehouseId" = ${query.warehouseId}::uuid`);
-    if (query.variantId !== undefined) where.push(Prisma.sql`"variantId" = ${query.variantId}::uuid`);
+    if (query.variantId !== undefined)
+      where.push(Prisma.sql`"variantId" = ${query.variantId}::uuid`);
     if (query.lowStock === true)
       where.push(
         Prisma.sql`"reorderLevel" > 0 AND GREATEST(0, "onHand" - "reserved" - "safetyStock") <= "reorderLevel"`,
@@ -366,22 +368,14 @@ export class StockRepository {
   }
 
   /** Locks the published state rows of these variants (one publisher per variant at a time). */
-  lockStates(
-    tx: Tx,
-    variantIds: readonly string[],
-  ): Promise<
-    { variantId: string; availableQty: number; inStock: boolean; lowStock: boolean; sequence: bigint }[]
-  > {
+  lockStates(tx: Tx, variantIds: readonly string[]): Promise<AvailabilityStateRow[]> {
     return tx.$queryRaw`
-      SELECT "variantId", "availableQty", "inStock", "lowStock", "sequence"
+      SELECT "variantId", "availableQty", "inStock", "lowStock", "sequence", "nodeStockKey"
       FROM "inventory_availability_state"
       WHERE "variantId" = ANY(${[...variantIds]}::uuid[]) FOR UPDATE`;
   }
 
-  async saveState(
-    tx: Tx,
-    s: { variantId: string; availableQty: number; inStock: boolean; lowStock: boolean; sequence: bigint },
-  ): Promise<void> {
+  async saveState(tx: Tx, s: AvailabilityStateRow): Promise<void> {
     await tx.inventoryAvailabilityState.upsert({
       where: { variantId: s.variantId },
       create: { ...s, publishedAt: new Date() },
@@ -390,8 +384,20 @@ export class StockRepository {
         inStock: s.inStock,
         lowStock: s.lowStock,
         sequence: s.sequence,
+        nodeStockKey: s.nodeStockKey,
         publishedAt: new Date(),
       },
     });
   }
+}
+
+/** Last published availability of one variant (network totals + per-node key). */
+export interface AvailabilityStateRow {
+  variantId: string;
+  availableQty: number;
+  inStock: boolean;
+  lowStock: boolean;
+  sequence: bigint;
+  /** "nodeId:qty,…" sorted (see stock.rules nodeAvailability). */
+  nodeStockKey: string;
 }

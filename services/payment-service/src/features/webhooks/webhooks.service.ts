@@ -5,12 +5,7 @@ import type { Cradle } from '@fastify/awilix';
 
 import type { GatewayPayment } from '../../adapters/gateway.js';
 import { MockGateway } from '../../adapters/mock-gateway.js';
-import {
-  type RzpPayment,
-  type RzpRefund,
-  toPayment,
-  toRefund,
-} from '../../adapters/razorpay.js';
+import { type RzpPayment, type RzpRefund, toPayment, toRefund } from '../../adapters/razorpay.js';
 
 type Deps = Pick<
   Cradle,
@@ -89,14 +84,20 @@ export class WebhooksService {
       status: p.status,
       method: p.method,
       vpa: p.vpa,
-      card: p.cardLast4 === null ? null : { last4: p.cardLast4, network: p.cardNetwork ?? undefined },
+      card:
+        p.cardLast4 === null ? null : { last4: p.cardLast4, network: p.cardNetwork ?? undefined },
       bank: p.bank,
       wallet: p.wallet,
       error_code: p.errorCode,
       error_description: p.errorReason,
     };
     const raw = Buffer.from(
-      JSON.stringify({ entity: 'event', event, payload: { payment: { entity } }, created_at: Math.floor(Date.now() / 1000) }),
+      JSON.stringify({
+        entity: 'event',
+        event,
+        payload: { payment: { entity } },
+        created_at: Math.floor(Date.now() / 1000),
+      }),
     );
     await this.receive(raw, gateway.signWebhook(raw), `evt_mock_${randomUUID()}`);
   }
@@ -111,8 +112,14 @@ export class WebhooksService {
         await this.deps.webhooksRepository.done(row.id, note);
         processed += 1;
       } catch (err) {
-        this.deps.logger.warn({ err, webhookId: row.id, type: row.type }, 'webhook processing failed');
-        await this.deps.webhooksRepository.failed(row.id, err instanceof Error ? err.message : String(err));
+        this.deps.logger.warn(
+          { err, webhookId: row.id, type: row.type },
+          'webhook processing failed',
+        );
+        await this.deps.webhooksRepository.failed(
+          row.id,
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
     return { processed };
@@ -134,7 +141,9 @@ export class WebhooksService {
       const entity = body.payload?.refund?.entity;
       if (entity === undefined) return 'no refund entity';
       if (type === 'refund.created') return 'ignored (send result already recorded)';
-      return (await this.deps.refundsService.onGatewayRefund(toRefund(entity))) ? null : 'UNKNOWN_REFUND';
+      return (await this.deps.refundsService.onGatewayRefund(toRefund(entity)))
+        ? null
+        : 'UNKNOWN_REFUND';
     }
     return `ignored event ${type}`;
   }

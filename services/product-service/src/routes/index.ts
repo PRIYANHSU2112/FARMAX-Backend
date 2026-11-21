@@ -8,10 +8,14 @@ import {
 } from '../features/attributes/index.js';
 import { auditModule } from '../features/audit/index.js';
 import {
+  ADMIN_DISEASES_TAG,
   ADMIN_LOOKUPS_TAG,
   ADMIN_PRODUCTS_TAG,
+  DISEASES_TAG,
   LOOKUPS_TAG,
   PRODUCTS_TAG,
+  diseasesAdminModule,
+  diseasesModule,
   lookupsAdminModule,
   lookupsModule,
   productsAdminModule,
@@ -31,8 +35,10 @@ import {
  * Every feature of product-service. The gateway maps (narrow prefixes, before `/v1/catalog`):
  *   /v1/catalog/products/*                    → /catalog/products/*      storefront
  *   /v1/catalog/lookups                       → /catalog/lookups         storefront
+ *   /v1/catalog/diseases                      → /catalog/diseases        storefront (Shop by Problem)
  *   /v1/admin/catalog/products/*              → /admin/catalog/products/*
  *   /v1/admin/catalog/lookups/*               → /admin/catalog/lookups/*
+ *   /v1/admin/catalog/diseases/*              → /admin/catalog/diseases/*
  *   /v1/admin/catalog/product-attributes/*    → /admin/catalog/product-attributes/*
  *   /v1/admin/catalog/compliance-profiles/*   → /admin/catalog/compliance-profiles/*
  *   /v1/catalog/products/:slugOrId/reviews    → reviews (same prefix as the products storefront)
@@ -49,6 +55,8 @@ export const features: readonly ServiceModule[] = [
   productsInternalModule,
   lookupsModule,
   lookupsAdminModule,
+  diseasesModule,
+  diseasesAdminModule,
   reviewsModule,
   reviewsCustomerModule,
   reviewsAdminModule,
@@ -66,13 +74,24 @@ export const createDocsOptions = (config: ProductConfig): DocsOptions => ({
       name: PRODUCTS_TAG,
       description: 'Storefront: browse, search, filter, product page, alternatives.',
     },
-    { name: LOOKUPS_TAG, description: 'Storefront: dosage forms, routes, species, units.' },
+    {
+      name: LOOKUPS_TAG,
+      description: 'Storefront: dosage forms, routes, species, units, flock stages.',
+    },
+    {
+      name: DISEASES_TAG,
+      description: 'Storefront: "Shop by Problem" disease cards with visible product counts.',
+    },
     {
       name: ADMIN_PRODUCTS_TAG,
       description:
         'Admin: products, variants, media, review/publish workflow (`catalogue.manage`, `catalogue.publish`).',
     },
     { name: ADMIN_LOOKUPS_TAG, description: 'Admin: dynamic master values (`catalogue.manage`).' },
+    {
+      name: ADMIN_DISEASES_TAG,
+      description: 'Admin: disease / problem master for Shop by Problem (`catalogue.manage`).',
+    },
     {
       name: REVIEWS_TAG,
       description: 'Storefront: verified-purchase reviews and the rating summary of a product.',

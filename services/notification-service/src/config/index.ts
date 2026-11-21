@@ -19,6 +19,8 @@ export interface NotificationConfig extends BaseConfig {
   JWT_ISSUER: string;
   JWT_AUDIENCE: string;
   AUTH_SERVICE_URL: string;
+  /** farm-service base URL: readers of a content item (FARM_CONTENT audiences). */
+  FARM_SERVICE_URL: string;
   /** Shared service-to-service token (≥ 32 chars). Needed for contacts and staff audiences. */
   INTERNAL_SERVICE_TOKEN?: string;
   RABBITMQ_URL: string;
@@ -97,6 +99,9 @@ const schema = Joi.object<NotificationConfig>({
   AUTH_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3001'),
+  FARM_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3003'),
   INTERNAL_SERVICE_TOKEN: Joi.string()
     .min(32)
     .when('APP_ENV', { is: 'prod', then: Joi.required() }),

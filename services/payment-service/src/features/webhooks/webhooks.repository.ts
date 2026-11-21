@@ -64,8 +64,17 @@ export class WebhooksRepository {
   }
 
   forPaymentOrder(providerOrderId: string, limit = 50) {
-    return withPrismaErrors(() =>
-      this.db.$queryRaw<{ id: string; type: string; receivedAt: Date; processedAt: Date | null; error: string | null }[]>`
+    return withPrismaErrors(
+      () =>
+        this.db.$queryRaw<
+          {
+            id: string;
+            type: string;
+            receivedAt: Date;
+            processedAt: Date | null;
+            error: string | null;
+          }[]
+        >`
         SELECT "id", "type", "receivedAt", "processedAt", "error" FROM "payment_webhook_events"
         WHERE "payload" -> 'payload' -> 'payment' -> 'entity' ->> 'order_id' = ${providerOrderId}
         ORDER BY "receivedAt" LIMIT ${limit}`,

@@ -1,0 +1,181 @@
+// call-service feature: bookings (D-53). A HOLD and a confirmed booking are the SAME row, so one
+// exclusion constraint (migration SQL) makes double booking impossible:
+//   EXCLUDE USING gist ("expertId" WITH =, tstzrange("blockedStartAt","blockedEndAt",'[)') WITH &&)
+//   WHERE (status IN ('HELD','CONFIRMED','ACKNOWLEDGED','IN_PROGRESS'))
+// Also in the migration: one live HELD per customer (partial unique), snapshot-immutability trigger,
+// append-only events / consents, booking-code sequence.
+
+enum CallBookingStatus {
+  HELD
+  EXPIRED
+  RELEASED
+  CONFIRMED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  /// Final: customer did not answer after maxAttempts.
+  NO_SHOW
+  /// Final: no connection, rep / system at fault.
+  MISSED
+  CLOSED
+}
+
+enum CallLeadTier {
+  SQL
+  MQL
+  ENQUIRY
+}
+
+enum CallConsentType {
+  ROUTING
+  SHARE_WITH_BRAND
+  RECORDING
+}
+
+enum CallAttemptResult {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  FAILED
+}
+
+enum CallParty {
+  CUSTOMER
+  EXPERT
+  ADMIN
+  SYSTEM
+}
+
+model CallBooking {
+  id                 String            @id @db.Uuid
+  /// CALL-2026-000123 — assigned on confirm (null while HELD).
+  code               String?           @unique @db.VarChar(20)
+  customerUserId     String            @db.Uuid
+  farmId             String            @db.Uuid
+  productId          String            @db.Uuid
+  brandId            String?           @db.Uuid
+  categoryId         String?           @db.Uuid
+  expertId           String            @db.Uuid
+  channel            CallChannel
+  language           String            @db.VarChar(8)
+  territoryCode      String?           @db.VarChar(3)
+  startAt            DateTime
+  endAt              DateTime
+  /// startAt − bufferBeforeMin / endAt + bufferAfterMin: the interval the constraint blocks.
+  blockedStartAt     DateTime
+  blockedEndAt       DateTime
+  bufferBeforeMin    Int               @db.SmallInt
+  bufferAfterMin     Int               @db.SmallInt
+  status             CallBookingStatus
+  holdExpiresAt      DateTime?
+  // Step 2 answers
+  intents            String[]          @db.VarChar(40)
+  question           String?           @db.VarChar(500)
+  quantity           Int
+  quantityUnit       String?           @db.VarChar(30)
+  timeframe          String?           @db.VarChar(40)
+  // Versioned price quote (product-service), frozen on confirm
+  unitPrice          Decimal?          @db.Decimal(14, 2)
+  priceVersion       String?           @db.VarChar(64)
+  quotedAt           DateTime?
+  priceTrace         Json?
+  productSnapshot    Json?
+  farmSnapshot       Json?
+  // Lead
+  leadScore          Int?              @db.SmallInt
+  leadTier           CallLeadTier?
+  // Lifecycle
+  needsAttention     Boolean           @default(false)
+  attemptCount       Int               @default(0) @db.SmallInt
+  reminderEnabled    Boolean           @default(true)
+  reminderAt         DateTime?
+  reminderSentAt     DateTime?
+  ackDueAt           DateTime?
+  acknowledgedAt     DateTime?
+  slaBreachedAt      DateTime?
+  telephonySessionId String?           @db.VarChar(120)
+  disposition        String?           @db.VarChar(40)
+  outcomeNote        String?           @db.VarChar(1000)
+  cancelReason       String?           @db.VarChar(40)
+  cancelledBy        CallParty?
+  rescheduledFromId  String?           @db.Uuid
+  rescheduleCount    Int               @default(0) @db.SmallInt
+  attributedOrderId  String?           @db.Uuid
+  attributedAt       DateTime?
+  finalAt            DateTime?
+  erasedAt           DateTime?
+  version            Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  events   CallBookingEvent[]
+  consents CallConsent[]
+  attempts CallAttempt[]
+
+  @@index([customerUserId, startAt(sort: Desc), id])
+  @@index([expertId, startAt])
+  @@index([status, holdExpiresAt])
+  @@index([status, reminderAt])
+  @@index([status, ackDueAt])
+  @@index([status, startAt])
+  @@index([productId, createdAt])
+  @@map("call_bookings")
+}
+
+/// Journey timeline (append-only).
+model CallBookingEvent {
+  id         String             @id @default(uuid(7)) @db.Uuid
+  bookingId  String             @db.Uuid
+  fromStatus CallBookingStatus?
+  toStatus   CallBookingStatus
+  /// e.g. REASSIGNED, REMINDER_SENT, SLA_BREACHED, PRICE_REQUOTED (status unchanged).
+  kind       String?            @db.VarChar(40)
+  actorType  CallParty
+  actorId    String?            @db.Uuid
+  note       String?            @db.VarChar(500)
+  createdAt  DateTime           @default(now())
+
+  booking CallBooking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, createdAt])
+  @@map("call_booking_events")
+}
+
+/// One row per consent grant / withdrawal (append-only).
+model CallConsent {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  bookingId     String          @db.Uuid
+  type          CallConsentType
+  granted       Boolean
+  policyVersion String          @db.VarChar(20)
+  source        String          @db.VarChar(20)
+  actorType     CallParty
+  actorId       String?         @db.Uuid
+  createdAt     DateTime        @default(now())
+
+  booking CallBooking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, type, createdAt])
+  @@map("call_consents")
+}
+
+model CallAttempt {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  bookingId       String            @db.Uuid
+  attemptNo       Int               @db.SmallInt
+  /// Which side did not pick up (NO_ANSWER / BUSY); null for CONNECTED / FAILED.
+  side            CallParty?
+  result          CallAttemptResult
+  startedAt       DateTime
+  endedAt         DateTime?
+  /// Telephony webhook event id (dedupe).
+  providerEventId String?           @unique @db.VarChar(120)
+  createdAt       DateTime          @default(now())
+
+  booking CallBooking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, attemptNo])
+  @@map("call_attempts")
+}

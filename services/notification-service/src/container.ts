@@ -9,6 +9,7 @@ import { type AwilixContainer, asFunction, asValue, createContainer } from 'awil
 import { AccessClient, buildTokenVerifier } from './adapters/auth.js';
 import { AuthDirectory } from './adapters/auth-directory.js';
 import { EventsRuntime } from './adapters/events.js';
+import { FarmDirectory } from './adapters/farm-directory.js';
 import { JobsRuntime } from './adapters/jobs.js';
 import { LiveHub } from './adapters/live.js';
 import { Metrics } from './adapters/metrics.js';
@@ -29,6 +30,7 @@ declare module '@fastify/awilix' {
     tokenVerifier: TokenVerifier;
     /** auth-service internal directory: contacts, staff and app audiences. */
     authDirectory: AuthDirectory;
+    farmDirectory: FarmDirectory;
     metrics: Metrics;
     /** Live inbox updates (Redis pub/sub → SSE streams on this replica). */
     liveHub: LiveHub;
@@ -80,6 +82,9 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
     ).singleton(),
     authDirectory: asFunction(
       ({ config: cfg, logger: log }: Cradle) => new AuthDirectory({ config: cfg, logger: log }),
+    ).singleton(),
+    farmDirectory: asFunction(
+      ({ config: cfg, logger: log }: Cradle) => new FarmDirectory({ config: cfg, logger: log }),
     ).singleton(),
     metrics: asFunction(({ config: cfg }: Cradle) => new Metrics(cfg.SERVICE_NAME)).singleton(),
     liveHub: asFunction(

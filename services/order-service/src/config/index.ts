@@ -27,6 +27,8 @@ export interface OrderConfig extends BaseConfig {
   /** Internal service base URLs (service token; never through the gateway). */
   INVENTORY_SERVICE_URL: string;
   PAYMENT_SERVICE_URL: string;
+  /** wallet-service `/internal/wallet/*` (wallet checkout balance pre-check). */
+  WALLET_SERVICE_URL: string;
   USER_SERVICE_URL: string;
   /** GST state code of the supplying node (mother warehouse); decides CGST+SGST vs IGST. */
   SELLER_STATE_CODE: string;
@@ -114,6 +116,9 @@ const schema = Joi.object<OrderConfig>({
   PAYMENT_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3009'),
+  WALLET_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3012'),
   USER_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3006'),

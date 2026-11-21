@@ -38,9 +38,15 @@ export const createDocsOptions = (config: PaymentConfig): DocsOptions => ({
   description: `Payments for orders (Razorpay; ${config.PAYMENT_PROVIDER === 'mock' ? '**MOCK gateway active: no money moves**' : 'live gateway'}): status, checkout verification, signed webhooks, refunds with approval and retries, reconciliation. Prepaid only; no card or bank data is ever stored.`,
   tags: [
     { name: 'Health', description: 'Public liveness and readiness probes.' },
-    { name: PAYMENTS_TAG, description: 'Buyer: payment status and checkout verification (+ mock checkout in dev).' },
+    {
+      name: PAYMENTS_TAG,
+      description: 'Buyer: payment status and checkout verification (+ mock checkout in dev).',
+    },
     { name: WEBHOOKS_TAG, description: 'Gateway → FarmX notifications (signed).' },
     { name: ADMIN_PAYMENTS_TAG, description: 'Payments, attempts, webhook log, reconcile.' },
-    { name: ADMIN_REFUNDS_TAG, description: 'Refund execution: approve large manual refunds, retry failed ones.' },
+    {
+      name: ADMIN_REFUNDS_TAG,
+      description: 'Refund execution: approve large manual refunds, retry failed ones.',
+    },
   ],
 });

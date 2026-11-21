@@ -372,6 +372,35 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     ],
   },
   {
+    module: 'wallet',
+    label: 'Customer wallet & reward points',
+    permissions: [
+      {
+        key: 'wallet.view',
+        description: 'View customer wallets, points, journals and ledger checks',
+        scopes: G,
+      },
+      {
+        key: 'wallet.adjust',
+        description: 'Request manual wallet / points adjustments; freeze or unfreeze a wallet',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'wallet.approve',
+        description: 'Approve or reject a wallet / points adjustment (never your own)',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'wallet.configure',
+        description: 'Change wallet and reward-points rules (limits, rates, expiry)',
+        sensitive: true,
+        scopes: G,
+      },
+    ],
+  },
+  {
     module: 'payments',
     label: 'Payments, refunds & settlements',
     permissions: [
@@ -412,6 +441,11 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     permissions: [
       { key: 'sales.view', description: 'View call-backs, leads and quotations', scopes: GRO },
       { key: 'sales.manage', description: 'Manage call-backs, visits and quotations', scopes: GRO },
+      {
+        key: 'sales.configure',
+        description: 'Configure sales-call experts, availability, holidays, options and rules',
+        scopes: G,
+      },
     ],
   },
   {
@@ -586,6 +620,11 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     permissions: [
       { key: 'content.view', description: 'View articles and drafts', scopes: G },
       { key: 'content.manage', description: 'Create and edit content', scopes: G },
+      {
+        key: 'content.review',
+        description: 'Clinical sign-off of alerts and clinical content (verified vet reviewer)',
+        scopes: G,
+      },
       { key: 'content.publish', description: 'Publish or unpublish content', scopes: G },
     ],
   },
@@ -603,10 +642,37 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
   },
   {
     module: 'support',
-    label: 'Support tickets',
+    label: 'Support tickets & live chat',
     permissions: [
-      { key: 'support.view', description: 'View tickets', scopes: GRO },
-      { key: 'support.manage', description: 'Reply, assign and close tickets', scopes: GRO },
+      { key: 'support.view', description: 'View the ticket queue, tickets and chats', scopes: GRO },
+      {
+        key: 'support.manage',
+        description: 'Claim, reply, add notes, change status / priority, log phone tickets',
+        scopes: GRO,
+      },
+      { key: 'support.assign', description: 'Assign / reassign tickets to agents', scopes: G },
+      { key: 'support.escalate', description: 'Escalate tickets to another team (e.g. vet)', scopes: G },
+      {
+        key: 'support.configure',
+        description: 'Topics, priority rules, SLA policies, calendars, agents, canned replies, settings',
+        scopes: G,
+      },
+    ],
+  },
+  {
+    module: 'faq',
+    label: 'Help center FAQ',
+    permissions: [{ key: 'faq.manage', description: 'Create, edit, hide and reorder FAQs', scopes: G }],
+  },
+  {
+    module: 'legal',
+    label: 'Legal pages',
+    permissions: [
+      {
+        key: 'legal.manage',
+        description: 'Draft and publish Privacy Policy, Terms and other legal pages',
+        scopes: G,
+      },
     ],
   },
   {

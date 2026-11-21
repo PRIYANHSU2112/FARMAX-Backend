@@ -217,3 +217,18 @@ export interface FarmContext {
   ownerId: string;
   ownerUserId: string;
 }
+
+/** What the content feed needs about a reader's farm (never serialized to clients). */
+export interface ReaderContext {
+  territoryCode: string | null;
+  /** Sorted (stable cache keys). */
+  productionTypes: string[];
+  lat: number | null;
+  lng: number | null;
+}
+
+/** Push audience segment of a content item (empty list = no restriction). */
+export interface OwnerSegment {
+  territoryCodes: string[];
+  productionTypes: string[];
+}

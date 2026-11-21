@@ -22,12 +22,14 @@ const at = '2026-11-14T09:30:00.000Z';
 
 const publicLookup = Joi.object({
   id: Joi.string().guid(),
-  group: Joi.string().valid('DOSAGE_FORM', 'ROUTE', 'SPECIES', 'UNIT'),
+  group: Joi.string().valid('DOSAGE_FORM', 'ROUTE', 'SPECIES', 'UNIT', 'FLOCK_STAGE'),
   code: Joi.string().example('BROILER'),
   label: Joi.string().example('Broiler'),
   meta: Joi.object()
     .unknown()
-    .description('SPECIES: `producesMeat`, `producesEggs` (drive withdrawal-period rules)'),
+    .description(
+      'SPECIES: `producesMeat`, `producesEggs` (drive withdrawal-period rules). FLOCK_STAGE: `aliases` (legacy text mapped to the code)',
+    ),
 }).meta({ className: 'ProductLookup' });
 
 const adminLookup = Joi.object({
@@ -71,7 +73,7 @@ export const LOOKUP_DOCS = {
   publicList: {
     tag: LOOKUPS_TAG,
     operationId: 'listProductLookups',
-    summary: 'Active master values (dosage forms, routes, species, units)',
+    summary: 'Active master values (dosage forms, routes, species, units, flock stages)',
     description:
       'Drives filter chips and labels on the storefront. `group` narrows to one list. Cached; supports `If-None-Match` → 304.',
     auth: AUTH_PUBLIC,

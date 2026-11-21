@@ -110,7 +110,16 @@ const productCore = {
   dosageForm: lookupRef.allow(null),
   routes: Joi.array().items(lookupRef),
   species: Joi.array().items(lookupRef),
-  productionStages: Joi.array().items(Joi.string()),
+  productionStages: Joi.array().items(Joi.string()).description('FLOCK_STAGE codes'),
+  flockStages: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
+  diseases: Joi.array().items(
+    Joi.object({
+      id: Joi.string().guid(),
+      name: Joi.string(),
+      slug: Joi.string(),
+      iconUrl: Joi.string().allow(null),
+    }),
+  ),
   indications: Joi.string().allow(null),
   dosageInstructions: Joi.string().allow(null),
   contraindications: Joi.string().allow(null),
@@ -304,7 +313,19 @@ const enroCore = {
     { id: IDS.lookup, code: 'BROILER', label: 'Broiler' },
     { id: IDS.attribute, code: 'BREEDER', label: 'Breeder' },
   ],
-  productionStages: ['grower', 'finisher'],
+  productionStages: ['GROWER', 'FINISHER'],
+  flockStages: [
+    { code: 'GROWER', label: 'Grower' },
+    { code: 'FINISHER', label: 'Finisher' },
+  ],
+  diseases: [
+    {
+      id: '0193a1b2-7c4d-7e5f-8a9b-0c1d2e3f4a5b',
+      name: 'CRD',
+      slug: 'crd',
+      iconUrl: 'https://cdn.farmx.in/icons/crd.png',
+    },
+  ],
   indications: 'CRD, E. coli infections, fowl cholera, infectious coryza.',
   dosageInstructions: '0.5 ml per litre of drinking water for 3–5 days.',
   contraindications: 'Do not use in laying birds producing eggs for human consumption.',
@@ -505,6 +526,8 @@ const createExample = {
   dosageFormId: IDS.lookup,
   routeIds: [IDS.lookup],
   speciesIds: [IDS.lookup, IDS.attribute],
+  productionStages: ['GROWER', 'FINISHER'],
+  diseaseIds: ['0193a1b2-7c4d-7e5f-8a9b-0c1d2e3f4a5b'],
   ingredients: [
     {
       name: 'Enrofloxacin',
@@ -605,9 +628,15 @@ export const PRODUCT_DOCS = {
       'Published, active products in active categories and brands.\n\n' +
       '- `q`: full-text + typo-tolerant search over name, generic name, ingredients (molecule), brand, manufacturer, tags and product code.\n' +
       '- `categoryId` / `categorySlug`: the category **and all its sub-categories** (any depth).\n' +
-      '- Dynamic master filters by code: `dosageForm`, `species`, `route` (repeatable).\n' +
+      '- Dynamic master filters by code: `dosageForm`, `species`, `route`, `flockStage` (repeatable; FLOCK_STAGE codes).\n' +
+      '- Disease chips / Shop by Problem: `diseaseId` or `diseaseSlug`, repeatable (matches any). Inactive / deleted / unknown values are dropped; none left → empty page.\n' +
+      '- `brandId` (repeatable) is the "Manufacturer" facet.\n' +
       '- `attr.<key>=value`: filterable attributes of the selected category (see `/filters`).\n' +
       '- `inStock`, `minPrice`/`maxPrice` use the inventory / pricing projections.\n' +
+      '- "In stock at <node>": `inStock=true&nodeId=<farm primaryNodeId>` keeps only products with stock at that node (`nodeId` alone is ignored).\n' +
+      '- `sort=shelf_life`: longest shelf life first (unknown last).\n' +
+      '- `meta.total`: products matching the selection (capped at 2,000).\n' +
+      '- Filters only narrow the result; sponsored / ad placements never use this path and are never promoted by a filter.\n' +
       '- `minRating` (1–5): published average rating at least this ("4★ & up"); `sort=rating`: best rated first.\n\n' +
       'Cached 60 s per query; send `If-None-Match` → 304.',
     auth: AUTH_PUBLIC,
@@ -619,7 +648,12 @@ export const PRODUCT_DOCS = {
       description: 'A page of product cards',
       data: card,
       paginated: true,
-      example: ok([cardExample, lasotaCard], page),
+      meta: Joi.object({
+        total: Joi.number()
+          .integer()
+          .description('Products matching the selection (capped at 2,000), on every page.'),
+      }),
+      example: ok([cardExample, lasotaCard], { ...page, total: 2 }),
       headers: PUBLIC_ETAG,
     },
     errors: [422],
@@ -674,9 +708,15 @@ export const PRODUCT_DOCS = {
   filters: {
     tag: PRODUCTS_TAG,
     operationId: 'getProductFilters',
-    summary: 'Filter options for a listing page',
+    summary: 'Filter & sort sheet: facets for the current selection',
     description:
-      'Filterable dynamic attributes of the category (own + inherited), master values (dosage forms, routes, species), brands present and the price range.',
+      'Takes **the same filters as the list** (sort / cursor / limit are ignored) and returns:\n\n' +
+      '- `total`: products matching the whole selection ("Show X products").\n' +
+      '- `sort`: sort chips; filterable attributes of the category (own + inherited), dosage forms, routes, flock stages.\n' +
+      '- Disjunctive counts: `species`, `diseases` and `brands` (Manufacturer) are counted with every other filter applied **except their own**, so picking one chip still shows what the others would add. Every species is listed (0 = grey out); diseases / brands with no products are left out unless selected. `priceRange` ignores `minPrice`/`maxPrice`.\n' +
+      '- `node`: with `nodeId`, how many products are in stock at that node (other filters applied); null otherwise. The app takes the node from the farm profile and hides the toggle when the farm has none.\n' +
+      '- `rx.available=false`: "Covered by my prescriptions" is not available yet (Rx service pending) → show the toggle disabled.\n\n' +
+      'Unknown category / disease slug → all counts 0. Cached 60 s per selection; send `If-None-Match` → 304.',
     auth: AUTH_PUBLIC,
     public: true,
     rateLimit: PUBLIC_RATE,
@@ -685,16 +725,37 @@ export const PRODUCT_DOCS = {
       status: 200,
       description: 'Filters',
       data: Joi.object({
+        total: Joi.number().integer(),
+        sort: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
         attributes: Joi.array().items(Joi.object().unknown()),
         dosageForms: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
         routes: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
-        species: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
+        species: Joi.array().items(
+          Joi.object({ code: Joi.string(), label: Joi.string(), productCount: Joi.number() }),
+        ),
+        flockStages: Joi.array().items(Joi.object({ code: Joi.string(), label: Joi.string() })),
+        diseases: Joi.array().items(
+          Joi.object({
+            id: Joi.string(),
+            slug: Joi.string(),
+            name: Joi.string(),
+            productCount: Joi.number(),
+          }),
+        ),
         brands: Joi.array().items(
           Joi.object({ id: Joi.string(), name: Joi.string(), productCount: Joi.number() }),
         ),
         priceRange: Joi.object({ min: Joi.string().allow(null), max: Joi.string().allow(null) }),
+        node: Joi.object({ id: Joi.string(), productCount: Joi.number() }).allow(null),
+        rx: Joi.object({ available: Joi.boolean() }),
       }).meta({ className: 'ProductFilters' }),
       example: ok({
+        total: 25,
+        sort: [
+          { code: 'price_desc', label: 'High - Low Price' },
+          { code: 'price_asc', label: 'Low - High Price' },
+          { code: 'shelf_life', label: 'Shelf life' },
+        ],
         attributes: [
           {
             key: 'vaccineStrain',
@@ -710,15 +771,29 @@ export const PRODUCT_DOCS = {
           { code: 'DRINKING_WATER', label: 'Drinking water' },
         ],
         species: [
-          { code: 'BROILER', label: 'Broiler' },
-          { code: 'LAYER', label: 'Layer' },
+          { code: 'BROILER', label: 'Broiler', productCount: 9 },
+          { code: 'LAYER', label: 'Layer', productCount: 18 },
+        ],
+        flockStages: [
+          { code: 'BROODER', label: 'Brooder / starter' },
+          { code: 'GROWER', label: 'Grower' },
+        ],
+        diseases: [
+          {
+            id: '0193a1b2-7c4d-7e5f-8a9b-0c1d2e3f4a5b',
+            slug: 'newcastle-disease',
+            name: 'Newcastle disease',
+            productCount: 6,
+          },
         ],
         brands: [{ id: IDS.brand, name: 'Venky’s Animal Health', productCount: 12 }],
         priceRange: { min: '95.00', max: '4200.00' },
+        node: { id: '0193a1b2-7c4d-7e5f-8a9b-0c1d2e3f4a5c', productCount: 21 },
+        rx: { available: false },
       }),
       headers: PUBLIC_ETAG,
     },
-    errors: [404, 422],
+    errors: [422],
   },
 
   // ── Admin reads ──
@@ -876,7 +951,7 @@ export const PRODUCT_DOCS = {
     operationId: 'adminUpdateProduct',
     summary: 'Update product content',
     description:
-      'Any subset of fields + `reason`. `routeIds`, `speciesIds`, `ingredients` replace the whole list. A PUBLISHED / PENDING_REVIEW product must stay compliant (422 otherwise). Variants have their own routes.',
+      'Any subset of fields + `reason`. `routeIds`, `speciesIds`, `diseaseIds`, `productionStages`, `ingredients` replace the whole list (`productionStages` = active FLOCK_STAGE codes, `diseaseIds` = active diseases). A PUBLISHED / PENDING_REVIEW product must stay compliant (422 otherwise). Variants have their own routes.',
     auth: AUTH_ADMIN,
     permission: MANAGE,
     headers: IF_MATCH,

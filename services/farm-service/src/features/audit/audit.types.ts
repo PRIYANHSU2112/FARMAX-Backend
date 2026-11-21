@@ -3,7 +3,16 @@ import type { FastifyRequest } from 'fastify';
 export interface AuditEntry {
   actorUserId: string;
   action: string;
-  targetType: 'farm' | 'owner' | 'case' | 'document' | 'territory' | 'pincode';
+  targetType:
+    | 'farm'
+    | 'owner'
+    | 'case'
+    | 'document'
+    | 'territory'
+    | 'pincode'
+    | 'content'
+    | 'content_topic'
+    | 'content_reviewer';
   targetId: string;
   before?: object | null;
   after?: object | null;

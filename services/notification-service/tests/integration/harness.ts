@@ -86,9 +86,19 @@ export interface Contact {
   phoneVerified: boolean;
 }
 
+/** farm-service content audience: reader ids per content item (paged like the real endpoint). */
+export interface FarmReaders {
+  /** contentId → readers per scope. */
+  byContent: Map<string, { segment: string[]; savers: string[] }>;
+  /** Throw on this call number (1-based) — simulates farm-service failing mid fan-out. */
+  failAtCall: number | null;
+  calls: number;
+}
+
 export interface TestApp {
   app: FastifyInstance;
   directory: Directory;
+  farmReaders: FarmReaders;
   fanoutsQueued: string[];
   deliveriesQueued: { id: string; channel: string; attempts: number; delayMs?: number }[];
   providers: FakeProviders;
@@ -184,7 +194,33 @@ export const buildTestApp = async (env: Record<string, string> = {}): Promise<Te
   const deliveriesQueued: TestApp['deliveriesQueued'] = [];
   const providers: FakeProviders = { sent: [], failNext: [], deadTokens: new Set() };
   const contacts = new Map<string, Contact>();
+  const farmReaders: FarmReaders = { byContent: new Map(), failAtCall: null, calls: 0 };
   app.diContainer.register({
+    farmDirectory: asValue({
+      contentAudience: (
+        contentId: string,
+        scope: 'segment' | 'savers' | 'both',
+        cursor: string | null,
+        limit: number,
+      ) => {
+        farmReaders.calls += 1;
+        if (farmReaders.calls === farmReaders.failAtCall)
+          return Promise.reject(new Error('farm-service down'));
+        const r = farmReaders.byContent.get(contentId) ?? { segment: [], savers: [] };
+        const all = [
+          ...new Set([
+            ...(scope === 'savers' ? [] : r.segment),
+            ...(scope === 'segment' ? [] : r.savers),
+          ]),
+        ].sort();
+        const rest = cursor === null ? all : all.filter((id) => id > cursor);
+        const ids = rest.slice(0, limit);
+        return Promise.resolve({
+          ids,
+          nextCursor: rest.length > limit ? (ids.at(-1) ?? null) : null,
+        });
+      },
+    } as never),
     authDirectory: asValue({
       listPermissionHolders: () => {
         fail();
@@ -226,7 +262,7 @@ export const buildTestApp = async (env: Record<string, string> = {}): Promise<Te
     providers: asValue(buildFakes(providers) as never),
   });
   await app.ready();
-  return { app, directory, fanoutsQueued, deliveriesQueued, providers, contacts };
+  return { app, directory, farmReaders, fanoutsQueued, deliveriesQueued, providers, contacts };
 };
 
 export const envelope = (type: string, data: object, id: string = randomUUID()): EventEnvelope => ({

@@ -1,10 +1,15 @@
-export const LOOKUP_GROUPS = ['DOSAGE_FORM', 'ROUTE', 'SPECIES', 'UNIT'] as const;
+export const LOOKUP_GROUPS = ['DOSAGE_FORM', 'ROUTE', 'SPECIES', 'UNIT', 'FLOCK_STAGE'] as const;
 export type LookupGroup = (typeof LOOKUP_GROUPS)[number];
 
 /** SPECIES meta: drives the withdrawal rules (R5/R6). */
 export interface SpeciesMeta {
   producesMeat?: boolean;
   producesEggs?: boolean;
+}
+
+/** FLOCK_STAGE meta: legacy free-text values that map to this code (stages:map script). */
+export interface FlockStageMeta {
+  aliases?: string[];
 }
 
 export interface LookupRow {

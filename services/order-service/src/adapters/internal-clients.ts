@@ -168,6 +168,8 @@ export class PaymentClient {
     userId: string;
     amountPaise: number;
     expiresAt: Date;
+    /** ONLINE (gateway) or WALLET (payment-service debits the wallet at once). */
+    method: 'ONLINE' | 'WALLET';
   }): Promise<PaymentCheckout> {
     return this.http.call('POST', '/internal/payments', {
       body: { ...input, currency: 'INR', expiresAt: input.expiresAt.toISOString() },
@@ -188,6 +190,27 @@ export class PaymentClient {
     return this.http.call('GET', `/internal/payments/${paymentId}/live-status`, {
       timeoutMs: 12_000,
     });
+  }
+}
+
+// ── wallet-service ──
+
+export interface WalletBalance {
+  userId: string;
+  balancePaise: number;
+  status: 'ACTIVE' | 'FROZEN';
+}
+
+/** Wallet checkout pre-check only: the debit in payment-service stays authoritative (D-54). */
+export class WalletClient {
+  private readonly http: InternalHttp;
+
+  constructor(deps: { config: OrderConfig; logger: Logger }) {
+    this.http = new InternalHttp(deps.config.WALLET_SERVICE_URL, 'wallet-service', deps);
+  }
+
+  balance(userId: string): Promise<WalletBalance> {
+    return this.http.call('GET', `/internal/wallet/balance/${userId}`, { timeoutMs: 3_000 });
   }
 }
 

@@ -1,0 +1,72 @@
+// wallet-service feature: topups (D-54, "Add Money"). One top-up = one payment-service payment
+// (purpose WALLET_TOPUP, referenceId = this id). The wallet is credited ONCE (ledger key
+// topup:<id>) when the gateway capture is known — by event, live check or the reconcile job.
+
+enum WalletTopupStatus {
+  /// Row saved; the payment is not created yet (crash window — resumed by retry or the job).
+  CREATED
+  /// Gateway order exists; waiting for the customer.
+  PENDING
+  /// The last attempt failed; the customer may pay again until expiresAt.
+  FAILED
+  /// Captured and credited (also after EXPIRED: money received is always credited).
+  COMPLETED
+  /// Not paid in time.
+  EXPIRED
+}
+
+/// What the customer chose on the Add Money screen (checkout prefill only; the gateway decides).
+enum WalletTopupMethod {
+  UPI
+  NETBANKING
+  CARD
+}
+
+model WalletTopup {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  /// TU-yymmdd-XXXXXXXX
+  topupNo           String            @unique @db.VarChar(24)
+  userId            String            @db.Uuid
+  amountPaise       BigInt
+  currency          String            @default("INR") @db.Char(3)
+  method            WalletTopupMethod
+  status            WalletTopupStatus @default(CREATED)
+  /// Client Idempotency-Key + SHA-256 of the request (same key, other body → 422).
+  idempotencyKey    String            @db.VarChar(64)
+  requestHash       String            @db.Char(64)
+  paymentId         String?           @unique @db.Uuid
+  /// TXN-… (shown as "Transaction Ref").
+  paymentNo         String?           @db.VarChar(24)
+  /// What the gateway actually captured (credited amount).
+  creditedPaise     BigInt?
+  /// Masked instrument of the capture only (never card / bank numbers).
+  paidMethod        String?           @db.VarChar(20)
+  bank              String?           @db.VarChar(20)
+  cardLast4         String?           @db.Char(4)
+  cardNetwork       String?           @db.VarChar(20)
+  vpaMasked         String?           @db.VarChar(80)
+  failureCode       String?           @db.VarChar(60)
+  failureReason     String?           @db.VarChar(300)
+  failedAttempts    Int               @default(0)
+  /// First-UPI-top-up cashback, decided at completion (paid as reward points; points ledger W4).
+  cashbackPaise     BigInt            @default(0)
+  cashbackPoints    Int               @default(0)
+  /// When the cashback points were credited (points ledger lot TOPUP_CASHBACK).
+  cashbackGrantedAt DateTime?
+  journalId         String?           @unique @db.Uuid
+  balanceAfterPaise BigInt?
+  expiresAt         DateTime
+  completedAt       DateTime?
+  expiredAt         DateTime?
+  lastFailedAt      DateTime?
+  version           Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  /// Reconcile picks the least recently checked open top-ups first.
+  @@index([status, updatedAt])
+  @@map("wallet_topups")
+}

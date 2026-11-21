@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
+import { ServiceUnavailableError } from '@farmx/common/errors';
 import type { AuthUser } from '@farmx/common/types';
 import type { EventEnvelope } from '@farmx/infra/events';
 import { asValue } from 'awilix';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 
+import { WalletRefusal } from '../../src/adapters/wallet-client.js';
 import { buildApp } from '../../src/app.js';
 import type { PaymentRow } from '../../src/features/payments/payments.types.js';
 import type { RefundRow } from '../../src/features/refunds/refunds.types.js';
@@ -40,6 +42,81 @@ const register = (userType: 'CUSTOMER' | 'INTERNAL', permissions: string[]): str
 export const customer = (): string => register('CUSTOMER', []);
 export const staff = (...permissions: string[]): string => register('INTERNAL', permissions);
 
+/**
+ * In-memory wallet-service (/internal/wallet): debits per payment, refund credits per refund, never
+ * above the debit. `down` = no answer; `loseReply` = the debit lands but the reply is lost.
+ */
+export class FakeWallet {
+  readonly balances = new Map<string, number>();
+  readonly debits = new Map<
+    string,
+    { userId: string; amountPaise: number; journalNo: string; refunded: number }
+  >();
+  readonly credits = new Map<string, { journalNo: string; amountPaise: number }>();
+  down = false;
+  loseReply = false;
+  debitCalls = 0;
+  private seq = 0;
+
+  debit(i: { paymentId: string; userId: string; amountPaise: number }) {
+    this.debitCalls += 1;
+    if (this.down) return Promise.reject(new ServiceUnavailableError('wallet down'));
+    let d = this.debits.get(i.paymentId);
+    if (d === undefined) {
+      const bal = this.balances.get(i.userId) ?? 0;
+      if (bal < i.amountPaise)
+        return Promise.reject(
+          new WalletRefusal(409, 'Insufficient wallet balance', 'INSUFFICIENT_BALANCE'),
+        );
+      this.balances.set(i.userId, bal - i.amountPaise);
+      d = { userId: i.userId, amountPaise: i.amountPaise, journalNo: this.no(), refunded: 0 };
+      this.debits.set(i.paymentId, d);
+      if (this.loseReply) return Promise.reject(new ServiceUnavailableError('reply lost'));
+    }
+    return Promise.resolve(this.view(i.paymentId));
+  }
+
+  debitStatus(paymentId: string) {
+    if (this.down) return Promise.reject(new ServiceUnavailableError('wallet down'));
+    return Promise.resolve(this.view(paymentId));
+  }
+
+  credit(i: { refundId: string; paymentId: string; userId: string; amountPaise: number }) {
+    if (this.down) return Promise.reject(new ServiceUnavailableError('wallet down'));
+    const done = this.credits.get(i.refundId);
+    if (done !== undefined) return Promise.resolve({ refundId: i.refundId, ...done });
+    const d = this.debits.get(i.paymentId);
+    if (d === undefined)
+      return Promise.reject(new WalletRefusal(409, 'not a wallet payment', 'NO_WALLET_DEBIT'));
+    if (d.refunded + i.amountPaise > d.amountPaise)
+      return Promise.reject(new WalletRefusal(409, 'exceeds the debit', 'EXCEEDS_DEBIT'));
+    d.refunded += i.amountPaise;
+    this.balances.set(d.userId, (this.balances.get(d.userId) ?? 0) + i.amountPaise);
+    const c = { journalNo: this.no(), amountPaise: i.amountPaise };
+    this.credits.set(i.refundId, c);
+    return Promise.resolve({ refundId: i.refundId, journalId: randomUUID(), ...c });
+  }
+
+  private view(paymentId: string) {
+    const d = this.debits.get(paymentId);
+    return {
+      status: d === undefined ? 'NONE' : 'DEBITED',
+      paymentId,
+      journalId: d === undefined ? null : randomUUID(),
+      journalNo: d?.journalNo ?? null,
+      amountPaise: d?.amountPaise ?? 0,
+      refundedPaise: d?.refunded ?? 0,
+    };
+  }
+
+  private no() {
+    this.seq += 1;
+    return `WJ-IT-${String(this.seq).padStart(8, '0')}-${randomUUID().slice(0, 4)}`;
+  }
+}
+
+export const wallet = new FakeWallet();
+
 export const buildTestApp = async (): Promise<FastifyInstance> => {
   const app = await buildApp({
     NODE_ENV: 'test',
@@ -55,6 +132,7 @@ export const buildTestApp = async (): Promise<FastifyInstance> => {
       hasPermission: (userId: string, key: string) =>
         Promise.resolve(users.get(userId)?.permissions.includes(key) ?? false),
     } as never),
+    walletClient: asValue(wallet as never),
     tokenVerifier: asValue((token: string) => {
       const u = users.get(token);
       return u === undefined ? Promise.reject(new Error('bad token')) : Promise.resolve(u.user);
@@ -71,12 +149,7 @@ export interface Req {
   headers?: Record<string, string>;
 }
 
-export const call = (
-  app: FastifyInstance,
-  method: 'GET' | 'POST',
-  url: string,
-  r: Req = {},
-) =>
+export const call = (app: FastifyInstance, method: 'GET' | 'POST', url: string, r: Req = {}) =>
   app.inject({
     method,
     url,
@@ -114,7 +187,13 @@ export interface Payment {
 /** order-service checkout: create (or reuse) the order's payment. */
 export const createPayment = async (
   app: FastifyInstance,
-  o: { orderId?: string; userId: string; amountPaise?: number; expiresInMs?: number },
+  o: {
+    orderId?: string;
+    userId: string;
+    amountPaise?: number;
+    expiresInMs?: number;
+    method?: 'ONLINE' | 'WALLET';
+  },
 ) => {
   const res = await call(app, 'POST', '/internal/payments', {
     internal: true,
@@ -125,6 +204,7 @@ export const createPayment = async (
       amountPaise: o.amountPaise ?? 2_782_100,
       currency: 'INR',
       expiresAt: new Date(Date.now() + (o.expiresInMs ?? 30 * 60_000)).toISOString(),
+      ...(o.method === undefined ? {} : { method: o.method }),
     },
   });
   if (res.statusCode !== 200) throw new Error(res.body);

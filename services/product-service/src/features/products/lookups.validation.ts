@@ -15,13 +15,17 @@ const LABEL = Joi.string().trim().min(1).max(80);
 const DESCRIPTION = Joi.string().trim().max(300).allow(null, '');
 const META = Joi.object().unknown(true).max(20);
 
-export const publicListSchema = { querystring: Joi.object({ group: GROUP }) };
+export const publicListSchema = {
+  querystring: Joi.object({
+    group: GROUP.description('One group (e.g. SPECIES for the species chips); omit for all.'),
+  }),
+};
 
 export const adminListSchema = {
   querystring: Joi.object({
-    group: GROUP,
-    q: Joi.string().trim().min(1).max(80),
-    isActive: Joi.boolean(),
+    group: GROUP.description('One group; omit for all.'),
+    q: Joi.string().trim().min(1).max(80).description('Search code or label.'),
+    isActive: Joi.boolean().description('Active flag.'),
   }),
 };
 

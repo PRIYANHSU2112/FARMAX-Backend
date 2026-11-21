@@ -57,6 +57,7 @@ type Deps = Pick<
   Cradle,
   | 'productsRepository'
   | 'lookupsService'
+  | 'diseasesService'
   | 'attributesService'
   | 'catalogClient'
   | 'runInTransaction'
@@ -92,7 +93,14 @@ const nonEmpty = (v: string | null | undefined) =>
   v === undefined || v === null || v.trim() === '' ? null : v;
 
 /** Input keys written through relations / special handling, never as plain columns. */
-const RELATION_KEYS = new Set(['ingredients', 'routeIds', 'speciesIds', 'attributes', 'slug']);
+const RELATION_KEYS = new Set([
+  'ingredients',
+  'routeIds',
+  'speciesIds',
+  'diseaseIds',
+  'attributes',
+  'slug',
+]);
 
 /** Fields that inventory / logistics consume: a change re-emits variant facts. */
 const FACT_FIELDS = new Set([
@@ -142,7 +150,13 @@ export class ProductsService {
   async detail(id: string): Promise<ProductView> {
     const record = await this.repo.findDetail(id);
     if (record === null) throw new NotFoundError('Product');
-    return toProductView(record);
+    return toProductView(record, await this.stageLabels());
+  }
+
+  /** FLOCK_STAGE code → label (cached active lookups). */
+  async stageLabels(): Promise<Map<string, string>> {
+    const stages = await this.deps.lookupsService.publicList('FLOCK_STAGE');
+    return new Map(stages.map((s) => [s.code, s.label]));
   }
 
   history(id: string, query: { cursor?: string; limit: number }): Promise<Paginated<AuditRecord>> {
@@ -166,6 +180,7 @@ export class ProductsService {
       ingredients = [],
       routeIds = [],
       speciesIds = [],
+      diseaseIds = [],
       attributes = {},
       slug: wantedSlug,
       ...fields
@@ -185,9 +200,11 @@ export class ProductsService {
         dosageFormId: fields.dosageFormId,
         routeIds,
         speciesIds,
+        productionStages: fields.productionStages,
         ingredients,
         variants,
       });
+      await this.deps.diseasesService.assertLinkable(tx, diseaseIds);
       await this.assertVariantKeysFree(tx, variants);
       const slug = await this.chooseSlug(tx, fields.name, wantedSlug);
       const productCode = productCodeOf(await this.repo.nextProductSeq(tx));
@@ -222,6 +239,7 @@ export class ProductsService {
         {
           routeIds,
           speciesIds,
+          diseaseIds,
           ingredients,
           variants: variants.map((v, i) => ({ ...v, isDefault: i === defaultIndex })),
         },
@@ -232,7 +250,7 @@ export class ProductsService {
         action: 'product.create',
         targetType: 'product',
         targetId: productId,
-        after: { ...data, variants, ingredients, routeIds, speciesIds },
+        after: { ...data, variants, ingredients, routeIds, speciesIds, diseaseIds },
         reason,
       });
       const createdPath = await this.categoryPath(created.categoryId);
@@ -254,7 +272,8 @@ export class ProductsService {
     ifMatch: number | undefined,
     actor: Actor,
   ): Promise<ProductView> {
-    const { reason, ingredients, routeIds, speciesIds, attributes, slug, ...fields } = input;
+    const { reason, ingredients, routeIds, speciesIds, diseaseIds, attributes, slug, ...fields } =
+      input;
     const before = await this.repo.findDetail(id);
     if (before === null) throw new NotFoundError('Product');
     const categoryId = fields.categoryId ?? before.categoryId;
@@ -281,9 +300,11 @@ export class ProductsService {
         dosageFormId: fields.dosageFormId,
         routeIds,
         speciesIds,
+        productionStages: fields.productionStages,
         ingredients,
         variants: [],
       });
+      if (diseaseIds !== undefined) await this.deps.diseasesService.assertLinkable(tx, diseaseIds);
       const nextSlug =
         slug === undefined || slug === current.slug
           ? undefined
@@ -316,7 +337,13 @@ export class ProductsService {
           ingredientNames: (ingredients ?? current.ingredients).map((i) => i.name),
         }),
       };
-      await this.repo.update(tx, id, data, { routeIds, speciesIds, ingredients }, actor.userId);
+      await this.repo.update(
+        tx,
+        id,
+        data,
+        { routeIds, speciesIds, diseaseIds, ingredients },
+        actor.userId,
+      );
       const updated = await this.loadOrThrow(tx, id);
       // A listed product must stay compliant after an edit.
       if (updated.status === 'PUBLISHED' || updated.status === 'PENDING_REVIEW') {
@@ -330,7 +357,7 @@ export class ProductsService {
         before: Object.fromEntries(
           Object.keys(input).map((k) => [k, (current as Record<string, unknown>)[k]]),
         ),
-        after: { ...data, ingredients, routeIds, speciesIds },
+        after: { ...data, ingredients, routeIds, speciesIds, diseaseIds },
         reason,
       });
       if (Object.keys(fields).some((k) => FACT_FIELDS.has(k))) {
@@ -890,16 +917,24 @@ export class ProductsService {
     if (issues.length > 0) throw new ValidationError(issues);
   }
 
-  private resolveLookups(
+  private async resolveLookups(
     tx: Tx,
     refs: {
       dosageFormId?: string | null;
       routeIds?: string[];
       speciesIds?: string[];
+      productionStages?: string[];
       ingredients?: { unitId: string; perUnitId?: string | null }[];
       variants: { packUnitId?: string }[];
     },
   ): Promise<Map<string, LookupRow>> {
+    if (refs.productionStages !== undefined && refs.productionStages.length > 0)
+      await this.deps.lookupsService.resolveCodes(
+        tx,
+        'FLOCK_STAGE',
+        refs.productionStages,
+        'productionStages',
+      );
     const list: [string, string, LookupGroup][] = [];
     if (refs.dosageFormId !== undefined && refs.dosageFormId !== null)
       list.push(['dosageFormId', refs.dosageFormId, 'DOSAGE_FORM']);

@@ -47,7 +47,7 @@ mark the old one. Details live in the linked plans.
 | D-39 | 2026-11-20 | One shipment per warehouse; OTP-verified delivery; derived order delivery           | Planned (F1)                        |
 | D-40 | 2026-11-20 | Delivery OTP policy: hashed + encrypted, TTL, attempt lock, resend cap              | Planned (F1)                        |
 | D-41 | 2026-11-20 | New permissions `orders.confirm`, `orders.configure`                                | Active                              |
-| D-42 | 2026-11-20 | Deferred: shipments, notification/invoice services, returns, wallet, NEFT           | Deferred                            |
+| D-42 | 2026-11-20 | Deferred: shipments, notification/invoice services, returns, wallet, NEFT           | Deferred (wallet: superseded D-54)  |
 | D-43 | 2026-11-20 | Unpaid by payment due time → order FAILED (distinct from CANCELLED / REJECTED)      | Active                              |
 | D-44 | 2026-11-20 | Late / racing payments: recovery commit; terminal orders never revived → refund     | Active                              |
 | D-45 | 2026-11-20 | Refund decision (order) and refund execution (payment) are separate lifecycles      | Active                              |
@@ -453,6 +453,161 @@ totals updated by **deltas** in the review transaction (atomic upsert), denormal
 `products.ratingAvg` / `ratingCount` for cards, `sort=rating` and `minRating`. Author names are a
 masked snapshot ("Ramesh K.") from auth-service. Events: `product.review_moderated.v1`,
 `product.rating_changed.v1`.
+
+---
+
+### D-50 · Content & news (farm-service `content` feature)
+
+News feed, disease alerts and the knowledge library live in farm-service (`content_*` tables), next
+to the farm facts used for targeting (territory + production types of the reader's farm; empty
+target list = everyone). Flock-stage / membership-tier targeting and the market-price card are
+deferred; content is English only.
+
+- **Alert accuracy:** ALERTs and `clinical` topics publish only with ≥ 1 cited source and a sign-off
+  by a vet in the **verified reviewer register** (`content_reviewers`: Veterinary Council
+  registration no., `validUntil`, verified by another admin). The sign-off is bound to a SHA-256 of
+  the reader-visible fields: any edit voids it. The public byline comes from the register.
+- **Separation of duties:** author (`content.manage`) → vet (`content.review`, new key) → a
+  different approver (`content.publish`). Corrections of live items are two-person too
+  (`content_revisions`, one PENDING per item, stale `baseVersion` → 409) and show a public
+  "Updated" note. Taking content **down** (expire now, retract as wrong, archive) is a single,
+  reasoned, audited action. Every transition → append-only `content_status_events` + audit row.
+- **Expiry:** ALERT needs `expiresAt` ≤ 30 days (default 14); `content-tick` (BullMQ, 60 s) expires
+  due alerts and publishes due SCHEDULED items; `extend` stays ≤ 30 days and needs a sign-off
+  younger than 30 days. RETRACTED is final; readers then see only the withdrawal note.
+- **Offline:** `POST /library/sync` takes the copies a device holds and answers KEEP / REPLACE
+  (newer `contentVersion`) / DOWNLOAD / MARK_ENDED (expired: 7 days with a banner) / DELETE
+  (retracted, archived, unsaved). Max 50 offline items; re-validate within 7 days.
+- **Location privacy:** no API, event or notification carries farm / reader coordinates; distance
+  is a bucket (`<5 km` … `50+ km`); alert areas are stored rounded to 2 decimals and shown to
+  admins only.
+- **Speed:** feed / search / detail cached per reader segment under a Redis generation counter
+  (`INCR` on any visible change, no key scans); card queries select card columns only; views
+  deduped per reader per day and buffered in Redis, flushed in one batched UPDATE; english FTS
+  (generated weighted tsvector + GIN).
+- **Push:** `content.published / corrected / retracted.v1` (no coordinates or ids of readers).
+  notification-service resolves readers page by page from farm-service
+  (`GET /internal/farms/content/:id/audience`, keyset on user id, segment ∪ savers) through the
+  resumable fan-out; dedupe key `content.<kind>:<id>:v<contentVersion>`. New category `CONTENT`
+  (opt-out); CRITICAL alerts are mandatory; routine (NORMAL) content pushes stop after 3 per user per
+  24 h (inbox only).
+
+### D-51 · Shop by Problem (diseases) + flock-stage filter (product-service)
+
+- **Diseases are master data, not code:** `diseases` (name, slug, description, icon, sortOrder,
+  isActive) + `product_diseases` junction, both in the `products` feature (the FK to `products` must
+  stay inside one feature, like lookups). Admin CRUD `/v1/admin/catalog/diseases`
+  (`catalogue.manage`, audited, If-Match versions).
+- **Delete is soft only** and refused (409 `DISEASE_IN_USE`) while a live, active product is linked.
+  Links to inactive / deleted products stay as history. Deleted diseases never show, never resolve
+  by slug and cannot be newly linked; a product edit replaces only links to live diseases.
+- **Slugs:** name and slug are unique among live rows only (partial unique indexes), so a deleted
+  disease's slug can be reused. History references the disease id, never the slug.
+- **Flock stages** are a new lookup group `FLOCK_STAGE` (admin-managed like species).
+  `products.productionStages` keeps its `text[]` column but now holds FLOCK_STAGE codes, validated
+  on write (live + active); GIN index for `hasSome`. Legacy free text is mapped by
+  `pnpm --filter @farmx/product-service stages:map [-- --apply]` from code → label → `meta.aliases`
+  (dry run first; unmapped values left as-is + CSV report; audit row per product).
+- **Counts = storefront-visible products only** (the list's own `storefrontWhere`: published, active,
+  live, active variant, visible category, active brand). Disease cards are cached 60 s under the
+  product list version, which every product write, status change, disease write and lookup write
+  bumps; a disease edit also drops linked product pages.
+
+### D-52 · Storefront Filter & sort sheet (product-service + inventory node stock)
+
+- **One selection, two endpoints:** `GET /v1/catalog/products` and `/products/filters` take the same
+  filters (`resolve()` in the storefront builds one `StorefrontFilter` for both), so facet counts
+  always match what a tap returns. The list adds `meta.total`; `/filters` adds `total` for the
+  "Show X products" button.
+- **Disjunctive facets:** species, diseases and brands are counted with every other filter applied
+  but not their own (each facet's own dimension is dropped from the `where`). Selected values stay
+  listed even at 0. Cached 60 s per normalised selection under the product list version.
+- **Manufacturer = brand** (existing `brandId` filter); free-text `manufacturerName` is not faceted.
+- **Disease chips are multi-select:** `diseaseId` / `diseaseSlug` are repeatable (matches any).
+- **Sort `shelf_life`** = `Product.shelfLifeMonths` desc, unknown last (batch expiry is not used).
+- **"In stock at <node>":** nodes are inventory warehouses (`farm.primaryNodeId`).
+  `inventory.availability_changed.v1` gains an optional `byNode` (full per-node set, allocatable
+  only). It is additive, so it stays v1. inventory-service dedups on a `nodeStockKey` ("nodeId:qty,…"),
+  so a depot-to-depot transfer re-publishes. product-service keeps `variant_node_availability`,
+  which is replaced per variant under the same `sequence` guard. Filter = `inStock=true&nodeId=…`;
+  `nodeId` alone does nothing. The app reads the node name from `GET /v1/farms/geo/pincodes/:pin`
+  and hides the toggle when the farm has no node.
+- **"Covered by my prescriptions" is deferred** until an Rx service exists; `/filters` returns
+  `rx.available=false` so the app shows the toggle disabled.
+- **Compliance:** filters only narrow `storefrontWhere`; sponsored placements never go through it.
+
+### D-53 · Book a Sales Call → call-service (:3011)
+
+- **Own service** `call-service` (Figma C-12a/d/e). Plan: experts → pooled availability → hold →
+  confirm → call journey; leads scored SQL / MQL / ENQUIRY.
+- **Hold and booking are one row** (`call_bookings`). Double booking is impossible because of a
+  gist `EXCLUDE (expertId =, tsrange(blockedStartAt, blockedEndAt) &&)` over HELD / CONFIRMED /
+  ACKNOWLEDGED / IN_PROGRESS.
+  - The blocked range includes **per-channel buffers**, snapshotted on the row.
+  - Inserts use `ON CONFLICT DO NOTHING` and try the next rep.
+  - Stale holds are expired inside the hold transaction, because the constraint cannot use `now()`.
+- **No network calls inside transactions.** Farm ownership and the versioned price quote are fetched
+  first. Confirm re-quotes and returns 409 `PRICE_CHANGED` when the version moved. After confirm, the
+  price and quantity are frozen by a trigger; snapshots change only on erase.
+- **Recommended-expert card ≠ assignment** (`RECOMMENDATION_ONLY`). VET profiles are never bookable
+  (DB CHECK), because leads never touch Rx.
+- **Three separate append-only consents:** ROUTING, SHARE_WITH_BRAND, RECORDING. Withdrawing share
+  consent reassigns the call away from a vendor rep. Erase redacts PII and keeps non-PII facts.
+- **NO_ANSWER** is an attempt result. **NO_SHOW** (customer) and **MISSED** (rep / system) are final
+  and can be rescheduled.
+- **Every rule is data** (`call_settings`) and every chip is a row (`call_options`). Telephony is
+  mock-only until a vendor is chosen, and production refuses to boot without one.
+- **Permissions:** reuse `sales.view` / `sales.manage` and add `sales.configure`. Customers and
+  experts are authorised by identity (own records; an active `experts` row).
+
+### D-54 · Wallet & Rewards → wallet-service (:3012) (supersedes the wallet part of D-42)
+
+- **Own service** `wallet-service` (Figma: Points & wallet, Add money, Wallet statement, Points
+  ledger, Transaction history). It is the ONLY writer of the wallet ledger. Plan:
+  `~/.claude/plans/pasted-content-id-4f6a-deeply-analyze-serene-squirrel.md`, phases W1–W6.
+- **Closed-loop wallet:** money can only be spent on FarmX orders. No transfer, withdrawal or P2P
+  (keeps it outside RBI PPI licensing). Checkout is paid by **wallet only OR gateway only** (no
+  split tender). Points earn only on `order.delivered.v1` (F1).
+- **Double-entry, append-only ledger in PostgreSQL** (integer paise; Redis never holds balances):
+  - every `wallet_journals` row has ≥ 2 `wallet_postings` summing to 0 (deferred constraint trigger);
+  - journals / postings / accounts cannot be updated or deleted (triggers); corrections are
+    REVERSAL journals;
+  - a USER balance changes only through one conditional `UPDATE … WHERE balance + Δ ≥ 0 AND
+status = 'ACTIVE'` (credits always land, even when FROZEN), and the posting chain trigger
+    requires `balanceAfter = previous + amount = account balance`; a deferred trigger rejects any
+    balance change without a matching posting;
+  - SYSTEM accounts (GATEWAY_CLEARING, ORDER_SETTLEMENT, REWARDS_EXPENSE, ADJUSTMENT) carry no
+    running balance (derived from postings), so no hot row exists.
+- **Idempotency in the database:** `wallet_journals.idempotencyKey` is unique and claimed with
+  `INSERT … ON CONFLICT DO NOTHING` first; a concurrent duplicate waits, then replays the winner.
+  The same key for a different movement → 409 `IDEMPOTENCY_KEY_REUSED`.
+- **Fast failure under contention:** wallet transactions run with `lock_timeout = 3 s`; a lock or
+  pool timeout → 503 `WALLET_BUSY` (retry with the same key is always safe).
+- **Top-ups reuse payment-service (W2):** `Payment.purpose` = ORDER | WALLET_TOPUP (CHECK: an
+  order payment has orderId / orderNo, a top-up payment has `referenceId` = top-up id). Top-up
+  outcomes go out only as `payment.topup_*.v1`, so order consumers never see them, and an order
+  refund can never touch a top-up payment. The wallet is credited with the **captured** amount once
+  (ledger key `topup:<id>`), even after the top-up expired; event, live check and reconcile job all
+  funnel into one locked `applyInTx`.
+- **Wallet checkout (W3):** payment-service provider `WALLET` debits the whole order through
+  wallet-service (`pay:<paymentId>`) and then runs the normal capture path, so the order lifecycle,
+  late-payment refunds and the order ledger are unchanged. Refunds of a WALLET payment are wallet
+  credits (`refund:<refundId>`, serialised per payment, never above the debit). order-service only
+  stores `paymentMethod` and pre-checks the balance; the debit stays authoritative.
+- **Reward points (W4):** a separate double-entry ledger (`points_*`) with AVAILABLE / PENDING / DEBT
+  buckets checked against SUM(postings) at commit, and lots for FIFO-by-expiry spending, exact
+  expiry and reversal. Earned on `order.delivered.v1.netPaidPaise` (PENDING for the hold days);
+  a refund reverses the refunded share (own lot → other lots → DEBT, settled by the next earn).
+  Conversion = points debit + wallet credit in ONE transaction; lock order is always points account
+  → wallet account (conversion and top-up cashback).
+- **Staff console (W5):** manual adjustments need two people (requester ≠ approver in the service,
+  a DB CHECK and a final-state trigger); posting happens in the approval transaction with key
+  `adj:<id>`. Freeze blocks debits only. A 15-minute ledger check re-derives every balance from the
+  postings and lots (the triggers stop bad writes; the check catches anything that bypassed them).
+  Permissions: `wallet.view`, `wallet.adjust`, `wallet.approve`, `wallet.configure`.
+- **Cost:** one extra service. Table ownership is enforced by code + triggers, and by DB roles
+  once `infra/sql/wallet-roles.sql` is applied (wallet-service = `farmx_wallet`, others =
+  `farmx_app`, migrations = owner). Guide and runbook: `docs/wallet/README.md`.
 
 ---
 

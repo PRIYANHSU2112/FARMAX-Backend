@@ -1,4 +1,5 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import type { MediaConfig } from '../config/index.js';
 
@@ -13,6 +14,10 @@ export interface ObjectStorage {
   /** Uploads with `ACL: public-read` and long-lived immutable caching (keys are never reused). */
   putPublicObject(input: PutObjectInput): Promise<void>;
   publicUrl(key: string): string;
+  /** Private object (no ACL grant): readable only through short-lived signed URLs. */
+  putPrivateObject(input: PutObjectInput): Promise<void>;
+  signedGetUrl(key: string, expiresInSeconds: number): Promise<string>;
+  deleteObjects(keys: readonly string[]): Promise<void>;
 }
 
 type SpacesConfig = Pick<
@@ -72,6 +77,37 @@ export class SpacesStorage implements ObjectStorage {
 
   publicUrl(key: string): string {
     return buildPublicUrl(this.config, key);
+  }
+
+  async putPrivateObject({ key, body, contentType }: PutObjectInput): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.config.AWS_BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        ContentLength: body.length,
+        ACL: 'private',
+        CacheControl: 'private, max-age=300',
+      }),
+    );
+  }
+
+  signedGetUrl(key: string, expiresInSeconds: number): Promise<string> {
+    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.config.AWS_BUCKET_NAME, Key: key }), {
+      expiresIn: expiresInSeconds,
+    });
+  }
+
+  async deleteObjects(keys: readonly string[]): Promise<void> {
+    for (let i = 0; i < keys.length; i += 1000) {
+      await this.client.send(
+        new DeleteObjectsCommand({
+          Bucket: this.config.AWS_BUCKET_NAME,
+          Delete: { Objects: keys.slice(i, i + 1000).map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+    }
   }
 
   destroy(): void {

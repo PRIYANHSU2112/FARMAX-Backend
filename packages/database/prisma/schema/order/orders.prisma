@@ -22,6 +22,12 @@ enum OrderPaymentStatus {
   REFUNDED
 }
 
+/// How the buyer pays the whole order (D-54: wallet OR gateway, never split).
+enum OrderPaymentMethod {
+  ONLINE
+  WALLET
+}
+
 enum OrderStockStatus {
   /// Reserve call in flight / outcome unknown.
   PENDING
@@ -64,6 +70,7 @@ model Order {
   status           OrderStatus        @default(PENDING_ADMIN_CONFIRMATION)
   /// PAYMENT_NOT_COMPLETED · STOCK_UNAVAILABLE · STOCK_UNAVAILABLE_AFTER_PAYMENT · PLACEMENT_ERROR
   failureCode      String?            @db.VarChar(40)
+  paymentMethod    OrderPaymentMethod @default(ONLINE)
   paymentStatus    OrderPaymentStatus @default(PENDING)
   stockStatus      OrderStockStatus   @default(PENDING)
   refundStatus     OrderRefundStatus  @default(NONE)

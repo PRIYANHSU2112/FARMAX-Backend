@@ -9,6 +9,13 @@ import {
   farmsInternalModule,
   farmsModule,
 } from '../features/farms/index.js';
+import {
+  ADMIN_CONTENT_TAG,
+  CONTENT_TAG,
+  contentAdminModule,
+  contentInternalModule,
+  contentModule,
+} from '../features/content/index.js';
 import { ADMIN_GEO_TAG, GEO_TAG, geoAdminModule, geoModule } from '../features/geo/index.js';
 import { ADMIN_KYC_TAG, KYC_TAG, kycAdminModule, kycModule } from '../features/kyc/index.js';
 import {
@@ -25,7 +32,9 @@ import {
  *   /farms/geo/*                          geo   · /farms/:id/kyc/*, /billing  kyc
  *   /farms/:id/verification*              review
  *   /admin/farms/*                        farms-admin, kyc-admin, review-admin, geo-admin
- *   /internal/farms/*                     farms-internal (internal token, hidden)
+ *   /farms/content/*                      content (news feed, alerts, knowledge library)
+ *   /admin/farms/content/*                content-admin
+ *   /internal/farms/*                     farms-internal, content-internal (internal token, hidden)
  */
 export const features: readonly ServiceModule[] = [
   auditModule,
@@ -33,11 +42,14 @@ export const features: readonly ServiceModule[] = [
   farmsModule,
   kycModule,
   reviewModule,
+  contentModule,
   farmsAdminModule,
   kycAdminModule,
   reviewAdminModule,
   geoAdminModule,
+  contentAdminModule,
   farmsInternalModule,
+  contentInternalModule,
 ];
 
 export const createDocsOptions = (config: FarmConfig): DocsOptions => ({
@@ -64,5 +76,15 @@ export const createDocsOptions = (config: FarmConfig): DocsOptions => ({
     { name: ADMIN_REVIEW_TAG, description: 'Duplicate-registration queue and decisions.' },
     { name: ADMIN_KYC_TAG, description: 'KYC document review.' },
     { name: ADMIN_GEO_TAG, description: 'Territory and pin-code masters.' },
+    {
+      name: CONTENT_TAG,
+      description:
+        'News & updates feed, disease alerts, search, saved items and offline sync of the knowledge library.',
+    },
+    {
+      name: ADMIN_CONTENT_TAG,
+      description:
+        'Authoring → vet sign-off → approval (different people), corrections, takedowns, topics and the verified reviewer register.',
+    },
   ],
 });

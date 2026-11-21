@@ -31,6 +31,7 @@ const summary = {
   orderNo: 'ORD-26-0091842',
   status: 'PENDING_ADMIN_CONFIRMATION',
   failureCode: null,
+  paymentMethod: 'ONLINE',
   paymentStatus: 'PENDING',
   stockStatus: 'RESERVED',
   refundStatus: 'NONE',
@@ -48,6 +49,8 @@ export const ORDER_DOCS = {
     summary: 'Place an order from the cart',
     description: `Prices, offers, GST and stock are re-checked on the server (client amounts are never trusted). The order is created as **PENDING_ADMIN_CONFIRMATION** with stock held for the payment window, and the response carries the gateway checkout details. Pay with the gateway SDK, then call \`POST /v1/payments/{paymentId}/verify\`.
 
+**Wallet (D-54):** \`paymentMethod: "WALLET"\` pays the whole order from the FarmX wallet (never split with the gateway). The balance is checked first — **409 INSUFFICIENT_WALLET_BALANCE** (details \`balancePaise\`, \`requiredPaise\`, \`shortPaise\`) or **409 WALLET_FROZEN**, and nothing is created. After the stock hold the wallet is debited at once: \`payment.status\` is CAPTURED (no gateway step), or FAILED with \`INSUFFICIENT_WALLET_BALANCE\` if the balance changed meanwhile (top up, then \`POST /v1/orders/{id}/pay\`). Refunds of a wallet-paid order go back to the wallet.
+
 **Idempotent:** a retry with the same \`Idempotency-Key\` continues the same order (never a second one). A **503** means the outcome is not known yet — retry with the same key. **409 INSUFFICIENT_STOCK / NOT_SERVICEABLE**: the order is FAILED (details carry \`orderId\` and the shortfall) and nothing can be paid.
 
 ${STATUS_TEXT}`,
@@ -60,7 +63,13 @@ ${STATUS_TEXT}`,
         schema: { type: 'string', example: 'chk-7f3a9c21-01' },
       },
     },
-    requestExample: { farmId: IDS.farm, addressId: IDS.address, cartVersion: 7, billToGst: true },
+    requestExample: {
+      farmId: IDS.farm,
+      addressId: IDS.address,
+      cartVersion: 7,
+      billToGst: true,
+      paymentMethod: 'ONLINE',
+    },
     success: {
       status: 201,
       description: 'Order placed (201) or continued (200, same key)',

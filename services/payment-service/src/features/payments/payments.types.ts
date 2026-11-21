@@ -18,18 +18,24 @@ export const CAPTURED_STATUSES: readonly PaymentStatus[] = [
 ];
 
 /** Row shape inside the service (money in paise as bigint). */
+export type PaymentPurpose = 'ORDER' | 'WALLET_TOPUP';
+
 export interface PaymentRow {
   id: string;
   paymentNo: string;
-  orderId: string;
-  orderNo: string;
+  purpose: PaymentPurpose;
+  /** ORDER payments only (CHECK). */
+  orderId: string | null;
+  orderNo: string | null;
+  /** WALLET_TOPUP payments only: the wallet-service top-up id. */
+  referenceId: string | null;
   userId: string;
   amountPaise: bigint;
   currency: string;
   capturedPaise: bigint;
   refundedPaise: bigint;
   status: PaymentStatus;
-  provider: 'RAZORPAY' | 'MOCK';
+  provider: 'RAZORPAY' | 'MOCK' | 'WALLET';
   providerOrderId: string | null;
   providerPaymentId: string | null;
   method: string | null;
@@ -55,10 +61,12 @@ export interface PaymentRow {
 export interface PaymentView {
   id: string;
   paymentNo: string;
-  orderId: string;
-  orderNo: string;
+  purpose: PaymentPurpose;
+  orderId: string | null;
+  orderNo: string | null;
+  referenceId: string | null;
   status: PaymentStatus;
-  provider: 'RAZORPAY' | 'MOCK';
+  provider: 'RAZORPAY' | 'MOCK' | 'WALLET';
   amountPaise: number;
   amount: string;
   currency: string;
@@ -86,7 +94,7 @@ export interface CheckoutView {
   paymentId: string;
   paymentNo: string;
   status: PaymentStatus;
-  provider: 'RAZORPAY' | 'MOCK';
+  provider: 'RAZORPAY' | 'MOCK' | 'WALLET';
   /** Public gateway key for the checkout SDK. */
   keyId: string;
   providerOrderId: string | null;
@@ -103,6 +111,19 @@ export interface CreatePaymentInput {
   amountPaise: number;
   currency: string;
   /** End of the order's payment window. */
+  expiresAt: string;
+  /** ONLINE (gateway checkout, default) or WALLET (paid in full from the FarmX wallet, D-54). */
+  method?: 'ONLINE' | 'WALLET';
+}
+
+/** wallet-service: the payment of one wallet top-up (idempotent per topupId). */
+export interface CreateTopupPaymentInput {
+  topupId: string;
+  topupNo: string;
+  userId: string;
+  amountPaise: number;
+  currency: string;
+  /** End of the top-up payment window. */
   expiresAt: string;
 }
 
@@ -145,8 +166,10 @@ export const rupees = (paise: bigint | number): string => {
 export const toPaymentView = (p: PaymentRow): PaymentView => ({
   id: p.id,
   paymentNo: p.paymentNo,
+  purpose: p.purpose,
   orderId: p.orderId,
   orderNo: p.orderNo,
+  referenceId: p.referenceId,
   status: p.status,
   provider: p.provider,
   amountPaise: Number(p.amountPaise),

@@ -5,6 +5,7 @@ import {
   byLockOrder,
   lowStockCrossing,
   networkAvailability,
+  nodeAvailability,
   sellableOf,
 } from '../../src/features/stock/stock.rules.js';
 
@@ -84,5 +85,39 @@ describe('requestHash', () => {
     const b = requestHash({ lines: [{ q: 2, v: 'a' }], x: 1 });
     expect(a).toBe(b);
     expect(requestHash({ x: 2 })).not.toBe(requestHash({ x: 1 }));
+  });
+});
+
+describe('nodeAvailability (per-node breakdown for "In stock at <node>")', () => {
+  const levels = [
+    { warehouseId: 'b', onHand: 0, reserved: 0, safetyStock: 0, reorderLevel: 0 },
+    { warehouseId: 'a', onHand: 10, reserved: 2, safetyStock: 1, reorderLevel: 5 },
+    { warehouseId: 'off', onHand: 999, reserved: 0, safetyStock: 0, reorderLevel: 5 },
+  ];
+  it('lists allocatable nodes only, sorted, with a stable dedup key', () => {
+    expect(nodeAvailability(levels, new Set(['a', 'b']))).toEqual({
+      byNode: [
+        { nodeId: 'a', availableQty: 7, inStock: true },
+        { nodeId: 'b', availableQty: 0, inStock: false },
+      ],
+      key: 'a:7,b:0',
+    });
+  });
+  it('a transfer between nodes (same network total) changes the key', () => {
+    const before = nodeAvailability(
+      [
+        { warehouseId: 'a', onHand: 5, reserved: 0, safetyStock: 0, reorderLevel: 0 },
+        { warehouseId: 'b', onHand: 5, reserved: 0, safetyStock: 0, reorderLevel: 0 },
+      ],
+      new Set(['a', 'b']),
+    );
+    const after = nodeAvailability(
+      [
+        { warehouseId: 'a', onHand: 10, reserved: 0, safetyStock: 0, reorderLevel: 0 },
+        { warehouseId: 'b', onHand: 0, reserved: 0, safetyStock: 0, reorderLevel: 0 },
+      ],
+      new Set(['a', 'b']),
+    );
+    expect(before.key).not.toBe(after.key);
   });
 });

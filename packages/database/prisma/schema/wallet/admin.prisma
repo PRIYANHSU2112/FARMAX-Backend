@@ -1,0 +1,97 @@
+// wallet-service features: audit, adjustments, checks (D-54 W5, staff console).
+
+/// Append-only (D-22): every staff action on wallets (freeze, adjustments, settings).
+model WalletAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.VarChar(60)
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.VarChar(64)
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(45)
+  requestId   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@map("wallet_audit_log")
+}
+
+enum WalletAdjustmentLedger {
+  WALLET
+  POINTS
+}
+
+enum WalletAdjustmentDirection {
+  CREDIT
+  DEBIT
+}
+
+/// Statement grouping: DAMAGE_CLAIM → Refunds, LOYALTY_BONUS → Rewards, others → Adjustments.
+enum WalletAdjustmentCategory {
+  GOODWILL
+  DAMAGE_CLAIM
+  LOYALTY_BONUS
+  CORRECTION
+}
+
+enum WalletAdjustmentStatus {
+  PENDING_APPROVAL
+  POSTED
+  REJECTED
+}
+
+/// A manual credit / debit of wallet money or points: requested by one staff member, approved
+/// (posted) or rejected by ANOTHER (segregation of duties, DB CHECK).
+model WalletAdjustment {
+  id             String                    @id @default(uuid(7)) @db.Uuid
+  /// ADJ-yymmdd-XXXXXXXX
+  adjustmentNo   String                    @unique @db.VarChar(24)
+  userId         String                    @db.Uuid
+  ledger         WalletAdjustmentLedger
+  direction      WalletAdjustmentDirection
+  /// Paise (WALLET) or points (POINTS), > 0.
+  amount         BigInt
+  category       WalletAdjustmentCategory
+  /// Statement line, e.g. "Cold Box Damage Refund".
+  title          String                    @db.VarChar(120)
+  reason         String                    @db.VarChar(500)
+  status         WalletAdjustmentStatus    @default(PENDING_APPROVAL)
+  requestedBy    String                    @db.Uuid
+  idempotencyKey String                    @db.VarChar(64)
+  requestHash    String                    @db.Char(64)
+  decidedBy      String?                   @db.Uuid
+  decisionReason String?                   @db.VarChar(500)
+  decidedAt      DateTime?
+  /// Wallet or points journal that posted it.
+  journalId      String?                   @db.Uuid
+  version        Int                       @default(0)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @default(now()) @updatedAt
+
+  @@unique([requestedBy, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("wallet_adjustments")
+}
+
+/// A ledger reconciliation finding (ledger-check job). OPEN until a later run no longer sees it.
+model WalletLedgerCheck {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  /// WALLET_BALANCE · WALLET_JOURNAL · WALLET_TOTAL · POINTS_BUCKETS · POINTS_LOTS · TOPUP_CREDIT
+  checkType  String    @db.VarChar(40)
+  refId      String    @db.VarChar(64)
+  userId     String?   @db.Uuid
+  expected   String?   @db.VarChar(80)
+  actual     String?   @db.VarChar(80)
+  /// OPEN · RESOLVED
+  status     String    @default("OPEN") @db.VarChar(10)
+  detectedAt DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@unique([checkType, refId])
+  @@index([status, detectedAt])
+  @@map("wallet_ledger_checks")
+}

@@ -18,6 +18,10 @@ export const FARM_PERMISSIONS = new Set([
   'customers.merge',
   'customers.suspend',
   'territories.manage',
+  'content.view',
+  'content.manage',
+  'content.review',
+  'content.publish',
 ]);
 
 /** preHandler: valid, non-revoked access token with FULL scope; optionally a persona. */

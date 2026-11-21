@@ -1,0 +1,189 @@
+// support-service feature: tickets. One queue for every app and channel. Concurrency guards:
+//   ticketNo      Postgres SEQUENCE (no hot counter row)
+//   lastSeq       per-ticket gap-free message sequence (UPDATE … RETURNING in the same tx)
+//   version       optimistic concurrency for agent actions (If-Match)
+//   idempotency   unique(requesterId, idempotencyKey) · unique(ticketId, senderId, clientMessageId)
+// Events are append-only (trigger). PII (description, phone, requester bodies) is scrubbed on
+// user.deleted.v1; ids and SLA facts are kept.
+
+enum SupportTicketStatus {
+  NEW
+  OPEN
+  WAITING_ON_REQUESTER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportChannel {
+  APP
+  CHAT
+  PHONE
+  EMAIL
+  WHATSAPP
+}
+
+enum SupportSenderRole {
+  REQUESTER
+  AGENT
+  SYSTEM
+}
+
+enum SupportMessageKind {
+  TEXT
+  SYSTEM
+  ESCALATION
+  ACTION_CARD
+  INTERNAL_NOTE
+}
+
+enum SupportVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum SupportCsat {
+  YES
+  NOT_YET
+}
+
+model SupportTicket {
+  id                      String              @id @db.Uuid
+  /// TK-2026-000123
+  ticketNo                String              @unique @db.VarChar(20)
+  app                     SupportApp
+  requesterId             String              @db.Uuid
+  /// CUSTOMER · VENDOR · LOGISTICS_PARTNER · INTERNAL
+  requesterType           String              @db.VarChar(20)
+  requesterName           String?             @db.VarChar(120)
+  farmId                  String?             @db.Uuid
+  topicId                 String              @db.Uuid
+  topicCode               String              @db.VarChar(40)
+  topicLabel              String              @db.VarChar(80)
+  /// First requester text (also message seq 1). Scrubbed on account deletion.
+  description             String              @db.VarChar(2000)
+  priority                SupportPriority
+  priorityReason          String?             @db.VarChar(80)
+  /// An agent set the priority by hand: rules never change it again.
+  priorityLocked          Boolean             @default(false)
+  status                  SupportTicketStatus @default(NEW)
+  team                    SupportTeam
+  assigneeId              String?             @db.Uuid
+  assigneeName            String?             @db.VarChar(120)
+  escalationLevel         Int                 @default(0)
+  channel                 SupportChannel      @default(APP)
+  orderId                 String?             @db.Uuid
+  /// Snapshot taken once at create: { orderNo, status, placedAt, grandTotal, paymentMethod,
+  /// itemCount, firstItemName, temperatureClasses[] }. Reads never call order-service.
+  orderContext            Json?
+  callbackRequested       Boolean             @default(false)
+  callbackPhone           String?             @db.VarChar(20)
+  // ── SLA (see topics.sla.ts) ──
+  /// { calendarId, firstResponseMins, resolveMins, businessHoursOnly } at create / last recompute.
+  slaPolicy               Json
+  slaStartedAt            DateTime
+  firstResponseDueAt      DateTime
+  firstRespondedAt        DateTime?
+  firstResponseBreachedAt DateTime?
+  resolveDueAt            DateTime
+  resolveBreachedAt       DateTime?
+  slaPausedAt             DateTime?
+  pausedBizMins           Int                 @default(0)
+  resolvedAt              DateTime?
+  closedAt                DateTime?
+  reopenCount             Int                 @default(0)
+  csat                    SupportCsat?
+  csatComment             String?             @db.VarChar(500)
+  // ── Denormalised list fields (lists never join messages) ──
+  lastSeq                 Int                 @default(0)
+  /// Last PUBLIC message seq (requester unread = lastPublicSeq − lastReadSeq; notes never count).
+  lastPublicSeq           Int                 @default(0)
+  lastMessageAt           DateTime            @default(now())
+  lastMessagePreview      String?             @db.VarChar(140)
+  lastSenderRole          SupportSenderRole?
+  version                 Int                 @default(0)
+  idempotencyKey          String?             @db.VarChar(64)
+  requesterScrubbedAt     DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@unique([requesterId, idempotencyKey])
+  @@index([requesterId, status, lastMessageAt(sort: Desc)])
+  @@index([assigneeId, status])
+  @@index([status, priority, resolveDueAt])
+  @@index([orderId])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id              String             @id @default(uuid(7)) @db.Uuid
+  ticketId        String             @db.Uuid
+  seq             Int
+  /// null = SYSTEM.
+  senderId        String?            @db.Uuid
+  senderRole      SupportSenderRole
+  senderName      String?            @db.VarChar(120)
+  kind            SupportMessageKind @default(TEXT)
+  visibility      SupportVisibility  @default(PUBLIC)
+  body            String             @db.VarChar(4000)
+  attachmentIds   String[]           @default([]) @db.Uuid
+  /// ACTION_CARD payload: { title, subtitle?, refType, refId?, status }.
+  card            Json?
+  /// Client retry key (unique per ticket + sender).
+  clientMessageId String?            @db.VarChar(64)
+  createdAt       DateTime           @default(now())
+
+  @@unique([ticketId, seq])
+  @@unique([ticketId, senderId, clientMessageId])
+  @@map("support_ticket_messages")
+}
+
+/// Who reads a ticket and how far. Unread = ticket.lastSeq − lastReadSeq (no counter writes).
+model SupportTicketParticipant {
+  ticketId    String   @db.Uuid
+  userId      String   @db.Uuid
+  /// REQUESTER · AGENT
+  role        String   @db.VarChar(12)
+  lastReadSeq Int      @default(0)
+  joinedAt    DateTime @default(now())
+
+  @@id([ticketId, userId])
+  @@index([userId])
+  @@map("support_ticket_participants")
+}
+
+/// Every state / priority / assignment / SLA change, attributed. Append-only (trigger).
+model SupportTicketEvent {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  ticketId  String   @db.Uuid
+  /// STATUS · PRIORITY · ASSIGNEE · ESCALATION · SLA_RECOMPUTE · SLA_BREACH · CSAT · CREATED
+  type      String   @db.VarChar(30)
+  from      String?  @db.VarChar(60)
+  to        String?  @db.VarChar(60)
+  actorId   String?  @db.Uuid
+  reason    String?  @db.VarChar(500)
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_events")
+}
+
+/// A verified upload bound to exactly ONE ticket (unique mediaKey).
+model SupportAttachment {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  ticketId   String   @db.Uuid
+  messageId  String?  @db.Uuid
+  uploaderId String   @db.Uuid
+  mediaKey   String   @unique @db.VarChar(300)
+  /// image · document
+  kind       String   @db.VarChar(10)
+  mime       String   @db.VarChar(80)
+  size       Int
+  fileName   String?  @db.VarChar(160)
+  /// CLEAN · REENCODED (images are re-encoded by media-service, which strips payloads)
+  scanStatus String   @db.VarChar(20)
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+  @@map("support_attachments")
+}

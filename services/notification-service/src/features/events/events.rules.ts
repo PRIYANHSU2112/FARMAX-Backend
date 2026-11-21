@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import type {
+  ContentCorrectedV1,
+  ContentEventBaseV1,
+  ContentPublishedV1,
+  ContentRetractedV1,
   EventEnvelope,
   LowStockV1,
   OrderConfirmedV1,
@@ -15,6 +19,8 @@ import type {
 } from '@farmx/infra/events';
 
 import type { OrderRef } from '../audience/index.js';
+import type { NotificationPriority } from '../../domain.js';
+import type { ContentAudienceScope } from '../../adapters/farm-directory.js';
 import type { NotificationDraft } from '../notifications/index.js';
 
 /**
@@ -75,7 +81,7 @@ const linesKey = (lines: readonly { variantId: string; qty: number }[]): string 
     .digest('hex')
     .slice(0, 16);
 
-export const RULES: Readonly<Record<string, Rule>> = {
+const CORE_RULES: Readonly<Record<string, Rule>> = {
   'order.placed.v1': {
     needsOrder: false,
     build: (event) => {
@@ -298,6 +304,95 @@ export const RULES: Readonly<Record<string, Rule>> = {
     },
   },
 };
+
+// ── Content (farm-service): readers resolved page by page from farm-service by the fan-out ──
+
+/**
+ * CRITICAL alerts are mandatory (opt-outs ignored: animal-health safety); WARNING alerts,
+ * corrections of alerts and withdrawals are HIGH (bypass the daily content cap); the rest NORMAL.
+ */
+const contentPriority = (
+  d: ContentEventBaseV1,
+  kind: 'published' | 'corrected' | 'retracted',
+): NotificationPriority => {
+  if (d.severity === 'CRITICAL') return 'CRITICAL';
+  if (kind === 'retracted' || d.kind === 'ALERT') return 'HIGH';
+  return 'NORMAL';
+};
+
+const contentDraft = (
+  event: EventEnvelope,
+  d: ContentEventBaseV1,
+  kind: 'published' | 'corrected' | 'retracted',
+  scope: ContentAudienceScope,
+  templateKey: string,
+  vars: NotificationDraft['vars'],
+): NotificationDraft => ({
+  ...base(event),
+  // Business key: redelivery or a re-emit with a new event id never notifies twice.
+  dedupeKey: `content.${kind}:${d.contentId}:v${String(d.contentVersion)}`,
+  category: 'CONTENT',
+  priority: contentPriority(d, kind),
+  app: 'CUSTOMER',
+  audience: { kind: 'farmContent', contentId: d.contentId, scope },
+  channels: ['PUSH'],
+  templateKey,
+  vars,
+  entityType: 'content',
+  entityId: d.contentId,
+  data: { entityType: 'content', entityId: d.contentId, contentVersion: d.contentVersion },
+});
+
+const CONTENT_RULES: Readonly<Record<string, Rule>> = {
+  'content.published.v1': {
+    needsOrder: false,
+    build: (event) => {
+      const d = event.data as ContentPublishedV1;
+      return [
+        contentDraft(
+          event,
+          d,
+          'published',
+          'segment',
+          d.kind === 'ALERT' ? 'content.alert' : 'content.news',
+          { title: d.title, summary: d.summary },
+        ),
+      ];
+    },
+  },
+  'content.corrected.v1': {
+    needsOrder: false,
+    build: (event) => {
+      const d = event.data as ContentCorrectedV1;
+      return [
+        contentDraft(event, d, 'corrected', 'both', 'content.corrected', {
+          title: d.title,
+          note: d.correctionNote,
+        }),
+      ];
+    },
+  },
+  'content.retracted.v1': {
+    needsOrder: false,
+    build: (event) => {
+      const d = event.data as ContentRetractedV1;
+      return [
+        contentDraft(
+          event,
+          d,
+          'retracted',
+          d.wasNotified ? 'both' : 'savers',
+          'content.retracted',
+          {
+            title: d.title,
+            note: d.retractNote,
+          },
+        ),
+      ];
+    },
+  },
+};
+export const RULES: Readonly<Record<string, Rule>> = { ...CORE_RULES, ...CONTENT_RULES };
 
 /** Routing keys the consumer queue binds. */
 export const EVENT_BINDINGS: readonly string[] = Object.keys(RULES);

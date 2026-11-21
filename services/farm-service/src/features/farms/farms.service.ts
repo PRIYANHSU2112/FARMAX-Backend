@@ -35,7 +35,9 @@ import type {
   FarmView,
   LocationInput,
   OwnerPrefsInput,
+  OwnerSegment,
   QuickSignupInput,
+  ReaderContext,
   UpdateActiveFarmInput,
 } from './farms.types.js';
 
@@ -492,6 +494,20 @@ export class FarmsService {
 
   findInTx(tx: Tx, id: string): Promise<FarmView> {
     return this.mustFind(tx, id);
+  }
+
+  // ── Used by the content feature ──
+
+  /** Reader targeting facts (404 when `farmId` is not the reader's farm). */
+  async readerContext(userId: string, farmId?: string): Promise<ReaderContext | null> {
+    const ctx = await this.deps.farmsRepository.readerContext(userId, farmId);
+    if (ctx === null && farmId !== undefined) throw new NotFoundError('Farm');
+    return ctx;
+  }
+
+  /** One page (by user id) of owners with an ACTIVE farm in the segment. */
+  segmentOwnerIds(segment: OwnerSegment, after: string | null, limit: number): Promise<string[]> {
+    return this.deps.farmsRepository.segmentOwnerIds(segment, after, limit);
   }
 
   /** Review decisions and admin actions: validated transition + event + side effects. */

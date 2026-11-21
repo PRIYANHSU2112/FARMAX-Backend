@@ -20,6 +20,9 @@ describe('route map', () => {
         INVENTORY_SERVICE_URL: 'http://inventory:3008',
         PAYMENT_SERVICE_URL: 'http://payment:3009',
         NOTIFICATION_SERVICE_URL: 'http://notification:3010',
+        CALL_SERVICE_URL: 'http://call:3011',
+        WALLET_SERVICE_URL: 'http://wallet:3012',
+        SUPPORT_SERVICE_URL: 'http://support:3013',
       }),
     ).toEqual([
       { prefix: '/v1/auth', upstream: 'http://auth:3001', rewritePrefix: '' },
@@ -31,10 +34,12 @@ describe('route map', () => {
       ...[
         '/catalog/products',
         '/catalog/lookups',
+        '/catalog/diseases',
         '/catalog/reviews',
         '/admin/catalog/products',
         '/admin/catalog/reviews',
         '/admin/catalog/lookups',
+        '/admin/catalog/diseases',
         '/admin/catalog/product-attributes',
         '/admin/catalog/compliance-profiles',
       ].map((path) => ({
@@ -107,6 +112,38 @@ describe('route map', () => {
       {
         prefix: '/v1/notification-service/health',
         upstream: 'http://notification:3010',
+        rewritePrefix: '/health',
+      },
+      { prefix: '/v1/calls', upstream: 'http://call:3011', rewritePrefix: '/calls' },
+      {
+        prefix: '/v1/call-service/health',
+        upstream: 'http://call:3011',
+        rewritePrefix: '/health',
+      },
+      { prefix: '/v1/wallet', upstream: 'http://wallet:3012', rewritePrefix: '/wallet' },
+      { prefix: '/v1/rewards', upstream: 'http://wallet:3012', rewritePrefix: '/rewards' },
+      {
+        prefix: '/v1/admin/wallet',
+        upstream: 'http://wallet:3012',
+        rewritePrefix: '/admin/wallet',
+      },
+      {
+        prefix: '/v1/wallet-service/health',
+        upstream: 'http://wallet:3012',
+        rewritePrefix: '/health',
+      },
+      {
+        prefix: '/v1/support/chat',
+        upstream: 'http://support:3013',
+        rewritePrefix: '/support/chat',
+        websocket: true,
+      },
+      { prefix: '/v1/support', upstream: 'http://support:3013', rewritePrefix: '/support' },
+      { prefix: '/v1/faqs', upstream: 'http://support:3013', rewritePrefix: '/faqs' },
+      { prefix: '/v1/legal', upstream: 'http://support:3013', rewritePrefix: '/legal' },
+      {
+        prefix: '/v1/support-service/health',
+        upstream: 'http://support:3013',
         rewritePrefix: '/health',
       },
     ]);

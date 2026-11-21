@@ -1,0 +1,129 @@
+// call-service feature: experts (D-53). Bookable reps/specialists + VET profiles (recommendation card
+// only: CHECK "type" <> 'VET' OR NOT "isBookable" in the migration), their weekly availability,
+// breaks, time-off, and the holiday calendar the slot engine subtracts.
+
+enum ExpertType {
+  /// Recommended-expert card only; never bookable for a sales call.
+  VET
+  /// Vendor (brand) field rep: matched by brandIds first.
+  SALES_REP
+  /// FarmX specialist: matched by category / production type (fallback pool).
+  SPECIALIST
+}
+
+enum CallChannel {
+  VIDEO
+  PHONE
+  FARM_VISIT
+}
+
+model Expert {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  /// auth users.id of the expert's login (staff or vendor user).
+  userId          String        @unique @db.Uuid
+  type            ExpertType
+  displayName     String        @db.VarChar(120)
+  /// "Poultry Biologicals Consultant", "Area Manager".
+  title           String?       @db.VarChar(120)
+  /// "DVM", "B.V.Sc & A.H."
+  qualification   String?       @db.VarChar(120)
+  /// Public image URL from media-service (`POST /v1/upload`).
+  photoUrl        String?       @db.VarChar(500)
+  experienceYears Int?          @db.SmallInt
+  /// Language codes (call_options LANGUAGE codes), e.g. ["en","hi"].
+  languages       String[]      @db.VarChar(8)
+  /// catalog brands.id — brand reps (SALES_REP) match these first.
+  brandIds        String[]      @db.Uuid
+  /// catalog categories.id (any level) — specialists match these.
+  categoryIds     String[]      @db.Uuid
+  productionTypes String[]      @db.VarChar(24)
+  /// farm territory codes served (FARM_VISIT eligibility).
+  territoryCodes  String[]      @db.VarChar(3)
+  channels        CallChannel[]
+  ratingAvg       Decimal?      @db.Decimal(3, 2)
+  onTimePct       Int?          @db.SmallInt
+  /// Daily booking cap (enforced under the expert-row lock in the hold).
+  maxPerDay       Int           @default(12) @db.SmallInt
+  /// Higher = preferred among equals (assignment + recommendation tie-break).
+  priority        Int           @default(0) @db.SmallInt
+  isBookable      Boolean       @default(true)
+  isActive        Boolean       @default(true)
+  /// Round-robin cursor: oldest first among equal candidates.
+  lastAssignedAt  DateTime?
+  version         Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  rules    ExpertAvailabilityRule[]
+  breaks   ExpertBreak[]
+  timeOffs ExpertTimeOff[]
+
+  @@index([type, isActive, isBookable])
+  @@index([brandIds], type: Gin)
+  @@index([categoryIds], type: Gin)
+  @@index([languages], type: Gin)
+  @@map("experts")
+}
+
+/// Weekly working interval (IST minutes from midnight). Several per weekday allowed.
+model ExpertAvailabilityRule {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  expertId    String        @db.Uuid
+  /// 0 = Sunday … 6 = Saturday.
+  weekday     Int           @db.SmallInt
+  startMinute Int           @db.SmallInt
+  endMinute   Int           @db.SmallInt
+  /// Empty = every channel the expert offers.
+  channels    CallChannel[]
+  validFrom   DateTime?     @db.Date
+  validTo     DateTime?     @db.Date
+  createdAt   DateTime      @default(now())
+
+  expert Expert @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@index([expertId, weekday])
+  @@map("expert_availability_rules")
+}
+
+/// Recurring daily gap (lunch). weekday null = every day.
+model ExpertBreak {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  expertId    String   @db.Uuid
+  weekday     Int?     @db.SmallInt
+  startMinute Int      @db.SmallInt
+  endMinute   Int      @db.SmallInt
+  createdAt   DateTime @default(now())
+
+  expert Expert @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@index([expertId])
+  @@map("expert_breaks")
+}
+
+model ExpertTimeOff {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  expertId        String   @db.Uuid
+  startAt         DateTime
+  endAt           DateTime
+  reason          String?  @db.VarChar(200)
+  createdByUserId String   @db.Uuid
+  createdAt       DateTime @default(now())
+
+  expert Expert @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@index([expertId, startAt])
+  @@map("expert_time_offs")
+}
+
+/// Holiday: territoryCode null = every territory.
+model CallHoliday {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  date          DateTime @db.Date
+  territoryCode String?  @db.VarChar(3)
+  name          String   @db.VarChar(120)
+  createdAt     DateTime @default(now())
+
+  @@index([date])
+  @@map("call_holidays")
+}

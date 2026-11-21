@@ -1,0 +1,254 @@
+// farm-service feature: content (news feed, disease alerts, knowledge library). FR-CNT-01…08.
+// Only services/farm-service/src/features/content/*.repository.ts queries these models.
+// Products / categories / reviewers in other services are referenced by plain ids (CTA targets).
+// The generated `searchVector` tsvector + its GIN index live in the migration (raw SQL).
+
+enum ContentKind {
+  NEWS
+  ALERT
+  GUIDE
+  VIDEO
+  CHECKLIST
+  ANNOUNCEMENT
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  /// Approved; goes live at `publishAt` (content-tick job).
+  SCHEDULED
+  PUBLISHED
+  /// Alert past `expiresAt` (or expired now): out of the feed; deep links show "ended".
+  EXPIRED
+  /// Withdrawn as wrong (final): offline copies are deleted on sync.
+  RETRACTED
+  ARCHIVED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ContentRevisionStatus {
+  PENDING
+  APPLIED
+  REJECTED
+}
+
+/// The topic chips (DISEASE, KNOWLEDGE, …). "All" and "Trending" are virtual.
+model ContentTopic {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  /// Upper-case client key, unique, immutable.
+  code            String   @unique @db.VarChar(30)
+  name            String   @db.VarChar(60)
+  /// Clinical topics (disease, vaccination…) need a vet sign-off and ≥ 1 source to publish.
+  clinical        Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  version         Int      @default(0)
+  createdByUserId String   @db.Uuid
+  updatedByUserId String   @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items ContentItem[]
+
+  @@index([isActive, sortOrder])
+  @@map("content_topics")
+}
+
+/// Verified credential register: only an active, unexpired reviewer can sign off clinical content.
+/// The public byline ("Dr. K. Srinivas · BVSc") is built from this row, never typed per article.
+model ContentReviewer {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  /// auth users.id of the vet (staff login used to sign off).
+  userId           String   @unique @db.Uuid
+  displayName      String   @db.VarChar(100)
+  qualification    String   @db.VarChar(60)
+  /// Veterinary Council registration number.
+  registrationNo   String   @db.VarChar(40)
+  verifiedByUserId String   @db.Uuid
+  verifiedAt       DateTime
+  /// Registration validity; past it the reviewer cannot sign off.
+  validUntil       DateTime
+  isActive         Boolean  @default(true)
+  version          Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items ContentItem[]
+
+  @@map("content_reviewers")
+}
+
+model ContentItem {
+  id                  String                   @id @default(uuid(7)) @db.Uuid
+  slug                String                   @unique @db.VarChar(120)
+  kind                ContentKind
+  topicId             String                   @db.Uuid
+  topic               ContentTopic             @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  title               String                   @db.VarChar(160)
+  /// Under-a-minute summary (the card text).
+  summary             String                   @db.VarChar(400)
+  heroImageUrl        String?                  @db.VarChar(500)
+  heroMediaId         String?                  @db.Uuid
+  /// Typed blocks (heading, paragraph, list, callout, image, video), validated in the service.
+  blocks              Json                     @default("[]")
+  /// Plain text of tags + blocks (search input; derived on write).
+  bodyText            String                   @default("")
+  /// GENERATED (migration): title A · summary B · bodyText D, english config; GIN-indexed.
+  searchVector        Unsupported("tsvector")?
+  readMinutes         Int                      @default(1) @db.SmallInt
+  /// [{title, publisher, url?, referenceDate}] — ≥ 1 for ALERT and clinical topics.
+  sources             Json                     @default("[]")
+  // Offline asset (video / PDF guide / checklist)
+  assetUrl            String?                  @db.VarChar(500)
+  assetMediaId        String?                  @db.Uuid
+  /// video | pdf
+  assetKind           String?                  @db.VarChar(10)
+  assetSizeBytes      Int?
+  durationSec         Int?
+  pageCount           Int?                     @db.SmallInt
+  tags                String[]                 @default([])
+  /// Related items (the chips under an article).
+  relatedIds          String[]                 @default([]) @db.Uuid
+  /// ≤ 3 × {type, target, label, style}.
+  ctas                Json                     @default("[]")
+  // Targeting (empty = everyone)
+  productionTypes     ProductionType[]         @default([])
+  territoryCodes      String[]                 @default([])
+  // Alert area: centre of an AREA rounded to ~1 km (2 decimals), never a farm; never returned.
+  severity            AlertSeverity?
+  placeLabel          String?                  @db.VarChar(80)
+  areaLat             Decimal?                 @db.Decimal(5, 2)
+  areaLng             Decimal?                 @db.Decimal(5, 2)
+  // Clinical sign-off: valid only while signedOffHash == hash of the reader-visible fields
+  clinicalReviewerId  String?                  @db.Uuid
+  clinicalReviewer    ContentReviewer?         @relation(fields: [clinicalReviewerId], references: [id], onDelete: Restrict)
+  clinicalSignedOffAt DateTime?
+  signedOffHash       String?                  @db.Char(64)
+  // Lifecycle
+  status              ContentStatus            @default(DRAFT)
+  isFeatured          Boolean                  @default(false)
+  /// Push to the target segment when it goes live (default true for ALERT).
+  notify              Boolean                  @default(false)
+  publishAt           DateTime?
+  publishedAt         DateTime?
+  /// Required for ALERT (≤ 30 days ahead).
+  expiresAt           DateTime?
+  expiredAt           DateTime?
+  retractedAt         DateTime?
+  /// Public "withdrawn" note.
+  retractNote         String?                  @db.VarChar(300)
+  /// Set when a push went out (a retraction then reaches the same segment, not only savers).
+  notifiedAt          DateTime?
+  lastCorrectedAt     DateTime?
+  /// Public "Updated 18 Jul: …" note.
+  correctionNote      String?                  @db.VarChar(300)
+  /// Bumped on every change readers see (ETag, offline sync, notification dedupe).
+  contentVersion      Int                      @default(1)
+  /// Optimistic concurrency (If-Match).
+  version             Int                      @default(0)
+  // Engagement (flushed from Redis by the content-tick job)
+  viewCount           Int                      @default(0)
+  helpfulYes          Int                      @default(0)
+  helpfulNo           Int                      @default(0)
+  saveCount           Int                      @default(0)
+  shareCount          Int                      @default(0)
+  trendingScore       Float                    @default(0)
+  // Who
+  createdByUserId     String                   @db.Uuid
+  updatedByUserId     String                   @db.Uuid
+  submittedByUserId   String?                  @db.Uuid
+  submittedAt         DateTime?
+  publishedByUserId   String?                  @db.Uuid
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  deletedAt           DateTime?
+
+  revisions    ContentRevision[]
+  statusEvents ContentStatusEvent[]
+
+  @@index([status, publishedAt(sort: Desc), id(sort: Desc)])
+  @@index([topicId, status, publishedAt(sort: Desc)])
+  @@index([status, trendingScore(sort: Desc)])
+  @@index([status, expiresAt])
+  @@index([status, publishAt])
+  @@index([updatedAt])
+  @@index([territoryCodes], type: Gin)
+  @@index([productionTypes], type: Gin)
+  @@index([tags], type: Gin)
+  @@map("content_items")
+}
+
+/// Corrections of a live item (two-person rule) + the correction history.
+model ContentRevision {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  contentId         String                @db.Uuid
+  content           ContentItem           @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  /// contentVersion the change was written against (stale → 409 on approve).
+  baseVersion       Int
+  /// The changed reader-visible fields.
+  changes           Json
+  changeNote        String                @db.VarChar(300)
+  status            ContentRevisionStatus @default(PENDING)
+  requestedByUserId String                @db.Uuid
+  requestedAt       DateTime              @default(now())
+  /// Clinical sign-off of this revision (required for clinical items).
+  signedOffById     String?               @db.Uuid
+  signedOffAt       DateTime?
+  decidedByUserId   String?               @db.Uuid
+  decidedAt         DateTime?
+  rejectReason      String?               @db.VarChar(500)
+
+  @@index([contentId, requestedAt])
+  @@index([status, requestedAt])
+  @@map("content_revisions")
+}
+
+/// Append-only (DB trigger): every status transition, timestamped and attributed.
+model ContentStatusEvent {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  contentId   String         @db.Uuid
+  content     ContentItem    @relation(fields: [contentId], references: [id], onDelete: Restrict)
+  from        ContentStatus?
+  to          ContentStatus
+  /// Null = system (content-tick job).
+  actorUserId String?        @db.Uuid
+  reason      String?        @db.VarChar(500)
+  createdAt   DateTime       @default(now())
+
+  @@index([contentId, createdAt])
+  @@map("content_status_events")
+}
+
+/// Saved / downloaded items of a reader (knowledge library).
+model ContentSave {
+  userId            String   @db.Uuid
+  contentId         String   @db.Uuid
+  offline           Boolean  @default(false)
+  /// contentVersion the device holds (sync compares it).
+  downloadedVersion Int?
+  savedAt           DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@id([userId, contentId])
+  @@index([userId, savedAt(sort: Desc)])
+  @@index([contentId])
+  @@map("content_saves")
+}
+
+/// "Was this useful?" — one vote per reader, changeable.
+model ContentFeedback {
+  userId    String   @db.Uuid
+  contentId String   @db.Uuid
+  helpful   Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, contentId])
+  @@index([contentId])
+  @@map("content_feedback")
+}

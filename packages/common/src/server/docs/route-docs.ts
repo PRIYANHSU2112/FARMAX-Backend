@@ -44,6 +44,8 @@ export interface RouteDocs {
     data?: Joi.Schema;
     /** `data` is an array and `meta` holds `{ nextCursor, limit }`. */
     paginated?: boolean;
+    /** Extra `meta` fields of a paginated route (merged with PaginationMeta), e.g. `total`. */
+    meta?: Joi.Schema;
     /** Example of the whole response body. */
     example?: unknown;
     /** Response headers (e.g. `ETag`, `Cache-Control`). */
@@ -124,6 +126,7 @@ export function routeDocs(docs: RouteDocs): Record<string, unknown> {
               description: docs.success.description,
               data: docs.success.data,
               paginated: docs.success.paginated === true,
+              meta: docs.success.meta,
               example: docs.success.example,
               ...successHeaders,
             },

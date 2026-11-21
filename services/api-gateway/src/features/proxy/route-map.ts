@@ -11,6 +11,8 @@ export interface ProxyRoute {
   upstream: string;
   /** What replaces `prefix` when forwarding; `''` strips it. */
   rewritePrefix: string;
+  /** Also proxy WebSocket upgrades under this prefix (support live chat). */
+  websocket?: boolean;
 }
 
 /**
@@ -36,10 +38,12 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     [
       '/catalog/products',
       '/catalog/lookups',
+      '/catalog/diseases',
       '/catalog/reviews',
       '/admin/catalog/products',
       '/admin/catalog/reviews',
       '/admin/catalog/lookups',
+      '/admin/catalog/diseases',
       '/admin/catalog/product-attributes',
       '/admin/catalog/compliance-profiles',
     ] as const
@@ -122,6 +126,42 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     upstream: config.NOTIFICATION_SERVICE_URL,
     rewritePrefix: '/health',
   },
+  // call-service (D-53): customers, experts and staff all live under /calls.
+  { prefix: '/v1/calls', upstream: config.CALL_SERVICE_URL, rewritePrefix: '/calls' },
+  {
+    prefix: '/v1/call-service/health',
+    upstream: config.CALL_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
+  // wallet-service (D-54): customers' own wallet and reward points. `/internal/*` is never routed.
+  ...(['/wallet', '/rewards', '/admin/wallet'] as const).map((path) => ({
+    prefix: '/v1' + path,
+    upstream: config.WALLET_SERVICE_URL,
+    rewritePrefix: path,
+  })),
+  {
+    prefix: '/v1/wallet-service/health',
+    upstream: config.WALLET_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
+  // support-service: help home, tickets, agent queue, FAQ, legal pages. The live-chat prefix is the
+  // ONE WebSocket-enabled proxy (narrower prefix wins for plain HTTP as well).
+  {
+    prefix: '/v1/support/chat',
+    upstream: config.SUPPORT_SERVICE_URL,
+    rewritePrefix: '/support/chat',
+    websocket: true,
+  },
+  ...(['/support', '/faqs', '/legal'] as const).map((path) => ({
+    prefix: '/v1' + path,
+    upstream: config.SUPPORT_SERVICE_URL,
+    rewritePrefix: path,
+  })),
+  {
+    prefix: '/v1/support-service/health',
+    upstream: config.SUPPORT_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
 ];
 
 /** Service-to-service routes are never reachable through the gateway, whatever the prefix. */
@@ -150,6 +190,7 @@ export const proxyRoutes =
         prefix: route.prefix,
         rewritePrefix: route.rewritePrefix,
         http2: false,
+        ...(route.websocket === true ? { websocket: true } : {}),
       });
     }
   };

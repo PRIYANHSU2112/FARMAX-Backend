@@ -12,6 +12,7 @@ import type { PaymentGateway } from './adapters/gateway.js';
 import { JobsRuntime } from './adapters/jobs.js';
 import { MockGateway } from './adapters/mock-gateway.js';
 import { RazorpayGateway } from './adapters/razorpay.js';
+import { WalletClient } from './adapters/wallet-client.js';
 import type { PaymentConfig } from './config/index.js';
 
 declare module '@fastify/awilix' {
@@ -27,6 +28,8 @@ declare module '@fastify/awilix' {
     /** Razorpay (prod) or the mock gateway (dev / test) — the ONLY gateway client. */
     gateway: PaymentGateway;
     tokenVerifier: TokenVerifier;
+    /** The WALLET provider: wallet-service /internal/wallet (debits, refund credits). */
+    walletClient: WalletClient;
     /** Outbox relay + event consumer (started by server.ts when EVENTS_ENABLED). */
     eventsRuntime: EventsRuntime;
     /** BullMQ schedulers + worker (started by server.ts when JOBS_ENABLED). */
@@ -68,6 +71,9 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
     ).singleton(),
     tokenVerifier: asFunction((cradle: Cradle) =>
       buildTokenVerifier(cradle.config, cradle.logger, () => cradle.redis),
+    ).singleton(),
+    walletClient: asFunction(
+      (cradle: Cradle) => new WalletClient({ config: cradle.config, logger: cradle.logger }),
     ).singleton(),
     gateway: asFunction((cradle: Cradle) =>
       cradle.config.PAYMENT_PROVIDER === 'razorpay'

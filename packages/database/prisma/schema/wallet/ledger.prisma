@@ -1,0 +1,109 @@
+// wallet-service feature: ledger (D-54). Customer wallet money as a DOUBLE-ENTRY, append-only ledger.
+// Money is integer PAISE. Every journal has ≥ 2 postings that sum to 0 (deferred trigger). Only USER
+// accounts carry a running balance (row-locked by one conditional UPDATE); SYSTEM account balances
+// are derived as SUM(postings), so no hot row exists. Corrections are REVERSAL journals, never edits.
+
+enum WalletAccountOwner {
+  USER
+  SYSTEM
+}
+
+enum WalletAccountStatus {
+  ACTIVE
+  /// Debits refused; credits (refunds owed to the buyer) still land.
+  FROZEN
+}
+
+enum WalletJournalKind {
+  TOPUP
+  ORDER_DEBIT
+  REFUND_CREDIT
+  POINTS_CONVERSION
+  ADJUSTMENT_CREDIT
+  ADJUSTMENT_DEBIT
+  REVERSAL
+}
+
+/// Filter chips of the wallet statement / transaction history.
+enum WalletCategory {
+  TOPUPS
+  PURCHASES
+  REFUNDS
+  REWARDS
+  ADJUSTMENTS
+}
+
+model WalletAccount {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  ownerType    WalletAccountOwner
+  /// USER accounts: the customer (one wallet per user).
+  userId       String?             @unique @db.Uuid
+  /// SYSTEM accounts: GATEWAY_CLEARING · ORDER_SETTLEMENT · REWARDS_EXPENSE · ADJUSTMENT.
+  code         String?             @unique @db.VarChar(40)
+  currency     String              @default("INR") @db.Char(3)
+  /// USER: what FarmX owes the customer (≥ 0, CHECK). SYSTEM: always 0 (derived from postings).
+  balancePaise BigInt              @default(0)
+  status       WalletAccountStatus @default(ACTIVE)
+  frozenReason String?             @db.VarChar(300)
+  frozenAt     DateTime?
+  version      Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @default(now()) @updatedAt
+
+  postings WalletPosting[]
+
+  @@map("wallet_accounts")
+}
+
+model WalletJournal {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  /// WJ-yymmdd-xxxxxxxx (support reference).
+  journalNo      String            @unique @db.VarChar(24)
+  kind           WalletJournalKind
+  category       WalletCategory
+  /// topup:<id> · pay:<paymentId> · refund:<refundId> · convert:<userId>:<key> · adj:<id> · reverse:<journalId>
+  idempotencyKey String            @unique @db.VarChar(120)
+  /// The customer whose wallet moved.
+  userId         String            @db.Uuid
+  /// Positive amount moved; the user posting's sign gives the direction.
+  amountPaise    BigInt
+  /// What caused it: TOPUP · PAYMENT · REFUND · POINTS · ADJUSTMENT · JOURNAL
+  refType        String?           @db.VarChar(30)
+  refId          String?           @db.VarChar(64)
+  /// Statement line, e.g. "Used at Checkout" / "ORD-26-0091857".
+  title          String            @db.VarChar(120)
+  subtitle       String?           @db.VarChar(200)
+  metadata       Json?
+  reversalOf     String?           @unique @db.Uuid
+  /// Staff user for adjustments; null = system.
+  createdBy      String?           @db.Uuid
+  createdAt      DateTime          @default(now())
+
+  postings WalletPosting[]
+
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, category, createdAt(sort: Desc)])
+  @@index([refType, refId])
+  @@map("wallet_journals")
+}
+
+model WalletPosting {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  /// Insert order. Per USER account it is also commit order (the account row lock serialises
+  /// writers), so the latest posting of an account = MAX(seq).
+  seq               BigInt   @default(autoincrement())
+  journalId         String   @db.Uuid
+  accountId         String   @db.Uuid
+  /// Signed, never 0: + raises the account's balance, − lowers it.
+  amountPaise       BigInt
+  /// USER accounts only: the balance right after this posting.
+  balanceAfterPaise BigInt?
+  createdAt         DateTime @default(now())
+
+  journal WalletJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  account WalletAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalId])
+  @@index([accountId, seq(sort: Desc)])
+  @@map("wallet_postings")
+}

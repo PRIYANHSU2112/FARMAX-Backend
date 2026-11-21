@@ -61,7 +61,11 @@ describe.skipIf(DB_URL === undefined)('payments against Postgres (mock gateway)'
     const user = customer();
     const p = await createPayment(app, { userId: user });
     const paid = await payAndVerify(app, user, p.paymentId);
-    expect(paid).toMatchObject({ status: 'CAPTURED', capturedPaise: 2_782_100, amountMismatch: false });
+    expect(paid).toMatchObject({
+      status: 'CAPTURED',
+      capturedPaise: 2_782_100,
+      amountMismatch: false,
+    });
 
     // The webhook for the same payment arrives later: no second capture, no second event.
     await processWebhooks();
@@ -96,21 +100,31 @@ describe.skipIf(DB_URL === undefined)('payments against Postgres (mock gateway)'
     expect(errorOf(forged).details?.reason).toBe('SIGNATURE_INVALID');
 
     const stranger = customer();
-    expect((await call(app, 'GET', `/payments/${p.paymentId}`, { user: stranger })).statusCode).toBe(404);
+    expect(
+      (await call(app, 'GET', `/payments/${p.paymentId}`, { user: stranger })).statusCode,
+    ).toBe(404);
     const staffToken = staff('payments.view');
-    expect((await call(app, 'GET', `/payments/${p.paymentId}`, { user: staffToken })).statusCode).toBe(403);
+    expect(
+      (await call(app, 'GET', `/payments/${p.paymentId}`, { user: staffToken })).statusCode,
+    ).toBe(403);
   });
 
   it('a failed attempt marks FAILED; paying again on the same gateway order succeeds', async () => {
     const user = customer();
     const p = await createPayment(app, { userId: user });
-    const fail = await call(app, 'POST', `/payments/${p.paymentId}/mock/fail`, { user, payload: {} });
+    const fail = await call(app, 'POST', `/payments/${p.paymentId}/mock/fail`, {
+      user,
+      payload: {},
+    });
     expect(fail.statusCode).toBe(200);
     await processWebhooks();
     expect((await paymentRow(app, p.paymentId)).status).toBe('FAILED');
     expect(await outboxEvents(app, 'payment.failed.v1', p.paymentId)).toHaveLength(1);
 
-    const reuse = await createPayment(app, { orderId: (await paymentRow(app, p.paymentId)).orderId, userId: user });
+    const reuse = await createPayment(app, {
+      orderId: (await paymentRow(app, p.paymentId)).orderId ?? undefined,
+      userId: user,
+    });
     expect(reuse.paymentId).toBe(p.paymentId); // "pay again" = same payment, same gateway order
     expect((await payAndVerify(app, user, p.paymentId)).status).toBe('CAPTURED');
     expect((await paymentRow(app, p.paymentId)).attemptCount).toBe(2);
@@ -148,9 +162,14 @@ describe.skipIf(DB_URL === undefined)('payments against Postgres (mock gateway)'
       outcome: 'captured',
       method: 'card',
     });
-    const res = await call(app, 'GET', `/internal/payments/${p.paymentId}/live-status`, { internal: true });
+    const res = await call(app, 'GET', `/internal/payments/${p.paymentId}/live-status`, {
+      internal: true,
+    });
     expect(res.statusCode, res.body).toBe(200);
-    expect(data<Payment & { cardLast4: string }>(res)).toMatchObject({ status: 'CAPTURED', cardLast4: '4242' });
+    expect(data<Payment & { cardLast4: string }>(res)).toMatchObject({
+      status: 'CAPTURED',
+      cardLast4: '4242',
+    });
   });
 
   it('expiry: an unpaid payment EXPIRES; one captured at the gateway is captured instead', async () => {
@@ -212,10 +231,15 @@ describe.skipIf(DB_URL === undefined)('payments against Postgres (mock gateway)'
       outcome: 'captured',
       method: 'upi',
     });
-    await app.diContainer.resolve('paymentsService').applyGatewayPayment(p.paymentId, payment, 'reconcile');
+    await app.diContainer
+      .resolve('paymentsService')
+      .applyGatewayPayment(p.paymentId, payment, 'reconcile');
     expect((await paymentRow(app, p.paymentId)).amountMismatch).toBe(true);
     const [event] = await outboxEvents(app, 'payment.captured.v1', p.paymentId);
-    expect(event?.data).toMatchObject({ amountPaise: p.amountPaise - 100, expectedPaise: p.amountPaise });
+    expect(event?.data).toMatchObject({
+      amountPaise: p.amountPaise - 100,
+      expectedPaise: p.amountPaise,
+    });
   });
 
   it('verify ∥ webhook ∥ live-status on one payment → exactly one capture event', async () => {
@@ -242,8 +266,14 @@ describe.skipIf(DB_URL === undefined)('payments against Postgres (mock gateway)'
     const detail = await call(app, 'GET', `/admin/payments/${p.paymentId}`, { user: viewer });
     expect(detail.statusCode, detail.body).toBe(200);
     expect(data<{ attempts: unknown[] }>(detail).attempts).toHaveLength(1);
-    expect((await call(app, 'POST', `/admin/payments/${p.paymentId}/reconcile`, { user: viewer })).statusCode).toBe(403);
+    expect(
+      (await call(app, 'POST', `/admin/payments/${p.paymentId}/reconcile`, { user: viewer }))
+        .statusCode,
+    ).toBe(403);
     const recon = staff('payments.reconcile');
-    expect((await call(app, 'POST', `/admin/payments/${p.paymentId}/reconcile`, { user: recon })).statusCode).toBe(200);
+    expect(
+      (await call(app, 'POST', `/admin/payments/${p.paymentId}/reconcile`, { user: recon }))
+        .statusCode,
+    ).toBe(200);
   });
 });

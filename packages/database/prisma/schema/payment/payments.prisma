@@ -1,5 +1,7 @@
 // payment-service feature: payments (D-37). One Payment per order (one gateway order); every
 // gateway attempt is a PaymentAttempt. Money is integer PAISE. Only masked instrument data.
+// D-54: a payment is either for an ORDER (orderId / orderNo) or a WALLET_TOPUP (referenceId =
+// the wallet-service top-up id); a CHECK keeps exactly one of them set.
 
 enum PaymentStatus {
   /// Gateway order not created yet (crash window).
@@ -17,17 +19,28 @@ enum PaymentStatus {
   REFUNDED
 }
 
+/// What the money is for. Top-up outcomes are published as payment.topup_*.v1, never as order events.
+enum PaymentPurpose {
+  ORDER
+  WALLET_TOPUP
+}
+
 enum PaymentProvider {
   RAZORPAY
   MOCK
+  /// FarmX wallet (D-54): the order is paid in full from the wallet ledger (wallet-service).
+  WALLET
 }
 
 model Payment {
   id                String          @id @default(uuid(7)) @db.Uuid
   /// TXN-yymmdd-xxxxxx (display / support reference).
   paymentNo         String          @unique @db.VarChar(24)
-  orderId           String          @db.Uuid
-  orderNo           String          @db.VarChar(24)
+  purpose           PaymentPurpose  @default(ORDER)
+  orderId           String?         @db.Uuid
+  orderNo           String?         @db.VarChar(24)
+  /// WALLET_TOPUP: the wallet-service top-up id (one payment per top-up).
+  referenceId       String?         @unique @db.Uuid
   userId            String          @db.Uuid
   amountPaise       BigInt
   currency          String          @default("INR") @db.Char(3)

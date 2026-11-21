@@ -2,7 +2,13 @@ import { INVENTORY_EVENTS } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
 import { emitInventoryEvent } from '../../adapters/events.js';
-import { byLockOrder, lowStockCrossing, networkAvailability, sellableOf } from './stock.rules.js';
+import {
+  byLockOrder,
+  lowStockCrossing,
+  networkAvailability,
+  nodeAvailability,
+  sellableOf,
+} from './stock.rules.js';
 import type { LevelRow } from './stock.types.js';
 
 const BATCH = 500;
@@ -28,11 +34,10 @@ export class AvailabilityPublisher {
       if (variantIds.length === 0) return { variants: 0, events: 0 };
 
       const levels = await repo.levelsOf(tx, variantIds);
-      const states = new Map(
-        (await repo.lockStates(tx, variantIds)).map((s) => [s.variantId, s]),
-      );
+      const states = new Map((await repo.lockStates(tx, variantIds)).map((s) => [s.variantId, s]));
       const byVariant = new Map<string, LevelRow[]>();
-      for (const l of levels) byVariant.set(l.variantId, [...(byVariant.get(l.variantId) ?? []), l]);
+      for (const l of levels)
+        byVariant.set(l.variantId, [...(byVariant.get(l.variantId) ?? []), l]);
 
       let events = 0;
       const correlationId = `availability:${new Date().toISOString()}`;
@@ -43,18 +48,20 @@ export class AvailabilityPublisher {
       for (const variantId of variantIds) {
         const rows = byVariant.get(variantId) ?? [];
         const now = networkAvailability(rows, allocatable);
+        const nodes = nodeAvailability(rows, allocatable);
         const prev = states.get(variantId);
         if (
           prev?.availableQty !== now.availableQty ||
           prev.inStock !== now.inStock ||
-          prev.lowStock !== now.lowStock
+          prev.lowStock !== now.lowStock ||
+          prev.nodeStockKey !== nodes.key
         ) {
           const sequence = (prev?.sequence ?? 0n) + 1n;
-          await repo.saveState(tx, { variantId, ...now, sequence });
+          await repo.saveState(tx, { variantId, ...now, sequence, nodeStockKey: nodes.key });
           await emitInventoryEvent(
             tx,
             INVENTORY_EVENTS.availabilityChanged,
-            { variantId, ...now, sequence: Number(sequence) },
+            { variantId, ...now, byNode: nodes.byNode, sequence: Number(sequence) },
             correlationId,
           );
           events += 1;
