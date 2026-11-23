@@ -15,7 +15,8 @@ import type { ConnectTokens, RealtimePrincipal } from './tokens.js';
 /** One frame handler. `parse` validates `data` (throw an AppError to reject); `handle` replies. */
 export interface FrameHandler<T = unknown> {
   parse?: (data: unknown) => T;
-  handle: (conn: RealtimeConnection, data: T) => Promise<unknown> | unknown;
+  /** May return a value or a promise of one (the ack payload). */
+  handle: (conn: RealtimeConnection, data: T) => unknown;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a registry mixes payload types
@@ -149,19 +150,34 @@ export class RealtimeServer {
     });
   };
 
-  private async accept(req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): Promise<void> {
-    if (this.closing) return reject(socket, 503, 'Service Unavailable');
+  private async accept(
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    url: URL,
+  ): Promise<void> {
+    if (this.closing) {
+      reject(socket, 503, 'Service Unavailable');
+      return;
+    }
     const origin = req.headers.origin;
-    if (origin !== undefined && !this.originAllowed(origin)) return reject(socket, 403, 'Forbidden');
+    if (origin !== undefined && !this.originAllowed(origin)) {
+      reject(socket, 403, 'Forbidden');
+      return;
+    }
 
     const token = url.searchParams.get('token') ?? '';
     const principal = await this.opts.tokens.consume(token).catch(() => null);
-    if (principal === null) return reject(socket, 401, 'Unauthorized');
+    if (principal === null) {
+      reject(socket, 401, 'Unauthorized');
+      return;
+    }
 
     const counted = await this.countConnection(principal.userId, 1);
     if (counted > this.limits.maxConnectionsPerUser) {
       await this.countConnection(principal.userId, -1);
-      return reject(socket, 429, 'Too Many Requests');
+      reject(socket, 429, 'Too Many Requests');
+      return;
     }
     await this.opts.hub.ready();
 
@@ -201,21 +217,31 @@ export class RealtimeServer {
   }
 
   private async onFrame(conn: RealtimeConnection, raw: RawData, isBinary: boolean): Promise<void> {
-    if (isBinary) return conn.close(CloseCode.POLICY, 'binary frames are not supported');
+    if (isBinary) {
+      conn.close(CloseCode.POLICY, 'binary frames are not supported');
+      return;
+    }
     const frame = parseClientFrame(rawToString(raw));
     if (frame === null) {
-      conn.send({ type: 'error', error: { code: ErrorCode.BAD_REQUEST, message: 'Malformed frame' } });
+      conn.send({
+        type: 'error',
+        error: { code: ErrorCode.BAD_REQUEST, message: 'Malformed frame' },
+      });
       return;
     }
     if (!(await this.withinRate(conn, frame))) return;
-    if (frame.type === 'ping') return reply(conn, frame, { at: new Date().toISOString() });
+    if (frame.type === 'ping') {
+      reply(conn, frame, { at: new Date().toISOString() });
+      return;
+    }
 
     const handler = this.opts.handlers[frame.type];
     if (handler === undefined) {
-      return replyError(conn, frame, ErrorCode.BAD_REQUEST, `Unknown frame type "${frame.type}"`);
+      replyError(conn, frame, ErrorCode.BAD_REQUEST, `Unknown frame type "${frame.type}"`);
+      return;
     }
     try {
-      const data = handler.parse === undefined ? frame.data : handler.parse(frame.data);
+      const data: unknown = handler.parse === undefined ? frame.data : handler.parse(frame.data);
       const result = await handler.handle(conn, data);
       reply(conn, frame, result ?? null);
     } catch (err) {
@@ -223,7 +249,10 @@ export class RealtimeServer {
         replyError(conn, frame, err.code, err.message);
         return;
       }
-      this.opts.logger.error({ err, type: frame.type, connId: conn.id }, 'websocket handler failed');
+      this.opts.logger.error(
+        { err, type: frame.type, connId: conn.id },
+        'websocket handler failed',
+      );
       replyError(conn, frame, ErrorCode.INTERNAL_ERROR, 'Something went wrong');
     }
   }
@@ -308,19 +337,32 @@ export class RealtimeServer {
 }
 
 const rawToString = (raw: RawData): string =>
-  Array.isArray(raw) ? Buffer.concat(raw).toString('utf8') : Buffer.from(raw as ArrayBuffer).toString('utf8');
+  Array.isArray(raw)
+    ? Buffer.concat(raw).toString('utf8')
+    : Buffer.from(raw as ArrayBuffer).toString('utf8');
 
 const reply = (conn: RealtimeConnection, frame: ClientFrame, data: unknown): void => {
   if (frame.id !== undefined) conn.send({ type: 'ack', id: frame.id, data });
 };
 
-const replyError = (conn: RealtimeConnection, frame: ClientFrame, code: string, message: string) => {
-  conn.send({ type: 'error', ...(frame.id === undefined ? {} : { id: frame.id }), error: { code, message } });
+const replyError = (
+  conn: RealtimeConnection,
+  frame: ClientFrame,
+  code: string,
+  message: string,
+) => {
+  conn.send({
+    type: 'error',
+    ...(frame.id === undefined ? {} : { id: frame.id }),
+    error: { code, message },
+  });
 };
 
 /** Refuses an upgrade with a plain HTTP status (no socket is opened). */
 function reject(socket: Duplex, status: number, text: string): void {
   if (!socket.writable) return;
-  socket.write(`HTTP/1.1 ${String(status)} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+  socket.write(
+    `HTTP/1.1 ${String(status)} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
+  );
   socket.destroy();
 }

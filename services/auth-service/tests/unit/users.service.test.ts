@@ -61,7 +61,19 @@ interface SetupOptions {
 function setup(options: SetupOptions = {}) {
   const users = new Map((options.users ?? [makeUser()]).map((user) => [user.id, user]));
   const audit: AuditEntry[] = [];
-  const tx = { marker: 'tx' } as unknown as Tx;
+  /** Outbox writes land here (user.status_changed.v1 / user.deleted.v1 commit with the change). */
+  const outbox: { type: string; payload: { data: Record<string, unknown> } }[] = [];
+  const tx = {
+    marker: 'tx',
+    outboxEvent: {
+      create: vi.fn(
+        (args: { data: { type: string; payload: { data: Record<string, unknown> } } }) => {
+          outbox.push(args.data);
+          return Promise.resolve();
+        },
+      ),
+    },
+  } as unknown as Tx;
 
   const usersRepository = {
     findById: vi.fn((id: string) => Promise.resolve(users.get(id) ?? null)),
@@ -125,6 +137,7 @@ function setup(options: SetupOptions = {}) {
     users,
     audit,
     tx,
+    outbox,
     usersRepository,
     accessService,
     credentialsService,
@@ -410,6 +423,11 @@ describe('UsersService.softDelete / forceLogout', () => {
       t.tx,
     );
     expect(t.audit[0]).toMatchObject({ action: 'user.deleted', reason: 'left the company' });
+    expect(t.outbox.map((e) => e.type)).toEqual(['user.deleted.v1']);
+    expect(t.outbox[0]?.payload.data).toMatchObject({
+      userId: TARGET_ID,
+      deletedByUserId: ADMIN_ID,
+    });
   });
 
   it('forbids deleting yourself', async () => {

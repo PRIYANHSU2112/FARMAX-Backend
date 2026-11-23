@@ -50,6 +50,7 @@ export function parseClientFrame(raw: string): ClientFrame | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const { id, type, data } = value as Record<string, unknown>;
   if (typeof type !== 'string' || !TYPE.test(type)) return null;
-  if (id !== undefined && (typeof id !== 'string' || id.length === 0 || id.length > 64)) return null;
+  if (id !== undefined && (typeof id !== 'string' || id.length === 0 || id.length > 64))
+    return null;
   return { type, ...(id === undefined ? {} : { id }), ...(data === undefined ? {} : { data }) };
 }

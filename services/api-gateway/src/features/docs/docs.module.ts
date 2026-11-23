@@ -93,6 +93,13 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     summary:
       'Help & Support for all apps: priority tickets with SLA, live chat (WebSocket), FAQ, legal pages, agent queue',
   },
+  {
+    service: 'warehouse-service',
+    baseUrl: config.WAREHOUSE_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Warehouse portal (D-56): warehouse master, setup wizard and status, service areas (districts, PINs), portal shell',
+  },
 ];
 
 /**

@@ -13,9 +13,11 @@ export const PAGE = {
   limit: Joi.number().integer().min(1).max(MAX_PAGE_LIMIT).default(DEFAULT_PAGE_LIMIT),
 };
 export const idParams = { params: Joi.object({ id: ID.required() }) };
-export const PIN_CODE = Joi.string().pattern(/^[1-9][0-9]{5}$/).messages({
-  'string.pattern.base': 'must be a 6-digit Indian PIN code',
-});
+export const PIN_CODE = Joi.string()
+  .pattern(/^[1-9][0-9]{5}$/)
+  .messages({
+    'string.pattern.base': 'must be a 6-digit Indian PIN code',
+  });
 /** Whole units of one variant in one movement. */
 export const QTY = Joi.number().integer().min(1).max(1_000_000);
 

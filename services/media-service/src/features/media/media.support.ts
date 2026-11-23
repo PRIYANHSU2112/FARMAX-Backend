@@ -21,6 +21,18 @@ const RECEIPT_TTL_SECONDS = 3600;
 
 export type ScanStatus = 'CLEAN' | 'REENCODED' | 'UNSCANNED';
 
+/**
+ * Private upload purposes: support = ticket evidence; staff_document = warehouse staff ID /
+ * address proof and photo (D-56, verified by warehouse-service). Each has its own folder.
+ */
+export const PRIVATE_PURPOSES = ['support', 'staff_document', 'wms_document'] as const;
+export type PrivatePurpose = (typeof PRIVATE_PURPOSES)[number];
+const FOLDER: Record<PrivatePurpose, string> = {
+  support: 'support',
+  staff_document: 'staff',
+  wms_document: 'wms',
+};
+
 export interface SupportUpload {
   key: string;
   kind: 'image' | 'document';
@@ -47,17 +59,35 @@ export const signReceipt = (payload: object, secret: string): string => {
 export class SupportUploads {
   constructor(private readonly deps: Pick<Cradle, 'storage' | 'config' | 'logger'>) {}
 
-  get prefix(): string {
-    return `${this.deps.config.BUCKET_FOLDER_PATH}/support/`;
+  /** Folder of one purpose. */
+  prefixOf(purpose: PrivatePurpose): string {
+    return `${this.deps.config.BUCKET_FOLDER_PATH}/${FOLDER[purpose]}/`;
   }
 
-  async upload(file: IncomingFile, uploaderId: string): Promise<SupportUpload> {
+  /** Support evidence folder (kept for existing callers). */
+  get prefix(): string {
+    return this.prefixOf('support');
+  }
+
+  private isPrivate(key: string): boolean {
+    return PRIVATE_PURPOSES.some((p) => key.startsWith(this.prefixOf(p)));
+  }
+
+  async upload(
+    file: IncomingFile,
+    uploaderId: string,
+    purpose: PrivatePurpose = 'support',
+  ): Promise<SupportUpload> {
     const secret = this.deps.config.INTERNAL_SERVICE_TOKEN;
-    if (secret === undefined) throw new ServiceUnavailableError('Support uploads are not configured');
+    if (secret === undefined)
+      throw new ServiceUnavailableError('Support uploads are not configured');
     const allowed = resolveAllowedType({ ...file, head: await readHead(file.path) });
     if (allowed.kind !== 'image' && allowed.kind !== 'document')
-      throw new ValidationError([{ path: 'file', message: 'Support evidence must be a photo or a PDF' }]);
-    if (file.size > SUPPORT_MAX_BYTES) throw new PayloadTooLargeError('Support files must be at most 10 MB');
+      throw new ValidationError([
+        { path: 'file', message: 'Support evidence must be a photo or a PDF' },
+      ]);
+    if (file.size > SUPPORT_MAX_BYTES)
+      throw new PayloadTooLargeError('Support files must be at most 10 MB');
 
     let body: Buffer;
     let contentType: string;
@@ -74,7 +104,7 @@ export class SupportUploads {
       scanStatus = await this.scan(body);
     }
 
-    const key = `${this.prefix}${uuidv7()}.${extension}`;
+    const key = `${this.prefixOf(purpose)}${uuidv7()}.${extension}`;
     try {
       await this.deps.storage.putPrivateObject({ key, body, contentType });
     } catch (error) {
@@ -83,10 +113,23 @@ export class SupportUploads {
     const exp = Math.floor(Date.now() / 1000) + RECEIPT_TTL_SECONDS;
     const fileName = file.filename.slice(0, 160);
     const receipt = signReceipt(
-      { purpose: 'support', key, uploaderId, kind: allowed.kind, mime: contentType, size: body.length, fileName, scanStatus, exp },
+      {
+        purpose,
+        key,
+        uploaderId,
+        kind: allowed.kind,
+        mime: contentType,
+        size: body.length,
+        fileName,
+        scanStatus,
+        exp,
+      },
       secret,
     );
-    this.deps.logger.info({ key, kind: allowed.kind, size: body.length, scanStatus }, 'support evidence uploaded');
+    this.deps.logger.info(
+      { key, kind: allowed.kind, size: body.length, scanStatus },
+      'support evidence uploaded',
+    );
     return {
       key,
       kind: allowed.kind,
@@ -100,14 +143,19 @@ export class SupportUploads {
   }
 
   /** Signed GET URLs for support keys only (callers outside this prefix get nothing). */
-  async signRead(keys: readonly string[], expiresInSeconds: number): Promise<Record<string, string>> {
-    const own = keys.filter((k) => k.startsWith(this.prefix));
-    const urls = await Promise.all(own.map((k) => this.deps.storage.signedGetUrl(k, expiresInSeconds)));
+  async signRead(
+    keys: readonly string[],
+    expiresInSeconds: number,
+  ): Promise<Record<string, string>> {
+    const own = keys.filter((k) => this.isPrivate(k));
+    const urls = await Promise.all(
+      own.map((k) => this.deps.storage.signedGetUrl(k, expiresInSeconds)),
+    );
     return Object.fromEntries(own.map((k, i) => [k, urls[i] ?? '']));
   }
 
   async remove(keys: readonly string[]): Promise<number> {
-    const own = keys.filter((k) => k.startsWith(this.prefix));
+    const own = keys.filter((k) => this.isPrivate(k));
     if (own.length > 0) await this.deps.storage.deleteObjects(own);
     return own.length;
   }
@@ -115,7 +163,8 @@ export class SupportUploads {
   private async scan(body: Buffer): Promise<ScanStatus> {
     const { CLAMAV_HOST, CLAMAV_PORT, APP_ENV } = this.deps.config;
     if (CLAMAV_HOST === undefined) {
-      if (APP_ENV === 'prod') throw new ServiceUnavailableError('PDF scanning is not available; send a photo instead');
+      if (APP_ENV === 'prod')
+        throw new ServiceUnavailableError('PDF scanning is not available; send a photo instead');
       this.deps.logger.warn('CLAMAV_HOST not set: support PDF stored UNSCANNED (dev only)');
       return 'UNSCANNED';
     }
@@ -123,7 +172,9 @@ export class SupportUploads {
     try {
       verdict = await scanWithClamd(body, CLAMAV_HOST, CLAMAV_PORT);
     } catch (error) {
-      throw new ServiceUnavailableError('The virus scanner is unavailable; try again', { cause: error });
+      throw new ServiceUnavailableError('The virus scanner is unavailable; try again', {
+        cause: error,
+      });
     }
     if (!verdict.clean) {
       this.deps.logger.warn({ signature: verdict.signature }, 'infected support upload refused');

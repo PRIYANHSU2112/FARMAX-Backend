@@ -10,10 +10,7 @@ import {
 import type { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
 
-import type {
-  ReservationListQuery,
-  ReservationView,
-} from './reservations.types.js';
+import type { ReservationListQuery, ReservationView } from './reservations.types.js';
 
 const VIEW = {
   id: true,
@@ -53,8 +50,7 @@ const toView = (r: Row): ReservationView => ({
 });
 
 export type CreateOutcome =
-  | { ok: true; view: ReservationView }
-  | { ok: false; conflict: 'IDEMPOTENCY_KEY' | 'ORDER_REF' };
+  { ok: true; view: ReservationView } | { ok: false; conflict: 'IDEMPOTENCY_KEY' | 'ORDER_REF' };
 
 /**
  * Only place that touches `inventory_reservations` / `inventory_reservation_lines`.

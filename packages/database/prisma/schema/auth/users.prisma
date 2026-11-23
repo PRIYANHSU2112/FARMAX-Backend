@@ -16,6 +16,7 @@ enum UserStatus {
   LOCKED /// temporary lock by the security policy (too many failures)
   SUSPENDED /// administrative suspension
   DEACTIVATED /// closed account; identifiers are never reused
+  PENDING_DELETION /// self-requested deletion in its 30-day grace period (login blocked; recovery flow only)
 }
 
 model User {

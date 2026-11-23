@@ -79,12 +79,12 @@ sequenceDiagram
 
 ### Published by auth-service
 
-| Type                          | When                                                         | Payload (`data`)                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `user.registered.v1`          | A user account is created by any channel                     | `userId`, `userType`, `fullName`, `email \| null`, `phone \| null`, `preferredLanguage`, `registrationSource`, `parentUserId \| null` |
-| `user.status_changed.v1`      | Activation, suspension, deactivation or lock                 | `userId`, `previousStatus`, `status`, `changedByUserId \| null`                                                                       |
-| `user.deleted.v1`             | Soft delete by an admin                                      | `userId`, `deletedByUserId \| null`                                                                                                   |
-| `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
+| Type                          | When                                                                                       | Payload (`data`)                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.registered.v1`          | A user account is created by any channel                                                   | `userId`, `userType`, `fullName`, `email \| null`, `phone \| null`, `preferredLanguage`, `registrationSource`, `parentUserId \| null` |
+| `user.status_changed.v1`      | Activation, suspension, deactivation, lock, deletion request / cancel (`PENDING_DELETION`) | `userId`, `previousStatus`, `status`, `changedByUserId \| null`                                                                       |
+| `user.deleted.v1`             | Admin soft delete, or self-service purge after the grace period (D-55)                     | `userId`, `deletedByUserId \| null`                                                                                                   |
+| `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked                               | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
 
 Consumers: none yet (auth-service has **no outbox relay**, so these are not published). The notification service will add welcome / account / security rules once they are (docs/notifications). Other expected consumers:
 and services that keep a local read model of users.
@@ -134,14 +134,14 @@ Consumer: product-service, on queue `product-service.events`. It updates the bra
 
 ### Published by product-service
 
-| Type                                            | When                                                       | Data                                                                                                                                                                                                                 |
-| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `product.variant_created.v1`                    | Variant created (including with a new product)             | `VariantFactsV1`: ids, SKU, GTIN, names, manufacturer, pack, Rx, temperature class, shelf life, `categoryId`, `categoryPath` (root → self), `brandId`, `hsnCode`, `gstRate`, `minOrderQty`, `maxOrderQty`, `version` |
-| `product.variant_updated.v1`                    | Variant or stock-relevant product fact changed             | `VariantFactsV1`                                                                                                                                                                                                     |
-| `product.variant_deactivated.v1`                | Variant deactivated or deleted, or product deleted         | `variantId`, `productId`, `version`                                                                                                                                                                                  |
-| `product.published.v1` / `product.suspended.v1` | Product became sellable / stopped being sellable           | `productId`, `variantIds`, `reason`                                                                                                                                                                                  |
-| `product.review_moderated.v1`                   | A review changed status by moderation (admin or auto-hide) | `reviewId`, `productId`, `userId`, `status`, `action` (approve / reject / hide / restore / auto_hide), `reason` → notification to the author (D-49)                                                                  |
-| `product.rating_changed.v1`                     | Published rating totals of a product changed               | `productId`, `ratingAvg` (decimal string or null), `ratingCount`, `sequence` (epoch ms) → search, wishlist cards                                                                                                     |
+| Type                                            | When                                                       | Data                                                                                                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `product.variant_created.v1`                    | Variant created (including with a new product)             | `VariantFactsV1`: ids, SKU, GTIN, names, manufacturer, pack, Rx, temperature class, shelf life, `categoryId`, `categoryPath` (root → self), `brandId`, `hsnCode`, `gstRate`, `weightGrams` (D-56), `minOrderQty`, `maxOrderQty`, `version` |
+| `product.variant_updated.v1`                    | Variant or stock-relevant product fact changed             | `VariantFactsV1`                                                                                                                                                                                                                           |
+| `product.variant_deactivated.v1`                | Variant deactivated or deleted, or product deleted         | `variantId`, `productId`, `version`                                                                                                                                                                                                        |
+| `product.published.v1` / `product.suspended.v1` | Product became sellable / stopped being sellable           | `productId`, `variantIds`, `reason`                                                                                                                                                                                                        |
+| `product.review_moderated.v1`                   | A review changed status by moderation (admin or auto-hide) | `reviewId`, `productId`, `userId`, `status`, `action` (approve / reject / hide / restore / auto_hide), `reason` → notification to the author (D-49)                                                                                        |
+| `product.rating_changed.v1`                     | Published rating totals of a product changed               | `productId`, `ratingAvg` (decimal string or null), `ratingCount`, `sequence` (epoch ms) → search, wishlist cards                                                                                                                           |
 
 Consumers: inventory-service (inventory items), logistics master sync (FR-PRD-001), order-service (variant read model). A product category or brand change re-emits `variant_updated` for every variant with the same variant `version`, so consumers order snapshots by (`version`, `occurredAt`).
 
@@ -151,9 +151,9 @@ Consumers: inventory-service (inventory items), logistics master sync (FR-PRD-00
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `inventory.availability_changed.v1`  | Network sellable quantity of a variant changed (publisher job, 2 s; deduplicated: only on a real change, incl. a per-node change) | `variantId`, `availableQty`, `inStock`, `lowStock`, `byNode?` (`[{ nodeId, availableQty, inStock }]`, full allocatable set, D-52), `sequence` (per variant) |
 | `inventory.low_stock.v1`             | A warehouse × variant **crossed down** to its reorder level (once per dip)                                                        | `variantId`, `warehouseId`, `availableQty`, `threshold`                                                                                                     |
-| `inventory.reservation_committed.v1` | `order.paid` accepted (re-sent on a duplicate)                                                                                    | `reservationId`, `orderRef`, `recovered`                                                                                                                    |
+| `inventory.reservation_committed.v1` | `order.paid` accepted (re-sent on a duplicate)                                                                                    | `reservationId`, `orderRef`, `recovered`, `lines[{warehouseId, variantId, qty}]` (D-56: what is held per warehouse)                                         |
 | `inventory.reservation_rejected.v1`  | Late payment after expiry and the stock is gone (or nothing is held)                                                              | `reservationId`, `orderRef`, `shortfall[]`                                                                                                                  |
-| `inventory.reservation_released.v1`  | Stock given back (reject / cancel / fail / admin / orphan sweep)                                                                  | `reservationId`, `orderRef`, `scope` FULL·PARTIAL, `lines[]`                                                                                                |
+| `inventory.reservation_released.v1`  | Stock given back (reject / cancel / fail / admin / orphan sweep)                                                                  | `reservationId`, `orderRef`, `scope` FULL·PARTIAL, `lines[{warehouseId, variantId, qty}]` (per warehouse since D-56)                                        |
 | `inventory.reservation_expired.v1`   | An ACTIVE (unpaid) hold passed its window                                                                                         | `reservationId`, `orderRef`                                                                                                                                 |
 
 ### Published by payment-service (built 2026-11-22, D-37 / D-45)
@@ -201,12 +201,12 @@ A projection applies an event only if its `sequence` is newer than the stored on
 
 Contracts: `packages/infra/src/events/contracts/order.events.ts`. Ids only, never PII.
 
-| Type                        | When                                                                                                                                   | Data                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `order.placed.v1`           | Order created (PENDING_ADMIN_CONFIRMATION, unpaid)                                                                                     | `orderId`, `orderNo`, `userId`, `farmId`, `grandTotal`, `paymentDueAt`                  |
-| `order.paid.v1`             | Payment captured for an open order → inventory commits                                                                                 | `orderId`, `orderNo`, `reservationId` (null = look up by order), `paymentId`, `amount`  |
-| `order.failed.v1`           | System closed it (unpaid / no stock / late payment, stock gone); also re-sent as ORDER_CLOSED when a commit arrives for a closed order | `orderId`, `orderNo`, `reservationId`, `scope` FULL, `lines`, `reasonCode`              |
-| `order.refund_requested.v1` | Refund decision (late payment R5, stock rejected R4, failed after payment)                                                             | `sourceRef`, `orderId`, `paymentId`, `amountPaise`, `reason`, `isSystem`, `requestedBy` |
+| Type                        | When                                                                                                                                   | Data                                                                                                                                  |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `order.placed.v1`           | Order created (PENDING_ADMIN_CONFIRMATION, unpaid)                                                                                     | `orderId`, `orderNo`, `userId`, `farmId`, `grandTotal`, `paymentDueAt`, `shipTo {name, district, pinCode}` (D-56; no phone or street) |
+| `order.paid.v1`             | Payment captured for an open order → inventory commits                                                                                 | `orderId`, `orderNo`, `reservationId` (null = look up by order), `paymentId`, `amount`                                                |
+| `order.failed.v1`           | System closed it (unpaid / no stock / late payment, stock gone); also re-sent as ORDER_CLOSED when a commit arrives for a closed order | `orderId`, `orderNo`, `reservationId`, `scope` FULL, `lines`, `reasonCode`                                                            |
+| `order.refund_requested.v1` | Refund decision (late payment R5, stock rejected R4, failed after payment)                                                             | `sourceRef`, `orderId`, `paymentId`, `amountPaise`, `reason`, `isSystem`, `requestedBy`                                               |
 
 Built in P4 (2026-11-24):
 
@@ -249,6 +249,22 @@ Contracts: `packages/infra/src/events/contracts/wallet.events.ts`. Ids and amoun
 
 Queue `wallet-service.events`: `order.delivered.v1` → reward points (PENDING, needs `netPaidPaise`), `payment.refund_processed.v1` → pro-rata points reversal (once per refund), `payment.topup_captured.v1` → credit the top-up once (ledger key `topup:<id>`), `payment.topup_failed.v1` → FAILED (retry allowed), `payment.topup_expired.v1` → EXPIRED (a later capture still completes it).
 
+### Consumed by warehouse-service (built 2026-11-23, D-56 P3)
+
+Queue `warehouse-service.events` → the order read model of each warehouse (W2.03 Active Orders,
+the `HAS_OPEN_ORDERS` deactivation guard):
+
+- `order.placed.v1` → order header (order no, ship-to name, district, PIN).
+- `inventory.reservation_committed.v1` → one NEW row per warehouse in `lines` (first commit wins).
+- `order.confirmed.v1` → ALLOCATED. Safe ordering: an order can be confirmed only once its stock is
+  COMMITTED, which order-service learns from `reservation_committed`.
+- `order.delivered.v1` → DELIVERED.
+- `order.rejected.v1` / `order.cancelled.v1` / `order.failed.v1` with scope FULL, and
+  `inventory.reservation_released.v1` FULL → CANCELLED.
+- `inventory.reservation_released.v1` PARTIAL → units reduced per warehouse line; none left → CANCELLED.
+
+Status only moves forward; terminal rows never change.
+
 ### Consumed by notification-service (built 2026-11-19, D-46)
 
 Queue `notification-service.events` (consume-only; publishes nothing): `order.placed.v1` (also
@@ -256,9 +272,44 @@ records order → buyer in `notification_order_projections`), `order.confirmed.v
 `order.rejected.v1`, `order.failed.v1` (`ORDER_CLOSED` re-sends notify nobody),
 `order.cancelled.v1`, `order.review_overdue.v1`, `payment.captured.v1`, `payment.failed.v1`,
 `payment.refund_initiated.v1`, `payment.refund_processed.v1`, `payment.refund_failed.v1`,
-`inventory.low_stock.v1`. Business dedupe keys absorb recovery re-sends; buyer events need the
+`inventory.low_stock.v1`, and the five `support.*.v1` events (D-55). Business dedupe keys absorb recovery re-sends; buyer events need the
 order projection (an event before its `order.placed` is retried, then dead-lettered). Rules,
 audiences and channels: [`notifications/README.md`](notifications/README.md#consumed-events).
+
+### Published by support-service (built 2026-11-23, D-55)
+
+Ids, codes and states only — never message text or phone numbers. Outbox → `events` exchange.
+
+| Type                               | When                                                                 | Payload (`data`)                                                                                         |
+| ---------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `support.ticket_created.v1`        | A ticket is raised (app or agent intake)                             | `ticketId`, `ticketNo`, `app`, `requesterId`, `topicCode`, `priority`, `team`, `channel`, `resolveDueAt` |
+| `support.ticket_replied.v1`        | An agent posted a PUBLIC message (never internal notes)              | ticket ref + `messageId`, `seq`, `agentId`                                                               |
+| `support.ticket_status_changed.v1` | Any status transition (incl. auto-close)                             | ticket ref + `from`, `to`, `actorId                                                                      | null`            |
+| `support.ticket_escalated.v1`      | Escalation to another team / agent                                   | ticket ref + `team`, `level`, `assigneeId                                                                | null`, `actorId` |
+| `support.sla_breached.v1`          | First-response or resolve deadline passed (once per ticket and kind) | ticket ref + `kind`, `priority`, `team`, `assigneeId                                                     | null`, `dueAt`   |
+
+Ticket ref = `ticketId`, `ticketNo`, `app`, `requesterId`. Consumer: notification-service
+(requester push for replies / resolution / escalation; desk alerts for URGENT / HIGH tickets and
+SLA breaches).
+
+### Consumed by support-service
+
+Queue `support-service.events`: `user.deleted.v1` → delete the requester's private files, scrub
+their text / phone / name, close their open tickets (agent loads released), close their sockets;
+`user.status_changed.v1` (not ACTIVE) → close the user's live-chat sockets on every replica.
+
+### Published by warehouse-service (built 2026-11-23, D-56 P1)
+
+Contracts: `packages/infra/src/events/contracts/warehouse.events.ts`. Full snapshots, applied only
+when newer than what the consumer holds (duplicates and out-of-order deliveries are harmless).
+
+| Type                             | When                                               | Data                                                                                                                                                                                                             |
+| -------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `warehouse.upserted.v1`          | Warehouse created, edited, status changed, deleted | `warehouseId`, `version`, code, name, type (MOTHER/DEPOT), status (SETUP/ACTIVE/LIMITED/INACTIVE), parent, address, district, state, PIN, lat/long, `temperatureClasses`, `isAllocatable`, `priority`, `deleted` |
+| `warehouse.coverage_replaced.v1` | Service areas / PINs changed                       | `warehouseId`, `coverageVersion`, `entries[{pinCode, priority}]` (the complete set, ≤ 5,000)                                                                                                                     |
+
+Consumers: inventory-service → `inventory_warehouses` / `inventory_warehouse_coverage` projection
+(same ids; allocation unchanged).
 
 ### Pending design
 

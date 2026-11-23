@@ -53,7 +53,9 @@ export class ConnectTokens {
       aud: this.deps.audience,
       iat: Math.floor(Date.now() / 1000),
     };
-    await this.deps.redis().set(this.deps.key(token), JSON.stringify(stored), 'EX', this.ttlSeconds);
+    await this.deps
+      .redis()
+      .set(this.deps.key(token), JSON.stringify(stored), 'EX', this.ttlSeconds);
     return { token, expiresIn: this.ttlSeconds };
   }
 

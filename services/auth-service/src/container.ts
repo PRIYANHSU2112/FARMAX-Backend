@@ -7,6 +7,8 @@ import { type RunInTransaction, createTransactionRunner } from '@farmx/database'
 import { type Database, closeDatabase, getDatabase } from '@farmx/database/client';
 import { type Redis, createCacheClient } from '@farmx/infra/redis';
 import type { Cradle } from '@fastify/awilix';
+
+import { AuthEventsRuntime } from './adapters/events.js';
 import { type AwilixContainer, asFunction, asValue, createContainer } from 'awilix';
 
 import {
@@ -27,6 +29,8 @@ export interface AuthSecrets {
 
 declare module '@fastify/awilix' {
   interface Cradle {
+    /** Outbox relay (user.status_changed.v1, user.deleted.v1). Started by server.ts. */
+    eventsRuntime: AuthEventsRuntime;
     config: Readonly<AuthConfig>;
     logger: Logger;
     /** The shared FarmX database (singleton pool from @farmx/database). Repositories only. */
@@ -112,6 +116,9 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
     smsSender: asValue(buildSmsSender(config, logger)),
     emailSender: asValue(new ConsoleEmailSender(logger)),
     tokenVerifier: asFunction((cradle: Cradle) => createTokenVerifier(cradle)).singleton(),
+    eventsRuntime: asFunction((cradle: Cradle) => new AuthEventsRuntime(cradle))
+      .singleton()
+      .disposer((runtime) => runtime.stop()),
   });
 
   return container;

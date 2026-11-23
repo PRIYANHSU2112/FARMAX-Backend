@@ -107,4 +107,9 @@ export class CredentialsService {
   setPassword(userId: string, passwordHash: string, tx: Tx): Promise<void> {
     return this.authRepository.setPassword(userId, passwordHash, tx);
   }
+
+  /** Accepting an invitation: creates the credential, or replaces one left by an earlier setup. */
+  setInvitedPassword(userId: string, passwordHash: string, tx: Tx): Promise<void> {
+    return this.authRepository.upsertPassword(userId, passwordHash, tx);
+  }
 }

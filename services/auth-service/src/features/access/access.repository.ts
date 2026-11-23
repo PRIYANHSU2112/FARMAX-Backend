@@ -8,6 +8,7 @@ import type {
   RoleAudience,
   RoleListQuery,
   RoleView,
+  ScopeMember,
   ScopeType,
   UserAccess,
 } from './access.types.js';
@@ -108,7 +109,8 @@ export class AccessRepository {
 
   /**
    * Everything access checks need for one user, in ONE round trip: active assignments with their
-   * role flags and non-deprecated permission keys. GLOBAL-scope assignments grant permissions.
+   * role flags and non-deprecated permission keys. GLOBAL assignments grant everywhere; WAREHOUSE
+   * assignments grant at their warehouse only, and only keys whose catalog scopes allow WAREHOUSE.
    */
   async loadUserAccess(userId: string, now: Date): Promise<UserAccess> {
     const rows = await withPrismaErrors(() =>
@@ -116,6 +118,7 @@ export class AccessRepository {
         where: { userId, ...activeAssignment(now) },
         select: {
           scopeType: true,
+          scopeId: true,
           role: {
             select: {
               key: true,
@@ -123,7 +126,7 @@ export class AccessRepository {
               sessionIdleMinutes: true,
               permissions: {
                 where: { permission: { deprecatedAt: null } },
-                select: { permission: { select: { key: true } } },
+                select: { permission: { select: { key: true, allowedScopes: true } } },
               },
             },
           },
@@ -131,19 +134,113 @@ export class AccessRepository {
       }),
     );
     const permissions = new Set<string>();
+    const scoped = new Map<string, Set<string>>();
     const idle = rows
       .map((row) => row.role.sessionIdleMinutes)
       .filter((m): m is number => m !== null);
     for (const row of rows) {
-      if (row.scopeType !== 'GLOBAL') continue;
-      for (const rp of row.role.permissions) permissions.add(rp.permission.key);
+      if (row.scopeType === 'GLOBAL') {
+        for (const rp of row.role.permissions) permissions.add(rp.permission.key);
+        continue;
+      }
+      if (row.scopeType !== 'WAREHOUSE' || row.scopeId === null) continue;
+      const keys = scoped.get(row.scopeId) ?? new Set<string>();
+      for (const rp of row.role.permissions)
+        if (rp.permission.allowedScopes.includes('WAREHOUSE')) keys.add(rp.permission.key);
+      scoped.set(row.scopeId, keys);
+    }
+    const warehouses: Record<string, string[]> = {};
+    for (const [warehouseId, keys] of scoped) {
+      const extra = [...keys].filter((key) => !permissions.has(key)).sort();
+      if (extra.length > 0) warehouses[warehouseId] = extra;
     }
     return {
       roles: [...new Set(rows.map((row) => row.role.key))].sort(),
       permissions: [...permissions].sort(),
+      warehouses,
       mfaRequired: rows.some((row) => row.role.mfaRequired),
       sessionIdleMinutes: idle.length > 0 ? Math.min(...idle) : null,
     };
+  }
+
+  /** Active members of one scope (e.g. a warehouse's staff) with their roles there. Staff-sized. */
+  async listScopeMembers(scopeType: ScopeType, scopeId: string, now: Date): Promise<ScopeMember[]> {
+    const rows = await withPrismaErrors(() =>
+      this.db.userRole.findMany({
+        where: { scopeType, scopeId, ...activeAssignment(now) },
+        select: {
+          userId: true,
+          roleId: true,
+          assignedAt: true,
+          role: { select: { key: true, name: true } },
+        },
+        orderBy: [{ userId: 'asc' }, { assignedAt: 'asc' }],
+        take: 5_000,
+      }),
+    );
+    const byUser = new Map<string, ScopeMember>();
+    for (const row of rows) {
+      const member = byUser.get(row.userId) ?? { userId: row.userId, roles: [] };
+      member.roles.push({
+        roleId: row.roleId,
+        roleKey: row.role.key,
+        roleName: row.role.name,
+        assignedAt: row.assignedAt.toISOString(),
+      });
+      byUser.set(row.userId, member);
+    }
+    return [...byUser.values()];
+  }
+
+  /** Active assignments of the given roles (scope + holder): usage counts, in one query. */
+  async listRoleAssignments(
+    roleIds: readonly string[],
+    now: Date,
+  ): Promise<{ roleId: string; userId: string; scopeType: ScopeType; scopeId: string | null }[]> {
+    if (roleIds.length === 0) return [];
+    return withPrismaErrors(() =>
+      this.db.userRole.findMany({
+        where: { roleId: { in: [...roleIds] }, ...activeAssignment(now) },
+        select: { roleId: true, userId: true, scopeType: true, scopeId: true },
+        take: 50_000,
+      }),
+    );
+  }
+
+  /** Live INTERNAL, non-system roles with their permission keys + catalog scopes. */
+  async listInternalRolesWithScopes(): Promise<
+    {
+      id: string;
+      key: string;
+      name: string;
+      description: string | null;
+      permissions: { key: string; allowedScopes: ScopeType[] }[];
+    }[]
+  > {
+    const rows = await withPrismaErrors(() =>
+      this.db.role.findMany({
+        where: { audience: 'INTERNAL', isSystem: false, archivedAt: null },
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          description: true,
+          permissions: {
+            where: { permission: { deprecatedAt: null } },
+            select: { permission: { select: { key: true, allowedScopes: true } } },
+          },
+        },
+        orderBy: { name: 'asc' },
+        take: 500,
+      }),
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      description: row.description,
+      permissions: row.permissions.map((rp) => rp.permission),
+    }));
   }
 
   // ── Roles ────────────────────────────────────────────────────────────────────────────────

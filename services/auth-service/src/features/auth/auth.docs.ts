@@ -196,6 +196,16 @@ export const AUTH_DOCS = {
     success: { status: 204, description: 'Password changed' },
     errors: [400, 422],
   },
+  acceptInvitation: {
+    tag: AUTH_TAG,
+    summary: 'Accept a warehouse invitation',
+    description:
+      'Staff are invite-only (D-56): a manager adds them from the Warehouse Team screen and they get a 6-digit code by email (valid 48 h). This sets their first password and activates the account; then they sign in with /auth/admin/login. Same 400 for an unknown email or a wrong code.',
+    public: true,
+    rateLimit: '10 per email and 30 per IP per hour',
+    success: { status: 204, description: 'Invitation accepted; sign in next' },
+    errors: [400, 422, 429],
+  },
   changePassword: {
     tag: USER_TAG,
     summary: 'Change my password',

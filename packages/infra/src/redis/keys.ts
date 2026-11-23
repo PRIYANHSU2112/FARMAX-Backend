@@ -63,6 +63,7 @@ export const CACHE_VERSIONS = {
   call: 'v1',
   wallet: 'v1',
   support: 'v1',
+  warehouse: 'v1',
 } as const;
 
 const authKeyspace = createKeyspace({ service: 'auth', version: CACHE_VERSIONS.auth });
@@ -73,6 +74,8 @@ export const authKeys = {
   keyspace: authKeyspace,
   user: (id: string) => authKeyspace.key('user', id),
   session: (id: string) => authKeyspace.key('session', id),
+  /** Account-recovery token (hash) → userId. Single use (GETDEL), TTL 10 min. */
+  accountRecovery: (tokenHash: string) => authKeyspace.key('account-recovery', tokenHash),
   /** Session id revoked; written by auth-service, read by the gateway. */
   revokedSid: (sid: string) => authKeyspace.key('revoked', 'sid', sid),
   /** Access-token id blacklisted at logout; TTL = remaining token lifetime. */
@@ -348,4 +351,20 @@ export const supportKeys = {
   wsRate: (userId: string) => supportKeyspace.key('ws-rl', userId),
   /** Agent presence (an open agent socket). TTL 90 s, refreshed while connected. */
   agentOnline: (userId: string) => supportKeyspace.key('agent-online', userId),
+};
+
+const warehouseKeyspace = createKeyspace({
+  service: 'warehouse',
+  version: CACHE_VERSIONS.warehouse,
+});
+
+/** warehouse-service (D-56). Master data lives in Postgres; Redis holds limits and caches. */
+export const warehouseKeys = {
+  keyspace: warehouseKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    warehouseKeyspace.key('rl', action, dimension, value),
+  /** Staff contact (name, email, phone) from auth-service. TTL 5 min. */
+  contact: (userId: string) => warehouseKeyspace.key('contact', userId),
+  /** Visible catalog categories (id → name). TTL 10 min. */
+  categories: () => warehouseKeyspace.key('categories'),
 };

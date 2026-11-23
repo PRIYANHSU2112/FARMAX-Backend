@@ -52,7 +52,11 @@ export class SettingsService {
             .filter((c) => c.isActive)
             .map((c) => [
               c.id,
-              { timezone: c.timezone, weekly: c.weeklyHours, holidays: new Set(c.holidays.map((h) => h.date)) },
+              {
+                timezone: c.timezone,
+                weekly: c.weeklyHours,
+                holidays: new Set(c.holidays.map((h) => h.date)),
+              },
             ]),
         ),
       };
@@ -110,7 +114,11 @@ export class SettingsService {
     return this.mustFindCalendar(id);
   }
 
-  async updateCalendar(actor: Actor, id: string, input: Partial<CalendarInput>): Promise<CalendarView> {
+  async updateCalendar(
+    actor: Actor,
+    id: string,
+    input: Partial<CalendarInput>,
+  ): Promise<CalendarView> {
     await this.deps.runInTransaction(async (tx) => {
       if (!(await this.deps.settingsRepository.updateCalendar(tx, id, input)))
         throw new NotFoundError('Calendar');
@@ -126,8 +134,14 @@ export class SettingsService {
     return this.mustFindCalendar(id);
   }
 
-  async addHoliday(actor: Actor, calendarId: string, date: string, name: string): Promise<CalendarView> {
-    if (!(await this.deps.settingsRepository.calendarExists(calendarId))) throw new NotFoundError('Calendar');
+  async addHoliday(
+    actor: Actor,
+    calendarId: string,
+    date: string,
+    name: string,
+  ): Promise<CalendarView> {
+    if (!(await this.deps.settingsRepository.calendarExists(calendarId)))
+      throw new NotFoundError('Calendar');
     await this.deps.runInTransaction(async (tx) => {
       const id = await this.deps.settingsRepository.addHoliday(tx, calendarId, date, name);
       await this.deps.auditService.record(tx, actor, {
@@ -141,7 +155,12 @@ export class SettingsService {
     return this.mustFindCalendar(calendarId);
   }
 
-  async deleteHoliday(actor: Actor, calendarId: string, holidayId: string, reason: string): Promise<void> {
+  async deleteHoliday(
+    actor: Actor,
+    calendarId: string,
+    holidayId: string,
+    reason: string,
+  ): Promise<void> {
     await this.deps.runInTransaction(async (tx) => {
       if (!(await this.deps.settingsRepository.deleteHoliday(tx, calendarId, holidayId)))
         throw new NotFoundError('Holiday');
@@ -174,7 +193,10 @@ export class SettingsService {
     ]);
     const byKey = new Map(rows.map((r) => [r.key, r.value]));
     const settings = Object.fromEntries(
-      SETTING_KEYS.map((k) => [k, { ...DEFAULT_SETTINGS[k], ...((byKey.get(k) as object | undefined) ?? {}) }]),
+      SETTING_KEYS.map((k) => [
+        k,
+        { ...DEFAULT_SETTINGS[k], ...((byKey.get(k) as object | undefined) ?? {}) },
+      ]),
     ) as unknown as SupportSettings;
     return { settings, calendars };
   }

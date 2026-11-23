@@ -29,6 +29,10 @@ export class AccessController {
     return ok(await this.accessService.getRole(request.params.id));
   }
 
+  async roleUsage(request: FastifyRequest<{ Params: RoleIdParams }>) {
+    return ok(await this.accessService.getRoleUsage(request.params.id));
+  }
+
   async createRole(request: FastifyRequest<{ Body: CreateRoleInput }>, reply: FastifyReply) {
     const role = await this.accessService.createRole(request.body, actorFromRequest(request));
     return reply.code(201).send(ok(role));

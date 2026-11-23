@@ -51,12 +51,18 @@ describe('planAllocation', () => {
 
   it('refuses to split when split allocation is off (available = best single warehouse)', () => {
     const plan = planAllocation([line('x', 12)], [A, B], stock({ 'a|x': 5, 'b|x': 10 }), false);
-    expect(plan).toEqual({ ok: false, shortfall: [{ variantId: 'x', requested: 12, available: 10 }] });
+    expect(plan).toEqual({
+      ok: false,
+      shortfall: [{ variantId: 'x', requested: 12, available: 10 }],
+    });
   });
 
   it('reports the network total when even a split cannot fill the line', () => {
     const plan = planAllocation([line('x', 20)], [A, B], stock({ 'a|x': 5, 'b|x': 10 }), true);
-    expect(plan).toEqual({ ok: false, shortfall: [{ variantId: 'x', requested: 20, available: 15 }] });
+    expect(plan).toEqual({
+      ok: false,
+      shortfall: [{ variantId: 'x', requested: 20, available: 15 }],
+    });
   });
 
   it('allocates cold-chain lines only to cold-chain warehouses', () => {
@@ -67,8 +73,16 @@ describe('planAllocation', () => {
       true,
     );
     expect(plan.ok && plan.allocations).toEqual([{ warehouseId: 'a', variantId: 'vax', qty: 4 }]);
-    const none = planAllocation([line('vax', 4, true)], [AMBIENT_ONLY], stock({ 'c|vax': 100 }), true);
-    expect(none).toEqual({ ok: false, shortfall: [{ variantId: 'vax', requested: 4, available: 0 }] });
+    const none = planAllocation(
+      [line('vax', 4, true)],
+      [AMBIENT_ONLY],
+      stock({ 'c|vax': 100 }),
+      true,
+    );
+    expect(none).toEqual({
+      ok: false,
+      shortfall: [{ variantId: 'vax', requested: 4, available: 0 }],
+    });
   });
 
   it('never uses stock that is not sellable (safety stock is already excluded by the caller)', () => {

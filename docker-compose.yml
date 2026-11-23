@@ -100,7 +100,7 @@ services:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_completed_successfully
+        condition: service_started
 
   media-service:
     container_name: farmx-media-service
@@ -137,7 +137,7 @@ services:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_completed_successfully
+        condition: service_started
 
   catalog-service:
     container_name: farmx-catalog-service
@@ -157,7 +157,7 @@ services:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_completed_successfully
+        condition: service_started
 
   product-service:
     container_name: farmx-product-service
@@ -178,7 +178,7 @@ services:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_completed_successfully
+        condition: service_started
 
   # ── Public API Gateway (Exposed on Port 3090) ──
   api-gateway:

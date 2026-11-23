@@ -1,5 +1,6 @@
-// inventory-service feature: warehouses. The stock-holding nodes (mother warehouse, C&F depots)
-// and the PIN codes each one serves (allocation candidates, by priority).
+// inventory-service feature: warehouses. READ-ONLY copy (D-56) of warehouse-service's master data
+// and PIN coverage, written only by the warehouse.upserted.v1 / warehouse.coverage_replaced.v1
+// consumer (same ids; applied only when the incoming version is newer). Allocation reads it.
 
 enum WarehouseType {
   MOTHER
@@ -25,9 +26,13 @@ model Warehouse {
   /// Lower = preferred when two warehouses cover a PIN with the same coverage priority.
   priority        Int           @default(100)
   statusReason    String?       @db.VarChar(500)
+  /// warehouse-service master-data version last applied.
   version         Int           @default(0)
-  createdByUserId String        @db.Uuid
-  updatedByUserId String        @db.Uuid
+  /// warehouse-service coverage version last applied.
+  coverageVersion Int           @default(0)
+  /// Legacy (rows created before D-56); null for projected rows.
+  createdByUserId String?       @db.Uuid
+  updatedByUserId String?       @db.Uuid
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

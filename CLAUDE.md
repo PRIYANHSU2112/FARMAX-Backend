@@ -47,7 +47,7 @@
 - Ads · liquidation · leads (Book a Sales Call) · content/news · support tickets · notifications ·
   reports/audit · finance/GST.
 - **Built today:** see `docs/PROGRESS.md` (auth, media, farm, catalog, product, user, order,
-  inventory, payment, notification, call and wallet services).
+  inventory, payment, notification, call, wallet, support and warehouse services).
 
 ## Tech stack
 
@@ -75,6 +75,7 @@ services/<svc>/tests/{unit,integration}     services/_template = copy for a new 
                     · catalog-service :3004 · product-service :3005 · user-service :3006
                     · order-service :3007 · inventory-service :3008 · payment-service :3009
                     · notification-service :3010 · call-service :3011 · wallet-service :3012
+                    · support-service :3013 · warehouse-service :3014
 infra/docker        compose.yml (+ compose.prod.yml)     docs/ · implementation-plan/
 ```
 
@@ -146,6 +147,9 @@ API docs (all services, one page): `http://localhost:3000/api-docs` · spec: `ht
   integration guide, monitoring.
 - `docs/wallet/`: wallet-service (D-54): closed-loop wallet + reward points, app integration,
   guarantees, jobs, staff console, deploy checklist (`infra/sql/wallet-roles.sql`), runbook.
+- Support (D-55, `docs/decisions.md`): support-service tickets + live chat; the ONE WebSocket layer
+  is `@farmx/infra/realtime` (mount it for any future socket); Delete Account lives in auth-service.
+- `docs/warehouse/`: warehouse portal (D-56): screen → API map for Login + Multi-Warehouse.
 - `docs/oms/`: approved order-management + payment-service design (D-34…D-45; admin-confirmed
   orders, recovery playbook, refund lifecycles). Build order P1 inventory → P2 payment → P3 orders → P4 admin.
 

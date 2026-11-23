@@ -609,6 +609,129 @@ status = 'ACTIVE'` (credits always land, even when FROZEN), and the posting chai
   once `infra/sql/wallet-roles.sql` is applied (wallet-service = `farmx_wallet`, others =
   `farmx_app`, migrations = owner). Guide and runbook: `docs/wallet/README.md`.
 
+### D-55 · Help & Support → support-service (:3013); shared WebSocket layer; self-service account deletion
+
+- **Scope:** one support-service for all four requester apps (CUSTOMER, VENDOR, LOGISTICS,
+  WAREHOUSE — the app comes from the token's user type): tickets + live chat, FAQ (search, votes,
+  "These may answer it"), versioned legal pages (Privacy Policy …), and the agent console queue.
+  Agents are staff with `support.*` permissions; phone / email / WhatsApp tickets are logged by
+  agents into the same queue (`channel`).
+- **Dynamic priority + SLA:** admin priority rules (first match by sortOrder: temperature classes of
+  the snapshotted order, order amount, whole-word keywords, requester type; scoped by app / topic)
+  else the topic default. SLA policy per app × priority; business-hours calendars (IANA zone,
+  split windows, holidays; DST-safe via luxon). The policy is snapshotted on the ticket. Resolve
+  clock pauses in WAITING_ON_REQUESTER (paused working minutes extend the due), restarts on reopen;
+  a manual priority change recomputes from the original start. Breaches + auto-close run as ONE
+  set-based `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` over partial indexes every
+  30 s / 10 min (exactly once across replicas; no per-ticket delayed jobs needed).
+- **Concurrency:** ticket no. from a Postgres SEQUENCE; message `seq` gap-free per ticket
+  (`UPDATE … lastSeq+1 RETURNING`); `Idempotency-Key` (unique per requester) and
+  `clientMessageId` (unique per ticket + sender) make retries safe; claim is a conditional UPDATE
+  (one winner); agent actions take `If-Match`; the open-ticket cap runs under an advisory lock;
+  auto-assign picks the least-loaded online + accepting agent with `FOR UPDATE SKIP LOCKED`.
+  Unread = public messages after the reader's `lastReadSeq` (internal notes never count).
+- **One WebSocket layer (`@farmx/infra/realtime`):** upgrade on one path, single-use 60 s connect
+  token (GETDEL, audience-bound; browsers cannot send headers), Origin allowlist, per-user socket cap
+  and frame rate limit (Redis, shared by replicas), 16 KB frames, JSON protocol with ack / error,
+  heartbeat, backpressure drop, session re-validation (revoked sid → close 4001), graceful close,
+  rooms + audiences fanned out over ONE Redis pub/sub channel. Services only add frame handlers
+  (support: subscribe / message.send / typing / read / queue.subscribe). Agent actions and internal
+  notes are REST-only; internal notes reach agent sockets only. Gateway: `/v1/support/chat` is the
+  only WebSocket-enabled proxy route. Delivery is best effort: clients resync with `afterSeq`.
+- **Uploads:** media-service `POST /upload?purpose=support` stores PRIVATE objects and returns an
+  HMAC-signed receipt (uploader, key, type, size, scan status, 1 h). support-service verifies it
+  locally (no network) and binds each key to one ticket (unique). Images are re-encoded; PDFs are
+  scanned by clamd (`CLAMAV_HOST`; prod refuses PDFs without a scanner). Reads: 5-minute signed
+  URLs via `/internal/media/sign-read` after the ticket-access check.
+- **Delete Account (auth-service `deletion`):** step-up OTP → PENDING_DELETION + every session
+  revoked (revoked-sid flags kill access tokens in all services and close chat sockets) → normal
+  login 403 `ACCOUNT_PENDING_DELETION`. Recovery: OTP → single-use 10-minute recovery token (not
+  a JWT) → cancel → ACTIVE. After `ACCOUNT_DELETION_GRACE_DAYS` (30) an hourly job (SKIP LOCKED)
+  deletes credentials / MFA / devices, anonymises the user (email tombstone
+  `deleted-<id>@deleted.invalid`, phone freed) and emits `user.deleted.v1`; support-service scrubs
+  requester text and files. auth-service now has an outbox relay (`user.status_changed.v1`,
+  `user.deleted.v1`, also from admin status changes / deletes).
+- **Permissions:** `support.view|manage|assign|escalate|configure`, `faq.manage`, `legal.manage`.
+
+### D-56 · Warehouse portal → warehouse-service (:3014); Login + Multi-Warehouse (W2); invite-only staff
+
+- **Scope (approved 2026-11-23):** backend for the warehouse portal's Login and Multi-Warehouse
+  screens (W2.01–W2.09, every Figma field backed by an API). Dashboard W1, Gate W5 and the React UI
+  are out of scope for now. Plan: `~/.claude/plans/tell-one-thing-in-graceful-pine-…md`.
+- **Ownership:** the warehouse master + PIN coverage move from inventory-service to
+  warehouse-service. inventory keeps `inventory_warehouses` / `inventory_warehouse_coverage` as an
+  event-fed, version-guarded projection with the SAME ids (`warehouse.upserted.v1`,
+  `warehouse.coverage_replaced.v1`), so stock, reservations and allocation are unchanged. Imported
+  coverage keeps its exact priorities (no routing change); missing data (district, manager,
+  capacity) is flagged for review, never guessed.
+- **WAREHOUSE-scoped RBAC (P0, done):** auth's effective access now carries
+  `warehouses: { <warehouseId>: permission[] }` from WAREHOUSE assignments (only keys whose catalog
+  scopes allow WAREHOUSE). Before this, scoped assignments granted nothing. The cached entry has a
+  shape marker (`s: 2`); other services keep reading GLOBAL `permissions` unchanged. New
+  permissions: `warehouse.view|configure|operate` (GW), `warehouse.create|status_change` (G,
+  sensitive), `warehouse.team_manage` (GW, sensitive).
+- **Invite-only staff (P0, done):** no public sign-up. warehouse-service calls
+  `/internal/staff/invitations` (create or reuse an INTERNAL account, grant the role at that
+  warehouse, email a 48 h code); the person accepts at `POST /auth/invitations/accept` (code +
+  first password, same 400 for any failure) and signs in with `/auth/admin/login`. auth re-checks
+  that the caller holds `warehouse.team_manage` THERE and that the role is a warehouse template
+  granting nothing the caller lacks there (no privilege escalation); the same rule applies to
+  removal (`/internal/staff/assignments/revoke`, ends the member's sessions). Granting only
+  refreshes the access cache. Phones are not stored on invited accounts (phones are unique across
+  all users); the warehouse keeps its own copy.
+- **Roles are global templates:** warehouse screens read them (`/internal/access/warehouse-roles`)
+  but never edit them; central admins edit through `PUT /admin/roles/:id/permissions` after
+  `GET /admin/roles/:id/usage` ("used by N staff in M warehouses").
+- **Event data for the warehouse read model (P0, additive):** `inventory.reservation_committed.v1`
+  `lines[{warehouseId, variantId, qty}]`; `inventory.reservation_released.v1` lines are per
+  (warehouse, variant) with `warehouseId`; `order.placed.v1` `shipTo {name, district, pinCode}`;
+  `VariantFactsV1.weightGrams` (gross grams of one sellable pack → capacity in kg).
+- **P1 (done):** warehouse-service :3014 (`/v1/admin/warehouses`, `/v1/admin/wms`): warehouse master,
+  SETUP → ACTIVE ↔ LIMITED → INACTIVE state machine with an activation checklist, list / summary /
+  CSV export, service areas (districts, PIN ranges, priority HIGH 10 · MEDIUM 50 · LOW 90, imported
+  PIN reassign), coverage preview, portal `me` + search. Migration `20261209100000_warehouse_service`
+  copies inventory warehouses + coverage (local DB only). inventory's warehouse admin routes are gone;
+  its tables are the projection. Districts are free text with suggestions (no official district
+  master yet; an LGD import can make them strict later). Prisma 7's adapter does not name the
+  violated index, so 409 reasons come from pre-checks plus a re-read after a race.
+- **P2 (done):** setup screens. Migration `20261210100000_warehouse_setup` (local DB only).
+  - Storage: zones → racks → bins with generated codes (`A`, `A-01`, `A-01-01`). The sum of bin
+    limits stays within the rack's weight and volume, checked under the rack's row lock.
+  - Dock & yard: doors, bookings, staging areas and yard slots. A `btree_gist` exclusion
+    constraint stops overlapping open bookings on one door; a locked pre-check gives the 409
+    `DOCK_BUSY` first. Unloading capacity is reported per unit (tonnes, pallets), never summed. A
+    door's unit is frozen while it has open bookings.
+  - Calendar: 7-day hours, shifts (overnight allowed, break inside the shift), holidays (closed or
+    limited hours) and cut-offs, all `HH:mm` in the warehouse timezone.
+  - Storage rules: saved with `enforcement: NOT_ENFORCED` until put-away (W8). `warnings[]`
+    (e.g. `SAME_ZONE_CONFLICT`) mark a rule "needs review". Distance is stored in metres and
+    measured between zones.
+  - Team: invite-only through auth (`team_manage` at the warehouse, no escalation). The phone and
+    work areas live in `warehouse_staff_profiles`, because auth phones are unique per user. The
+    roles panel is read-only.
+  - Staff documents: a new private media purpose, `staff_document` (folder `staff/`). Receipts are
+    HMAC-signed by media-service and verified locally; each consumer checks its own `purpose`.
+    Files are read only through 5-minute signed URLs.
+  - The activation checklist now also needs an active zone and weekly hours.
+- **P3 (done):** W2 numbers. Migration `20261211100000_warehouse_stats` (local DB only).
+  - inventory: the variant projection keeps `rootCategoryId` (= `categoryPath[0]`) and
+    `weightGrams`; the migration backfills both from product + catalog tables. New internal
+    `GET /internal/inventory/warehouse-stats` gives, per warehouse, on hand / reserved / damaged /
+    sellable, SKU count, `usedKg` (integer grams → kg, unknown weights excluded and counted) and
+    stock by root category.
+  - warehouse-service pulls it with one BullMQ job (`refresh-stats`, every
+    `STATS_REFRESH_SECONDS`, default 60) into `warehouse_stock_current`,
+    `warehouse_stock_by_category` and today's `warehouse_daily_stats` row (the last refresh of
+    the local day wins; gives "vs last 7 days" and "vs yesterday"). Screens read only these rows. If
+    inventory is down, the last snapshot stays, with `stale: true` after 3 missed refreshes.
+  - Order read model from events (see event-contracts): NEW → ALLOCATED → DELIVERED, or
+    CANCELLED. Deactivation returns 409 `HAS_OPEN_ORDERS` while NEW or ALLOCATED rows exist.
+  - New screens: `GET /:id/overview` (cards, status board, information box), `GET
+/:id/stock-by-category`, `GET /:id/orders`. W2.01 list rows, the summary and `GET /:id` now
+    carry stock units, used kg and capacity use %.
+  - Cards whose module does not exist yet (transfers, picking stages, performance, near-expiry)
+    return null with `modules` flags.
+
 ---
 
 **Open questions:** how OTPs are delivered (auth-service still sends them directly; moving them

@@ -51,6 +51,15 @@ export const accessRoutes: FastifyPluginAsync = async (app) => {
     (request) => request.diScope.resolve('accessController').getRole(request),
   );
 
+  app.get<{ Params: RoleIdParams }>(
+    '/roles/:id/usage',
+    {
+      schema: { ...getRoleSchema, ...routeDocs(ACCESS_DOCS.roleUsage) },
+      preHandler: guard(ACCESS_DOCS.roleUsage.permission),
+    },
+    (request) => request.diScope.resolve('accessController').roleUsage(request),
+  );
+
   app.patch<{ Params: RoleIdParams; Body: UpdateRoleInput }>(
     '/roles/:id',
     {

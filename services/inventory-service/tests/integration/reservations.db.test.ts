@@ -35,7 +35,12 @@ interface Reservation {
 }
 
 let app: FastifyInstance;
-const boss = staff('inventory.view', 'inventory.configure', 'inventory.receive', 'inventory.adjust');
+const boss = staff(
+  'inventory.view',
+  'inventory.configure',
+  'inventory.receive',
+  'inventory.adjust',
+);
 const warehouses: string[] = [];
 
 const reserve = (body: object, idem = `rsv-${randomUUID()}`) =>
@@ -159,7 +164,10 @@ describe.skipIf(DB_URL === undefined)('reservations against Postgres', () => {
 
     const settings = app.diContainer.resolve('settingsService');
     const actor = { userId: randomUUID(), ip: null, requestId: null };
-    await settings.update(actor, { allowSplitAllocation: false, reason: 'IT: no split for a test' });
+    await settings.update(actor, {
+      allowSplitAllocation: false,
+      reason: 'IT: no split for a test',
+    });
     try {
       const noSplit = await reserve({
         orderRef: randomUUID(),
@@ -201,7 +209,13 @@ describe.skipIf(DB_URL === undefined)('reservations against Postgres', () => {
     await expire(r.id); // past expiresAt, but committed reservations never expire
     expect((await get(r.id)).status).toBe('COMMITTED');
     await paid(r);
-    expect(await outboxEvents(app, 'inventory.reservation_committed.v1', r.id)).toHaveLength(2);
+    const committed = await outboxEvents(app, 'inventory.reservation_committed.v1', r.id);
+    expect(committed).toHaveLength(2);
+    // D-56: what is held per warehouse travels with the event (the duplicate answers it too).
+    for (const event of committed)
+      expect((event.data as { lines: unknown[] }).lines).toEqual([
+        { warehouseId: r.lines[0]?.warehouseId, variantId: v, qty: 3 },
+      ]);
     await released('order.rejected.v1', r);
     expect((await get(r.id)).status).toBe('RELEASED');
     expect((await levelOf(app, a, v)).reserved).toBe(0);
@@ -260,8 +274,17 @@ describe.skipIf(DB_URL === undefined)('reservations against Postgres', () => {
     expect(part.lines.reduce((n, l) => n + l.heldQty, 0)).toBe(6);
     expect((await levelOf(app, a, v)).reserved).toBe(0);
     expect((await levelOf(app, b, v)).reserved).toBe(6);
+    // Lines are per (warehouse, variant) since D-56: the warehouse read model needs the node.
     const events = await outboxEvents(app, 'inventory.reservation_released.v1', r.id);
-    expect(events.at(-1)?.data).toMatchObject({ scope: 'PARTIAL', lines: [{ variantId: v, qty: 6 }] });
+    const releasedLines = (events.at(-1)?.data as { lines: unknown[] }).lines;
+    expect(events.at(-1)?.data).toMatchObject({ scope: 'PARTIAL' });
+    expect(releasedLines).toEqual(
+      expect.arrayContaining([
+        { warehouseId: a, variantId: v, qty: 5 },
+        { warehouseId: b, variantId: v, qty: 1 },
+      ]),
+    );
+    expect(releasedLines).toHaveLength(2);
 
     await released('order.cancelled.v1', r);
     expect((await get(r.id)).status).toBe('RELEASED');

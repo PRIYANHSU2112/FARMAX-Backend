@@ -18,7 +18,13 @@ export const mediaInternalRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Body: { keys: string[]; expiresInSeconds: number } }>(
     '/sign-read',
     {
-      schema: { hide: true, body: Joi.object({ keys: KEYS, expiresInSeconds: Joi.number().integer().min(30).max(900).default(300) }) },
+      schema: {
+        hide: true,
+        body: Joi.object({
+          keys: KEYS,
+          expiresInSeconds: Joi.number().integer().min(30).max(900).default(300),
+        }),
+      },
       onRequest: [guard],
     },
     async (req) => ok({ urls: await support().signRead(req.body.keys, req.body.expiresInSeconds) }),

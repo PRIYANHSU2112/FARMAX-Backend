@@ -279,7 +279,7 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
       { key: 'inventory.view', description: 'View stock, batches and locations', scopes: ALL },
       {
         key: 'inventory.configure',
-        description: 'Manage warehouses, PIN coverage, stock thresholds and inventory settings',
+        description: 'Manage stock thresholds and inventory settings',
         sensitive: true,
         scopes: G,
       },
@@ -315,6 +315,62 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
         sensitive: true,
         assignable: false,
         scopes: G,
+      },
+      {
+        key: 'inventory.restock_request',
+        description: 'Create and submit restock requests (procurement or warehouse transfer)',
+        scopes: GW,
+      },
+      {
+        key: 'inventory.restock_approve',
+        description: 'Approve or reject restock requests',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'inventory.lifecycle_approve',
+        description: 'Approve stock status lifecycle changes (Admin & Governance)',
+        sensitive: true,
+        scopes: G,
+      },
+    ],
+  },
+  {
+    module: 'warehouse',
+    label: 'Warehouses (multi-warehouse setup)',
+    permissions: [
+      {
+        key: 'warehouse.view',
+        description: 'View warehouses, their setup, stock summary and team',
+        scopes: GW,
+      },
+      {
+        key: 'warehouse.configure',
+        description: 'Edit warehouse details, service areas, storage, docks, calendar and rules',
+        scopes: GW,
+      },
+      {
+        key: 'warehouse.operate',
+        description: 'Book dock doors and occupy or release yard slots',
+        scopes: GW,
+      },
+      {
+        key: 'warehouse.create',
+        description: 'Create or discard warehouse drafts',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'warehouse.status_change',
+        description: 'Activate, limit, deactivate or reactivate a warehouse',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'warehouse.team_manage',
+        description: 'Invite or remove warehouse staff and manage their profiles',
+        sensitive: true,
+        scopes: GW,
       },
     ],
   },
@@ -449,6 +505,69 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     ],
   },
   {
+    module: 'fulfilment',
+    label: 'Order fulfilment (warehouse)',
+    permissions: [
+      {
+        key: 'fulfilment.view',
+        description: 'View fulfilment orders, tasks and exceptions',
+        scopes: GW,
+      },
+      {
+        key: 'fulfilment.manage',
+        description: 'FEFO allocation, tasks, pick / pack / QC / stage, holds, final quantities',
+        scopes: GW,
+      },
+      {
+        key: 'fulfilment.reallocate',
+        description: 'Move orders between warehouses: allocate, split, backorder, re-route',
+        sensitive: true,
+        scopes: G,
+      },
+      {
+        key: 'fulfilment.fefo_override',
+        description: 'Pick a batch out of FEFO order (reason required)',
+        sensitive: true,
+        scopes: GW,
+      },
+    ],
+  },
+  {
+    module: 'compliance',
+    label: 'Regulated-sale compliance',
+    permissions: [
+      {
+        key: 'compliance.review',
+        description: 'Approve, hold or reject regulated orders (Rx, licence, restricted items)',
+        sensitive: true,
+        scopes: G,
+      },
+    ],
+  },
+  {
+    module: 'routing',
+    label: 'Order routing rules',
+    permissions: [
+      {
+        key: 'routing.manage',
+        description: 'Create and change warehouse routing rules and throttles',
+        sensitive: true,
+        scopes: G,
+      },
+    ],
+  },
+  {
+    module: 'vendors',
+    label: 'Vendors (supply master)',
+    permissions: [
+      {
+        key: 'vendors.manage',
+        description: 'Create and edit vendors and their supplied SKUs',
+        scopes: G,
+      },
+    ],
+  },
+  {
     module: 'logistics',
     label: 'Logistics, consignments & dispatch',
     permissions: [
@@ -478,6 +597,16 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
         description: 'Change per-kilometre fare rates',
         sensitive: true,
         scopes: G,
+      },
+      {
+        key: 'logistics.fleet_manage',
+        description: 'Manage carriers, vehicles and drivers',
+        scopes: GW,
+      },
+      {
+        key: 'logistics.delivery_confirm',
+        description: 'Deliver an assigned shipment with the customer OTP and proof of delivery',
+        scopes: GW,
       },
     ],
   },
@@ -651,10 +780,15 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
         scopes: GRO,
       },
       { key: 'support.assign', description: 'Assign / reassign tickets to agents', scopes: G },
-      { key: 'support.escalate', description: 'Escalate tickets to another team (e.g. vet)', scopes: G },
+      {
+        key: 'support.escalate',
+        description: 'Escalate tickets to another team (e.g. vet)',
+        scopes: G,
+      },
       {
         key: 'support.configure',
-        description: 'Topics, priority rules, SLA policies, calendars, agents, canned replies, settings',
+        description:
+          'Topics, priority rules, SLA policies, calendars, agents, canned replies, settings',
         scopes: G,
       },
     ],
@@ -662,7 +796,9 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
   {
     module: 'faq',
     label: 'Help center FAQ',
-    permissions: [{ key: 'faq.manage', description: 'Create, edit, hide and reorder FAQs', scopes: G }],
+    permissions: [
+      { key: 'faq.manage', description: 'Create, edit, hide and reorder FAQs', scopes: G },
+    ],
   },
   {
     module: 'legal',

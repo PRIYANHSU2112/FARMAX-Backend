@@ -3,14 +3,36 @@ import { type Tx, withPrismaErrors } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 
 import type { App } from '../../middleware/http.js';
-import type { CategoryInput, FaqAdminView, FaqCategoryView, FaqInput, FaqView } from './faqs.types.js';
+import { omit } from '../../middleware/http.js';
+import type {
+  CategoryInput,
+  FaqAdminView,
+  FaqCategoryView,
+  FaqInput,
+  FaqView,
+} from './faqs.types.js';
 
 const PUBLIC = {
-  id: true, app: true, categoryId: true, question: true, answer: true, tags: true, topicCodes: true,
-  sortOrder: true, helpfulCount: true, notHelpfulCount: true,
+  id: true,
+  app: true,
+  categoryId: true,
+  question: true,
+  answer: true,
+  tags: true,
+  topicCodes: true,
+  sortOrder: true,
+  helpfulCount: true,
+  notHelpfulCount: true,
 } as const;
 const ADMIN = { ...PUBLIC, isActive: true, createdAt: true, updatedAt: true } as const;
-const CATEGORY = { id: true, app: true, code: true, title: true, sortOrder: true, isActive: true } as const;
+const CATEGORY = {
+  id: true,
+  app: true,
+  code: true,
+  title: true,
+  sortOrder: true,
+  isActive: true,
+} as const;
 
 /** Only place that touches `faq_categories`, `faqs`, `faq_votes`. */
 export class FaqsRepository {
@@ -27,14 +49,19 @@ export class FaqsRepository {
   }
 
   /** Active FAQs of active categories, in display order (keyset on id after ordering). */
-  async list(app: App, categoryId: string | undefined, offset: number, take: number): Promise<FaqView[]> {
+  async list(
+    app: App,
+    categoryId: string | undefined,
+    offset: number,
+    take: number,
+  ): Promise<FaqView[]> {
     const activeCategoryIds = (await this.categories(app, true)).map((c) => c.id);
     return withPrismaErrors(() =>
       this.deps.db.faq.findMany({
         where: {
           app,
           isActive: true,
-          categoryId: categoryId === undefined ? { in: activeCategoryIds } : categoryId,
+          categoryId: categoryId ?? { in: activeCategoryIds },
         },
         orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
         skip: offset,
@@ -45,9 +72,16 @@ export class FaqsRepository {
   }
 
   /** Full-text search (english; question weighted over answer). */
-  search(app: App, q: string, offset: number, take: number, topicCode?: string): Promise<FaqView[]> {
-    return withPrismaErrors(() =>
-      this.deps.db.$queryRaw<FaqView[]>`
+  search(
+    app: App,
+    q: string,
+    offset: number,
+    take: number,
+    topicCode?: string,
+  ): Promise<FaqView[]> {
+    return withPrismaErrors(
+      () =>
+        this.deps.db.$queryRaw<FaqView[]>`
         SELECT f."id", f."app", f."categoryId", f."question", f."answer", f."tags", f."topicCodes",
                f."sortOrder", f."helpfulCount", f."notHelpfulCount"
           FROM "faqs" f
@@ -78,22 +112,33 @@ export class FaqsRepository {
 
   /** Previous vote of the user (caller holds the advisory lock). */
   async vote(tx: Tx, faqId: string, userId: string): Promise<boolean | null> {
-    const row = await tx.faqVote.findUnique({ where: { faqId_userId: { faqId, userId } }, select: { helpful: true } });
+    const row = await tx.faqVote.findUnique({
+      where: { faqId_userId: { faqId, userId } },
+      select: { helpful: true },
+    });
     return row?.helpful ?? null;
   }
 
-  async saveVote(tx: Tx, faqId: string, userId: string, helpful: boolean, previous: boolean | null) {
+  async saveVote(
+    tx: Tx,
+    faqId: string,
+    userId: string,
+    helpful: boolean,
+    previous: boolean | null,
+  ) {
     await tx.faqVote.upsert({
       where: { faqId_userId: { faqId, userId } },
       create: { faqId, userId, helpful },
       update: { helpful },
     });
-    const inc = (yes: boolean, by: number) => (yes ? { helpfulCount: { increment: by } } : { notHelpfulCount: { increment: by } });
-    const data =
-      previous === null
-        ? inc(helpful, 1)
-        : { ...inc(previous, -1), ...inc(helpful, 1) };
-    return tx.faq.update({ where: { id: faqId }, data, select: { helpfulCount: true, notHelpfulCount: true } });
+    const inc = (yes: boolean, by: number) =>
+      yes ? { helpfulCount: { increment: by } } : { notHelpfulCount: { increment: by } };
+    const data = previous === null ? inc(helpful, 1) : { ...inc(previous, -1), ...inc(helpful, 1) };
+    return tx.faq.update({
+      where: { id: faqId },
+      data,
+      select: { helpfulCount: true, notHelpfulCount: true },
+    });
   }
 
   // ── Admin ──
@@ -101,7 +146,10 @@ export class FaqsRepository {
   adminList(app: App | undefined, categoryId: string | undefined): Promise<FaqAdminView[]> {
     return withPrismaErrors(() =>
       this.deps.db.faq.findMany({
-        where: { ...(app === undefined ? {} : { app }), ...(categoryId === undefined ? {} : { categoryId }) },
+        where: {
+          ...(app === undefined ? {} : { app }),
+          ...(categoryId === undefined ? {} : { categoryId }),
+        },
         orderBy: [{ app: 'asc' }, { categoryId: 'asc' }, { sortOrder: 'asc' }],
         select: ADMIN,
       }),
@@ -112,14 +160,21 @@ export class FaqsRepository {
     return withPrismaErrors(() => tx.faqCategory.create({ data: input, select: CATEGORY }));
   }
 
-  async updateCategory(tx: Tx, id: string, input: Partial<CategoryInput>): Promise<FaqCategoryView | null> {
-    const { app: _a, code: _c, ...data } = input;
+  async updateCategory(
+    tx: Tx,
+    id: string,
+    input: Partial<CategoryInput>,
+  ): Promise<FaqCategoryView | null> {
+    const data = omit(input, ['app', 'code']); // immutable
     const res = await withPrismaErrors(() => tx.faqCategory.updateMany({ where: { id }, data }));
     return res.count === 0 ? null : tx.faqCategory.findUnique({ where: { id }, select: CATEGORY });
   }
 
   async categoryApp(id: string): Promise<App | null> {
-    return (await this.deps.db.faqCategory.findUnique({ where: { id }, select: { app: true } }))?.app ?? null;
+    return (
+      (await this.deps.db.faqCategory.findUnique({ where: { id }, select: { app: true } }))?.app ??
+      null
+    );
   }
 
   createFaq(tx: Tx, input: FaqInput): Promise<FaqAdminView> {
@@ -127,7 +182,7 @@ export class FaqsRepository {
   }
 
   async updateFaq(tx: Tx, id: string, input: Partial<FaqInput>): Promise<FaqAdminView | null> {
-    const { app: _a, ...data } = input;
+    const data = omit(input, ['app']); // immutable
     const res = await withPrismaErrors(() => tx.faq.updateMany({ where: { id }, data }));
     return res.count === 0 ? null : tx.faq.findUnique({ where: { id }, select: ADMIN });
   }
@@ -140,4 +195,3 @@ export class FaqsRepository {
        WHERE f."id" = v.id AND f."app" = ${app}::"SupportApp"`;
   }
 }
-

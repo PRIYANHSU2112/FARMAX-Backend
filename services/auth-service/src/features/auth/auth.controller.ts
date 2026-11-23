@@ -96,6 +96,15 @@ export class AuthController {
     return reply.code(204).send();
   }
 
+  async acceptInvitation(
+    request: FastifyRequest<{ Body: { email: string; code: string; newPassword: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { email, code, newPassword } = request.body;
+    await this.authService.acceptStaffInvitation(email, code, newPassword, metaOf(request));
+    return reply.code(204).send();
+  }
+
   async changePassword(
     request: FastifyRequest<{ Body: { currentPassword: string; newPassword: string } }>,
     reply: FastifyReply,

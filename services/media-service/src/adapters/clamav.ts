@@ -22,9 +22,15 @@ export async function scanWithClamd(
     });
     socket.on('close', () => {
       const text = answer.replace(/\0/g, '').trim();
-      if (text.endsWith('OK')) return resolve({ clean: true, signature: null });
+      if (text.endsWith('OK')) {
+        resolve({ clean: true, signature: null });
+        return;
+      }
       const found = /stream: (.+) FOUND$/.exec(text);
-      if (found !== null) return resolve({ clean: false, signature: found[1] ?? 'unknown' });
+      if (found !== null) {
+        resolve({ clean: false, signature: found[1] ?? 'unknown' });
+        return;
+      }
       reject(new Error(`clamd: unexpected answer "${text.slice(0, 80)}"`));
     });
     socket.connect(port, host, () => {

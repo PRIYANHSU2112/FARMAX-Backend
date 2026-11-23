@@ -25,33 +25,39 @@ before building.
 
 ## 1. Auth + RBAC (auth-service) — ✅ built
 
-| Method              | Path                                                | Auth / permission                   | Request → Response                                                                                |
-| ------------------- | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
-| ✅ GET              | `/.well-known/jwks.json`                            | public                              | Ed25519 JWK Set (gateway verification)                                                            |
-| ✅ POST             | `/auth/otp/send`                                    | public · 5/h per phone, 20/h per IP | `{ phone }` → `{ sent, expiresIn, resendAfter }` (same for unknown numbers)                       |
-| ✅ POST             | `/auth/otp/verify`                                  | public                              | `{ phone, code, deviceId? }` → AuthTokens (+ `isNewUser`); staff → 403                            |
-| ✅ POST             | `/auth/admin/login`                                 | public · 10/15 min per identifier   | `{ identifier, password, deviceId? }` → AuthTokens \| `mfa_required` \| `mfa_enrollment_required` |
-| ✅ POST             | `/auth/mfa/verify`                                  | public (challenge)                  | `{ challengeId, code \| recoveryCode }` → AuthTokens                                              |
-| ✅ POST             | `/auth/refresh`                                     | public · 60/min per IP              | `{ refreshToken }` → new AuthTokens (rotation; reuse revokes family)                              |
-| ✅ POST             | `/auth/logout` · `/auth/logout-all`                 | bearer                              | → 204 · `{ revokedSessions }`                                                                     |
-| ✅ POST             | `/auth/password/forgot` · `/auth/password/reset`    | public · 3/h                        | `{ identifier }` → `{ sent }` · `{ identifier, code, newPassword }` → 204                         |
-| ✅ POST             | `/auth/password/change`                             | bearer                              | `{ currentPassword, newPassword }` → 204 (other sessions end)                                     |
-| ✅ GET              | `/me` · `/me/sessions` · DELETE `/me/sessions/{id}` | bearer                              | profile + roles + permissions + MFA · sessions                                                    |
-| ✅ POST/DELETE      | `/me/mfa/totp/enroll` · `/confirm` · `/me/mfa/totp` | bearer (enrolment token OK)         | secret + otpauth URL · recovery codes (+ tokens) · 204                                            |
-| ✅ GET/POST         | `/admin/users`                                      | users.view / users.invite           | list (cursor, q, status, userType) · create (temp password, roles[])                              |
-| ✅ GET/PATCH/DELETE | `/admin/users/{id}`                                 | users.view / update / suspend       | detail · update · soft delete                                                                     |
-| ✅ PUT              | `/admin/users/{id}/roles`                           | roles.assign                        | `{ roles: [{ roleKey, scopeType, scopeId? }], reason }` (full set, diff)                          |
-| ✅ POST             | `/admin/users/{id}/block` · `/unblock`              | users.suspend                       | `{ reason }` → user (block ends sessions)                                                         |
-| ✅ PATCH            | `/admin/users/{id}/status`                          | users.suspend                       | `{ status, reason }`                                                                              |
-| ✅ GET              | `/admin/users/{id}/sessions`                        | users.sessions_view                 | live sessions                                                                                     |
-| ✅ POST             | `/admin/users/{id}/force-logout`                    | users.sessions_revoke               | `{ reason }` → `{ revokedSessions, accessTokensBlocked }`                                         |
-| ✅ GET/POST         | `/admin/roles`                                      | roles.view / roles.create           | list (cursor, q, audience) · create (key, audience, permissions[])                                |
-| ✅ GET/PATCH        | `/admin/roles/{id}`                                 | roles.view / roles.update           | detail · name/description/MFA/idle (system role locked)                                           |
-| ✅ POST             | `/admin/roles/{id}/archive`                         | roles.archive                       | `{ reason }`                                                                                      |
-| ✅ PUT              | `/admin/roles/{id}/permissions`                     | roles.update                        | `{ permissions[], reason }` (full set; Super-Admin-only keys refused)                             |
-| ✅ GET              | `/admin/permissions`                                | permissions.view                    | fixed catalog grouped by module (read-only)                                                       |
-| ✅ GET              | `/admin/audit-logs`                                 | audit_logs.view                     | filters: actor, subject, target, action, from/to                                                  |
-| GET                 | `/admin/users/{id}/devices` · `/auth-events`        | users.devices_view                  | planned: device list, block device, auth history                                                  |
+| Method              | Path                                                | Auth / permission                    | Request → Response                                                                                |
+| ------------------- | --------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| ✅ GET              | `/.well-known/jwks.json`                            | public                               | Ed25519 JWK Set (gateway verification)                                                            |
+| ✅ POST             | `/auth/otp/send`                                    | public · 5/h per phone, 20/h per IP  | `{ phone }` → `{ sent, expiresIn, resendAfter }` (same for unknown numbers)                       |
+| ✅ POST             | `/auth/otp/verify`                                  | public                               | `{ phone, code, deviceId? }` → AuthTokens (+ `isNewUser`); staff → 403                            |
+| ✅ POST             | `/auth/admin/login`                                 | public · 10/15 min per identifier    | `{ identifier, password, deviceId? }` → AuthTokens \| `mfa_required` \| `mfa_enrollment_required` |
+| ✅ POST             | `/auth/mfa/verify`                                  | public (challenge)                   | `{ challengeId, code \| recoveryCode }` → AuthTokens                                              |
+| ✅ POST             | `/auth/refresh`                                     | public · 60/min per IP               | `{ refreshToken }` → new AuthTokens (rotation; reuse revokes family)                              |
+| ✅ POST             | `/auth/logout` · `/auth/logout-all`                 | bearer                               | → 204 · `{ revokedSessions }`                                                                     |
+| ✅ POST             | `/auth/password/forgot` · `/auth/password/reset`    | public · 3/h                         | `{ identifier }` → `{ sent }` · `{ identifier, code, newPassword }` → 204                         |
+| ✅ POST             | `/auth/password/change`                             | bearer                               | `{ currentPassword, newPassword }` → 204 (other sessions end)                                     |
+| ✅ POST             | `/auth/invitations/accept`                          | public · 10/h per email, 30/h per IP | `{ email, code, newPassword }` → 204; same answer for an unknown email (invite-only staff, D-56)  |
+| ✅ GET              | `/me` · `/me/sessions` · DELETE `/me/sessions/{id}` | bearer                               | profile + roles + permissions + MFA · sessions                                                    |
+| ✅ POST/DELETE      | `/me/mfa/totp/enroll` · `/confirm` · `/me/mfa/totp` | bearer (enrolment token OK)          | secret + otpauth URL · recovery codes (+ tokens) · 204                                            |
+| ✅ GET/POST         | `/admin/users`                                      | users.view / users.invite            | list (cursor, q, status, userType) · create (temp password, roles[])                              |
+| ✅ GET/PATCH/DELETE | `/admin/users/{id}`                                 | users.view / update / suspend        | detail · update · soft delete                                                                     |
+| ✅ PUT              | `/admin/users/{id}/roles`                           | roles.assign                         | `{ roles: [{ roleKey, scopeType, scopeId? }], reason }` (full set, diff)                          |
+| ✅ POST             | `/admin/users/{id}/block` · `/unblock`              | users.suspend                        | `{ reason }` → user (block ends sessions)                                                         |
+| ✅ PATCH            | `/admin/users/{id}/status`                          | users.suspend                        | `{ status, reason }`                                                                              |
+| ✅ GET              | `/admin/users/{id}/sessions`                        | users.sessions_view                  | live sessions                                                                                     |
+| ✅ POST             | `/admin/users/{id}/force-logout`                    | users.sessions_revoke                | `{ reason }` → `{ revokedSessions, accessTokensBlocked }`                                         |
+| ✅ GET/POST         | `/admin/roles`                                      | roles.view / roles.create            | list (cursor, q, audience) · create (key, audience, permissions[])                                |
+| ✅ GET/PATCH        | `/admin/roles/{id}`                                 | roles.view / roles.update            | detail · name/description/MFA/idle (system role locked)                                           |
+| ✅ POST             | `/admin/roles/{id}/archive`                         | roles.archive                        | `{ reason }`                                                                                      |
+| ✅ PUT              | `/admin/roles/{id}/permissions`                     | roles.update                         | `{ permissions[], reason }` (full set; Super-Admin-only keys refused)                             |
+| ✅ GET              | `/admin/roles/{id}/usage`                           | roles.view                           | staff count + scopes / warehouses holding the role (shown before a template edit, D-56)           |
+| ✅ GET              | `/admin/permissions`                                | permissions.view                     | fixed catalog grouped by module (read-only)                                                       |
+| ✅ GET              | `/admin/audit-logs`                                 | audit_logs.view                      | filters: actor, subject, target, action, from/to                                                  |
+| GET                 | `/admin/users/{id}/devices` · `/auth-events`        | users.devices_view                   | planned: device list, block device, auth history                                                  |
+
+**Internal (service token, never routed; D-56):** `POST /internal/staff/invitations` (+ `/resend`, `/assignments/revoke`),
+`GET /internal/access/scope-members`, `GET /internal/access/warehouse-roles`, `POST /internal/users/contacts` (≤ 100 ids);
+`/internal/access/{userId}/permissions` also returns `warehouses: { <warehouseId>: perms[] }` (WAREHOUSE-scoped grants).
 
 **Tokens:** access = EdDSA JWT 15 min (`sub, sid, jti, typ, roles, scope`); refresh = opaque 256-bit, SHA-256 in `sessions`, rotated.
 **Data (built):** `users`, `credentials`, `password_history`, `mfa_factors`, `mfa_recovery_codes`, `user_devices`, `auth_events`,
@@ -66,6 +72,9 @@ before building.
 
 Images (JPEG/PNG/WebP ≤5 MB) → WebP q80 ≤1920×1080 · videos (MP4 ≤50 MB) → H.264/AAC ≤1080p · PDF (≤10 MB) unchanged.
 Stored at `<BUCKET_FOLDER_PATH>/<uuidv7>.<ext>`, `public-read`. No database table yet (callers store the returned `url`/`key`).
+Private uploads: `?purpose=support` (folder `support/`, D-55) or `?purpose=staff_document` (folder `staff/`, D-56) → not public; the
+response carries an HMAC-signed `receipt` the consuming service verifies locally (each checks its own `purpose`); files are read
+only through 5-minute signed URLs (`/internal/media/sign-read`).
 
 ## 2. Party: customers, farms, KYC, vendors
 
@@ -202,17 +211,17 @@ among live rows. Products will later reference it through a plain indexed (D-21)
 
 ## 7. Leads, ads, liquidation, loyalty, content, support, notifications
 
-| Method    | Path                                                                                                 | Role                                    | Request → Response                      |
-| --------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
-| GET/POST  | `/leads/slots` · `/leads`                                                                            | CUS                                     | slot + question + consent → scored lead |
-| GET/PATCH | `/vendor/leads` · `/vendor/leads/{id}/disposition`                                                   | VND (own)                               | SLA timers, masked call                 |
-| GET/POST  | `/vendor/ads/fares` · `/vendor/ads/bookings` · `/vendor/creatives`                                   | VND                                     | 15-minute hold, payment, creative       |
-| POST      | `/admin/ads/bookings/{id}/authorize` · `/admin/creatives/{id}/validate`                              | ads (P18) / content (P19)               | different users                         |
-| GET/POST  | `/vendor/liquidation/batches` · `/vendor/liquidation/programmes`                                     | VND                                     | within guardrails; else approval        |
-| GET       | `/loyalty/me` · `/loyalty/points` · `/referrals`                                                     | CUS                                     | tier, points, benefits                  |
-| GET       | ✅ `/farms/content/feed` · `/farms/content/{idOrSlug}` · `/admin/farms/content` (farm-service, D-50) | CUS / content.manage · review · publish | EN only, targeting by farm segment      |
-| POST/GET  | `/support/tickets` · `/support/tickets/{id}/messages`                                                | CUS / support.manage                    | with order context                      |
-| GET/PATCH | `/me/notifications` · `/admin/notifications/templates`                                               | CUS / notifications.manage              | inbox, templates                        |
+| Method    | Path                                                                                                                 | Role                                                         | Request → Response                       |
+| --------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| GET/POST  | `/leads/slots` · `/leads`                                                                                            | CUS                                                          | slot + question + consent → scored lead  |
+| GET/PATCH | `/vendor/leads` · `/vendor/leads/{id}/disposition`                                                                   | VND (own)                                                    | SLA timers, masked call                  |
+| GET/POST  | `/vendor/ads/fares` · `/vendor/ads/bookings` · `/vendor/creatives`                                                   | VND                                                          | 15-minute hold, payment, creative        |
+| POST      | `/admin/ads/bookings/{id}/authorize` · `/admin/creatives/{id}/validate`                                              | ads (P18) / content (P19)                                    | different users                          |
+| GET/POST  | `/vendor/liquidation/batches` · `/vendor/liquidation/programmes`                                                     | VND                                                          | within guardrails; else approval         |
+| GET       | `/loyalty/me` · `/loyalty/points` · `/referrals`                                                                     | CUS                                                          | tier, points, benefits                   |
+| GET       | ✅ `/farms/content/feed` · `/farms/content/{idOrSlug}` · `/admin/farms/content` (farm-service, D-50)                 | CUS / content.manage · review · publish                      | EN only, targeting by farm segment       |
+| POST/GET  | ✅ `/support/tickets*` · `/support/chat/ws` · `/faqs` · `/legal/{kind}` · `/support/admin/*` (support-service, D-55) | CUS · VND · LOG · WH / support.* · faq.manage · legal.manage | priority + SLA, live chat, order context |
+| GET/PATCH | `/me/notifications` · `/admin/notifications/templates`                                                               | CUS / notifications.manage                                   | inbox, templates                         |
 
 ## 8. Logistics, warehouse, QMS (from Logistics PRD §10)
 
@@ -234,6 +243,31 @@ among live rows. Products will later reference it through a plain indexed (D-21)
 | CRUD     | `/admin/nodes` · `/admin/vehicles` · `/admin/drivers` · `/admin/assets`             | ADM, FLT           | masters, documents, calibration              |
 | CRUD     | `/procurement/quotations` · `/purchase-orders` · `/receipts` · `/transfers`         | P7, P9/P10         | PO approval bands, GRN, 3-way match          |
 
+## 8b. Warehouse portal (warehouse-service :3014) — ✅ built (D-56: Login + W2)
+
+Gateway `/v1/admin/warehouses/*` and `/v1/admin/wms/*`. Staff tokens only; permissions `warehouse.view | configure | operate |
+team_manage` (GLOBAL or one warehouse) and `warehouse.create | status_change` (GLOBAL). A warehouse outside the caller's
+scope → 404. Screen → API map for the frontend: `docs/warehouse/README.md`.
+
+| Method                   | Path (under `/admin/warehouses` unless noted)                                                                       | Permission                | Purpose                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| ✅ GET                   | `/admin/wms/me` · `/admin/wms/search?q`                                                                             | staff                     | switcher, sidebar `modules`, header search                                               |
+| ✅ GET                   | `/` · `/summary` · `/export.csv` · `/code-availability` · `/lookups` · `/lookups/districts`                         | view / create             | W2.01 list + KPIs (stock, used kg, capacity %), CSV, wizard helpers                      |
+| ✅ POST/GET/PATCH/DELETE | `/` · `/{id}`                                                                                                       | create / view / configure | SETUP draft, details (+ `stock`, `setup.steps`), edit (`expectedVersion`), discard draft |
+| ✅ POST                  | `/{id}/activate` · `/limit` · `/deactivate` · `/reactivate`                                                         | status_change             | state machine; checklist (422); 409 `HAS_OPEN_ORDERS`                                    |
+| ✅ CRUD                  | `/{id}/service-areas` (+ `/{areaId}/reassign`) · GET `/coverage/{pin}`                                              | view / configure          | W2.04 districts, PIN ranges, priority; imported PINs → district                          |
+| ✅ CRUD                  | `/{id}/zones` · `/racks` · `/bins` · GET `/{id}/storage/layout`                                                     | view / configure          | W2.05 storage; bins within rack limits                                                   |
+| ✅ CRUD                  | `/{id}/team` (+ `/resend-invite`, `/documents`) · GET `/team/roles`                                                 | view / team_manage        | W2.06 invite-only staff, documents, read-only roles panel                                |
+| ✅ CRUD                  | `/{id}/dock-doors` · `/staging-areas` · `/yard-slots` · GET `/{id}/dock-yard`                                       | view / configure          | W2.07 setup + KPIs (capacity per unit)                                                   |
+| ✅ POST                  | `/{id}/dock-doors/{doorId}/bookings` · `/{id}/dock-bookings/{id}/start\|complete\|cancel` · yard `/occupy\|release` | operate                   | bookings (no overlap, 409 `DOCK_BUSY`), yard moves                                       |
+| ✅ GET/PUT/CRUD          | `/{id}/calendar` · `/operating-hours` · `/cutoffs` · `/shifts` · `/holidays`                                        | view / configure          | W2.09                                                                                    |
+| ✅ CRUD                  | `/{id}/storage-rules` (+ `/summary`)                                                                                | view / configure          | W2.08, `NOT_ENFORCED` until put-away (W8)                                                |
+| ✅ GET                   | `/{id}/overview` · `/{id}/stock-by-category` · `/{id}/orders?status`                                                | view                      | W2.03 cards, status board, stock tab, active orders                                      |
+
+**Events:** publishes `warehouse.upserted.v1`, `warehouse.coverage_replaced.v1` (inventory keeps a projection); consumes order /
+reservation events into the order read model. **Jobs:** BullMQ `refresh-stats` pulls inventory
+`GET /internal/inventory/warehouse-stats` every minute.
+
 ## 9. DB models and relations
 
 - **✅ Built (`packages/database/prisma/schema/auth/`):**
@@ -241,6 +275,19 @@ among live rows. Products will later reference it through a plain indexed (D-21)
   - `user_devices`, `auth_events`;
   - `roles`, `permissions`, `role_permissions`, `user_roles` (scoped);
   - `sessions`, `admin_audit_log`, `outbox_events`, `processed_events`.
+- **✅ Built (`packages/database/prisma/schema/warehouse/`, D-56):**
+  - `warehouse_warehouses` (one live MOTHER, trigram search, `reviewFields`), `warehouse_status_events`,
+    `warehouse_audit_log` (append-only);
+  - `warehouse_service_areas` 1–N `warehouse_service_area_pins` (DISTRICT / IMPORTED areas, priority ranks);
+  - `warehouse_zones` 1–N `warehouse_racks` 1–N `warehouse_bins`;
+  - `warehouse_dock_doors` 1–N `warehouse_dock_bookings` (exclusion constraint: no overlap per door),
+    `warehouse_staging_areas`, `warehouse_yard_slots`;
+  - `warehouse_operating_hours`, `warehouse_shifts`, `warehouse_holidays`, `warehouse_cutoffs`, `warehouse_storage_rules`;
+  - `warehouse_staff_profiles`, `warehouse_staff_documents` (roles stay in auth);
+  - read models: `warehouse_stock_current`, `warehouse_stock_by_category`, `warehouse_daily_stats`,
+    `warehouse_order_headers`, `warehouse_order_allocations`;
+  - inventory keeps `inventory_warehouses` + coverage as a projection (same ids); its variant projection adds
+    `rootCategoryId` + `weightGrams`; `inventory_stock_ledger` has a BRIN index on `createdAt`.
 - **Party:**
   - `Owner` 1–N `FarmUnit` (immutable `farmId`, `territoryId`, `productionTypes[]`, versioned
     `FarmProfile`);

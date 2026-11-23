@@ -1,0 +1,53 @@
+// warehouse-service feature: service-areas (D-56). The districts and PIN codes each warehouse
+// serves, by allocation priority. The complete PIN list of a warehouse is published as
+// warehouse.coverage_replaced.v1 (inventory allocation reads its copy).
+// warehouseId is a plain uuid (warehouses feature): no relation across features.
+
+enum WmsAreaPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+/// DISTRICT = set up on the Service Area screen; IMPORTED = PINs copied from inventory (no
+/// district known yet; an admin moves them to districts).
+enum WmsServiceAreaKind {
+  DISTRICT
+  IMPORTED
+}
+
+model WmsServiceArea {
+  id              String             @id @default(uuid(7)) @db.Uuid
+  warehouseId     String             @db.Uuid
+  kind            WmsServiceAreaKind @default(DISTRICT)
+  /// Required for DISTRICT areas, null for IMPORTED (CHECK in the migration).
+  stateCode       String?            @db.Char(2)
+  district        String?            @db.VarChar(80)
+  priority        WmsAreaPriority?
+  pinCount        Int                @default(0)
+  createdByUserId String?            @db.Uuid
+  updatedByUserId String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  pins WmsServiceAreaPin[]
+
+  @@index([warehouseId])
+  @@map("warehouse_service_areas")
+}
+
+/// One PIN served by a warehouse (a PIN is in at most one area per warehouse).
+model WmsServiceAreaPin {
+  warehouseId  String @db.Uuid
+  pinCode      String @db.Char(6)
+  areaId       String @db.Uuid
+  /// Lower = tried first. DISTRICT: from priority (10 / 50 / 90). IMPORTED: the old exact value.
+  priorityRank Int
+
+  area WmsServiceArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@id([warehouseId, pinCode])
+  @@index([pinCode, priorityRank])
+  @@index([areaId])
+  @@map("warehouse_service_area_pins")
+}

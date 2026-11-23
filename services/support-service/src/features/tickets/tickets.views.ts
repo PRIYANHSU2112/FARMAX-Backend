@@ -7,7 +7,7 @@ export const maskPhone = (phone: string | null): string | null =>
 const DONE = new Set(['RESOLVED', 'CLOSED']);
 
 /** What the requester's app sees (no internal ids of staff, masked phone). */
-export const requesterView = (t: TicketRow, lastReadSeq: number) => ({
+export const requesterView = (t: TicketRow, unreadCount: number) => ({
   id: t.id,
   ticketNo: t.ticketNo,
   app: t.app,
@@ -32,7 +32,7 @@ export const requesterView = (t: TicketRow, lastReadSeq: number) => ({
   lastSeq: t.lastPublicSeq,
   lastMessageAt: t.lastMessageAt,
   lastMessagePreview: t.lastMessagePreview,
-  unreadCount: Math.max(t.lastPublicSeq - lastReadSeq, 0),
+  unreadCount,
   version: t.version,
   createdAt: t.createdAt,
 });
@@ -41,7 +41,7 @@ export type RequesterTicketView = ReturnType<typeof requesterView>;
 
 /** Agent console view (full SLA + requester facts). */
 export const agentView = (t: TicketRow) => ({
-  ...requesterView(t, t.lastSeq),
+  ...requesterView(t, 0),
   requester: { id: t.requesterId, type: t.requesterType, name: t.requesterName },
   farmId: t.farmId,
   agent: t.assigneeId === null ? null : { id: t.assigneeId, name: t.assigneeName },
@@ -100,4 +100,6 @@ export const publicMessage = (m: MessageView) => ({
 });
 
 export const messageFor = (m: MessageView, viewerId: string, agent: boolean) =>
-  agent ? { ...m, mine: m.senderId === viewerId } : { ...publicMessage(m), mine: m.senderId === viewerId };
+  agent
+    ? { ...m, mine: m.senderId === viewerId }
+    : { ...publicMessage(m), mine: m.senderId === viewerId };

@@ -1,0 +1,26 @@
+// auth-service feature: deletion. Self-service account deletion with a grace period (DPDP):
+// request (step-up OTP) → user PENDING_DELETION + every session revoked → recovery login can
+// cancel → after the grace period a job anonymises the user and emits user.deleted.v1.
+// One PENDING request per user (partial unique index in the migration).
+
+enum AccountDeletionStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+model AccountDeletionRequest {
+  id           String                @id @default(uuid(7)) @db.Uuid
+  userId       String                @db.Uuid
+  reason       String?               @db.VarChar(500)
+  status       AccountDeletionStatus @default(PENDING)
+  requestedAt  DateTime              @default(now())
+  /// requestedAt + grace period; the purge job picks PENDING rows past it.
+  scheduledFor DateTime
+  cancelledAt  DateTime?
+  completedAt  DateTime?
+
+  @@index([status, scheduledFor])
+  @@index([userId])
+  @@map("account_deletion_requests")
+}

@@ -162,6 +162,17 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     upstream: config.SUPPORT_SERVICE_URL,
     rewritePrefix: '/health',
   },
+  // warehouse-service (D-56): staff only. The warehouse master moved here from inventory-service.
+  ...(['/admin/warehouses', '/admin/wms'] as const).map((path) => ({
+    prefix: '/v1' + path,
+    upstream: config.WAREHOUSE_SERVICE_URL,
+    rewritePrefix: path,
+  })),
+  {
+    prefix: '/v1/warehouse-service/health',
+    upstream: config.WAREHOUSE_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
 ];
 
 /** Service-to-service routes are never reachable through the gateway, whatever the prefix. */

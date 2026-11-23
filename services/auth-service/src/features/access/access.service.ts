@@ -11,13 +11,17 @@ import {
   type PermissionGroupView,
   type RoleAssignment,
   type RoleListQuery,
+  type RoleUsage,
   type RoleView,
   SCOPES_WITH_ID,
+  type ScopeMember,
+  type ScopeType,
   type SetRolePermissionsInput,
   type SetUserRolesInput,
   type SetUserRolesResult,
   type UpdateRoleInput,
   type UserAccess,
+  type WarehouseRoleTemplate,
 } from './access.types.js';
 import { PERMISSION_CATALOG } from './permissions.catalog.js';
 
@@ -29,8 +33,24 @@ type Deps = Pick<
 /** Bumped on ANY role/permission change: every cached access entry becomes stale in O(1). */
 const RBAC_VERSION_KEY = authKeys.rbacVersion();
 
+/**
+ * Shape marker of the cached entry. 2 = adds `warehouses` (D-56). Entries without it (written by
+ * an older build) are reloaded. Other services read `v` + `permissions` only and ignore the rest.
+ */
+const ACCESS_CACHE_SCHEMA = 2;
+
 interface CachedAccess extends UserAccess {
   v: string;
+  s: number;
+}
+
+/** A WAREHOUSE-scoped grant: the role must be a warehouse template (checked by the caller). */
+export interface WarehouseGrant {
+  userId: string;
+  roleId: string;
+  warehouseId: string;
+  actorUserId: string;
+  reason: string;
 }
 
 const assignmentKey = (roleId: string, scopeType: string, scopeId: string | null) =>
@@ -68,7 +88,7 @@ export class AccessService {
     return this.deps.accessRepository.listPermissionHolderIds(permission, warehouseId, new Date());
   }
 
-  /** Roles, GLOBAL permissions, MFA flag and idle timeout for a user (cached). */
+  /** Roles, GLOBAL + per-warehouse permissions, MFA flag and idle timeout for a user (cached). */
   async getUserAccess(userId: string): Promise<UserAccess> {
     const { redis, logger, accessRepository } = this.deps;
     const cacheKey = authKeys.permissions(userId);
@@ -78,10 +98,11 @@ export class AccessService {
       version = v ?? '0';
       if (typeof cached === 'string') {
         const parsed = JSON.parse(cached) as CachedAccess;
-        if (parsed.v === version) {
+        if (parsed.v === version && parsed.s === ACCESS_CACHE_SCHEMA) {
           return {
             roles: parsed.roles,
             permissions: parsed.permissions,
+            warehouses: parsed.warehouses,
             mfaRequired: parsed.mfaRequired,
             sessionIdleMinutes: parsed.sessionIdleMinutes,
           };
@@ -93,12 +114,156 @@ export class AccessService {
 
     const access = await accessRepository.loadUserAccess(userId, new Date());
     try {
-      const value: CachedAccess = { ...access, v: version };
+      const value: CachedAccess = { ...access, v: version, s: ACCESS_CACHE_SCHEMA };
       await redis.set(cacheKey, JSON.stringify(value), 'EX', ACCESS_CACHE_TTL_SECONDS);
     } catch {
       // Cache write is best-effort.
     }
     return access;
+  }
+
+  /** Effective permissions at one warehouse: GLOBAL ∪ that warehouse's grants. */
+  async permissionsAt(userId: string, warehouseId: string): Promise<Set<string>> {
+    const access = await this.getUserAccess(userId);
+    return new Set([...access.permissions, ...(access.warehouses[warehouseId] ?? [])]);
+  }
+
+  /** Active members of a warehouse (or another id-scope) with the roles they hold there. */
+  listScopeMembers(scopeType: ScopeType, scopeId: string): Promise<ScopeMember[]> {
+    return this.deps.accessRepository.listScopeMembers(scopeType, scopeId, new Date());
+  }
+
+  /** How widely a role is used (shown before a global role-template edit). */
+  async getRoleUsage(id: string): Promise<RoleUsage> {
+    const role = await this.getRole(id);
+    const rows = await this.deps.accessRepository.listRoleAssignments([id], new Date());
+    const scopes = new Map<string, RoleUsage['scopes'][number]>();
+    for (const row of rows) {
+      const key = `${row.scopeType}|${row.scopeId ?? ''}`;
+      const entry = scopes.get(key) ?? {
+        scopeType: row.scopeType,
+        scopeId: row.scopeId,
+        holders: 0,
+      };
+      entry.holders += 1;
+      scopes.set(key, entry);
+    }
+    return {
+      roleId: role.id,
+      roleKey: role.key,
+      staffCount: new Set(rows.map((row) => row.userId)).size,
+      warehouseCount: new Set(
+        rows.filter((row) => row.scopeType === 'WAREHOUSE').map((row) => row.scopeId),
+      ).size,
+      scopes: [...scopes.values()].sort((a, b) => b.holders - a.holders),
+    };
+  }
+
+  /**
+   * Roles that may be granted at one warehouse: INTERNAL, not system, live, at least one
+   * permission and EVERY permission allows WAREHOUSE scope. Editing them is a central (global)
+   * action through the roles API; warehouse screens only read this list.
+   */
+  async listWarehouseRoleTemplates(): Promise<WarehouseRoleTemplate[]> {
+    const { accessRepository } = this.deps;
+    const roles = (await accessRepository.listInternalRolesWithScopes()).filter(
+      (role) =>
+        role.permissions.length > 0 &&
+        role.permissions.every((p) => p.allowedScopes.includes('WAREHOUSE')),
+    );
+    const rows = await accessRepository.listRoleAssignments(
+      roles.map((role) => role.id),
+      new Date(),
+    );
+    return roles.map((role) => {
+      const mine = rows.filter((row) => row.roleId === role.id);
+      return {
+        id: role.id,
+        key: role.key,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions.map((p) => p.key).sort(),
+        usage: {
+          staffCount: new Set(mine.map((row) => row.userId)).size,
+          warehouseCount: new Set(
+            mine.filter((row) => row.scopeType === 'WAREHOUSE').map((row) => row.scopeId),
+          ).size,
+        },
+      };
+    });
+  }
+
+  /** The template by id, or 400 when the role cannot be granted at a warehouse. */
+  async requireWarehouseRoleTemplate(roleId: string): Promise<WarehouseRoleTemplate> {
+    const template = (await this.listWarehouseRoleTemplates()).find((role) => role.id === roleId);
+    if (template === undefined)
+      throw new BadRequestError('This role cannot be granted at a warehouse');
+    return template;
+  }
+
+  /**
+   * Adds one WAREHOUSE-scoped assignment inside the caller's transaction. Idempotent: an active
+   * identical assignment is returned as is (`added: false`). The caller audits, revokes sessions
+   * and calls `invalidateUser` after commit.
+   */
+  async grantWarehouseRole(
+    grant: WarehouseGrant,
+    tx: Tx,
+  ): Promise<{ assignment: RoleAssignment; added: boolean }> {
+    const { accessRepository } = this.deps;
+    const now = new Date();
+    const existing = (await accessRepository.listActiveAssignments([grant.userId], now, tx))
+      .map((row) => row.assignment)
+      .find(
+        (a) =>
+          a.roleId === grant.roleId &&
+          a.scopeType === 'WAREHOUSE' &&
+          a.scopeId === grant.warehouseId,
+      );
+    if (existing !== undefined) return { assignment: existing, added: false };
+    const assignment = await accessRepository.createAssignment(
+      {
+        userId: grant.userId,
+        roleId: grant.roleId,
+        scopeType: 'WAREHOUSE',
+        scopeId: grant.warehouseId,
+        assignedByUserId: grant.actorUserId,
+        reason: grant.reason,
+      },
+      tx,
+    );
+    return { assignment, added: true };
+  }
+
+  /** Revokes the user's active assignments at one warehouse (all roles, or just `roleId`). */
+  async revokeWarehouseRoles(
+    input: {
+      userId: string;
+      warehouseId: string;
+      roleId: string | null;
+      actorUserId: string;
+      reason: string;
+    },
+    tx: Tx,
+  ): Promise<RoleAssignment[]> {
+    const { accessRepository } = this.deps;
+    const now = new Date();
+    const removed = (await accessRepository.listActiveAssignments([input.userId], now, tx))
+      .map((row) => row.assignment)
+      .filter(
+        (a) =>
+          a.scopeType === 'WAREHOUSE' &&
+          a.scopeId === input.warehouseId &&
+          (input.roleId === null || a.roleId === input.roleId),
+      );
+    await accessRepository.revokeAssignments(
+      removed.map((a) => a.id),
+      input.actorUserId,
+      input.reason,
+      now,
+      tx,
+    );
+    return removed;
   }
 
   /** Default deny: true only if an active GLOBAL assignment grants the permission. */

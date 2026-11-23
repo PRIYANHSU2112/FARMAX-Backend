@@ -29,7 +29,13 @@ const svc = (req: FastifyRequest) => req.diScope.resolve('faqsService');
 export const faqsRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { app: App } }>(
     '/faqs/categories',
-    { schema: { querystring: Joi.object({ app: APP.required() }), ...routeDocs(FAQ_DOCS.categories) }, preHandler: publicRead },
+    {
+      schema: {
+        querystring: Joi.object({ app: APP.required() }),
+        ...routeDocs(FAQ_DOCS.categories),
+      },
+      preHandler: publicRead,
+    },
     async (req, reply) => {
       void reply.header('cache-control', 'public, max-age=60');
       return ok(await svc(req).categories(req.query.app));
@@ -59,7 +65,11 @@ export const faqsRoutes: FastifyPluginAsync = async (app) => {
     '/support/suggestions',
     {
       schema: {
-        querystring: Joi.object({ app: APP.required(), topic: CODE.required(), q: Joi.string().trim().max(200).allow('') }),
+        querystring: Joi.object({
+          app: APP.required(),
+          topic: CODE.required(),
+          q: Joi.string().trim().max(200).allow(''),
+        }),
         ...routeDocs(FAQ_DOCS.suggestions),
       },
       preHandler: publicRead,
@@ -69,7 +79,11 @@ export const faqsRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Params: { id: string }; Body: { helpful: boolean } }>(
     '/faqs/:id/feedback',
     {
-      schema: { ...idParams, body: Joi.object({ helpful: Joi.boolean().required() }), ...routeDocs(FAQ_DOCS.feedback) },
+      schema: {
+        ...idParams,
+        body: Joi.object({ helpful: Joi.boolean().required() }),
+        ...routeDocs(FAQ_DOCS.feedback),
+      },
       preHandler: requesterWrite,
     },
     async (req) => ok(await svc(req).feedback(req.user?.id ?? '', req.params.id, req.body.helpful)),
@@ -78,26 +92,40 @@ export const faqsRoutes: FastifyPluginAsync = async (app) => {
   // ── Admin (/faqs/admin/*) ──
   app.get<{ Querystring: { app?: App } }>(
     '/faqs/admin/categories',
-    { schema: { querystring: Joi.object({ app: APP }), ...routeDocs(FAQ_DOCS.adminCategories) }, preHandler: admin('faq.manage') },
+    {
+      schema: { querystring: Joi.object({ app: APP }), ...routeDocs(FAQ_DOCS.adminCategories) },
+      preHandler: admin('faq.manage'),
+    },
     async (req) => ok(await svc(req).adminCategories(req.query.app)),
   );
   app.post<{ Body: CategoryInput }>(
     '/faqs/admin/categories',
     {
       schema: {
-        body: Joi.object({ app: APP.required(), code: CODE.required(), title: Joi.string().trim().min(2).max(80).required(), sortOrder: Joi.number().integer().min(0).max(999), isActive: Joi.boolean() }),
+        body: Joi.object({
+          app: APP.required(),
+          code: CODE.required(),
+          title: Joi.string().trim().min(2).max(80).required(),
+          sortOrder: Joi.number().integer().min(0).max(999),
+          isActive: Joi.boolean(),
+        }),
         ...routeDocs(FAQ_DOCS.createCategory),
       },
       preHandler: adminWrite('faq.manage'),
     },
-    async (req, reply) => reply.status(201).send(ok(await svc(req).createCategory(actorOf(req), req.body))),
+    async (req, reply) =>
+      reply.status(201).send(ok(await svc(req).createCategory(actorOf(req), req.body))),
   );
   app.patch<{ Params: { id: string }; Body: Partial<CategoryInput> }>(
     '/faqs/admin/categories/:id',
     {
       schema: {
         ...idParams,
-        body: Joi.object({ title: Joi.string().trim().min(2).max(80), sortOrder: Joi.number().integer().min(0).max(999), isActive: Joi.boolean() }).min(1),
+        body: Joi.object({
+          title: Joi.string().trim().min(2).max(80),
+          sortOrder: Joi.number().integer().min(0).max(999),
+          isActive: Joi.boolean(),
+        }).min(1),
         ...routeDocs(FAQ_DOCS.updateCategory),
       },
       preHandler: adminWrite('faq.manage'),
@@ -106,7 +134,13 @@ export const faqsRoutes: FastifyPluginAsync = async (app) => {
   );
   app.get<{ Querystring: { app?: App; categoryId?: string } }>(
     '/faqs/admin/items',
-    { schema: { querystring: Joi.object({ app: APP, categoryId: ID }), ...routeDocs(FAQ_DOCS.adminList) }, preHandler: admin('faq.manage') },
+    {
+      schema: {
+        querystring: Joi.object({ app: APP, categoryId: ID }),
+        ...routeDocs(FAQ_DOCS.adminList),
+      },
+      preHandler: admin('faq.manage'),
+    },
     async (req) => ok(await svc(req).adminList(req.query.app, req.query.categoryId)),
   );
   app.post<{ Body: FaqInput }>(
@@ -124,21 +158,30 @@ export const faqsRoutes: FastifyPluginAsync = async (app) => {
       },
       preHandler: adminWrite('faq.manage'),
     },
-    async (req, reply) => reply.status(201).send(ok(await svc(req).createFaq(actorOf(req), req.body))),
+    async (req, reply) =>
+      reply.status(201).send(ok(await svc(req).createFaq(actorOf(req), req.body))),
   );
   app.patch<{ Params: { id: string }; Body: Partial<FaqInput> }>(
     '/faqs/admin/items/:id',
     {
-      schema: { ...idParams, body: Joi.object({ app: APP, ...faqFields }).min(1), ...routeDocs(FAQ_DOCS.updateFaq) },
+      schema: {
+        ...idParams,
+        body: Joi.object({ app: APP, ...faqFields }).min(1),
+        ...routeDocs(FAQ_DOCS.updateFaq),
+      },
       preHandler: adminWrite('faq.manage'),
     },
-    async (req) => ok(await svc(req).updateFaq(actorOf(req), req.params.id, req.body.app, req.body)),
+    async (req) =>
+      ok(await svc(req).updateFaq(actorOf(req), req.params.id, req.body.app, req.body)),
   );
   app.post<{ Body: { app: App; ids: string[] } }>(
     '/faqs/admin/reorder',
     {
       schema: {
-        body: Joi.object({ app: APP.required(), ids: Joi.array().items(ID).min(1).max(500).unique().required() }),
+        body: Joi.object({
+          app: APP.required(),
+          ids: Joi.array().items(ID).min(1).max(500).unique().required(),
+        }),
         ...routeDocs(FAQ_DOCS.reorder),
       },
       preHandler: adminWrite('faq.manage'),

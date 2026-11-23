@@ -23,6 +23,7 @@ describe('route map', () => {
         CALL_SERVICE_URL: 'http://call:3011',
         WALLET_SERVICE_URL: 'http://wallet:3012',
         SUPPORT_SERVICE_URL: 'http://support:3013',
+        WAREHOUSE_SERVICE_URL: 'http://warehouse:3014',
       }),
     ).toEqual([
       { prefix: '/v1/auth', upstream: 'http://auth:3001', rewritePrefix: '' },
@@ -144,6 +145,17 @@ describe('route map', () => {
       {
         prefix: '/v1/support-service/health',
         upstream: 'http://support:3013',
+        rewritePrefix: '/health',
+      },
+      {
+        prefix: '/v1/admin/warehouses',
+        upstream: 'http://warehouse:3014',
+        rewritePrefix: '/admin/warehouses',
+      },
+      { prefix: '/v1/admin/wms', upstream: 'http://warehouse:3014', rewritePrefix: '/admin/wms' },
+      {
+        prefix: '/v1/warehouse-service/health',
+        upstream: 'http://warehouse:3014',
         rewritePrefix: '/health',
       },
     ]);

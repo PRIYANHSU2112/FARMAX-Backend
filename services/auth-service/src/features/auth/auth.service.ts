@@ -4,9 +4,11 @@ import {
   BadRequestError,
   ConflictError,
   ForbiddenError,
+  RateLimitError,
   UnauthorizedError,
 } from '@farmx/common/errors';
 import type { AuthUser } from '@farmx/common/types';
+import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 
 import type { LoginUserRecord } from '../users/index.js';
@@ -19,6 +21,7 @@ import {
   type MfaEnrollmentResponse,
   type OtpSendResult,
   type RequestMeta,
+  STAFF_INVITE_TTL_SECONDS,
   type TotpConfirmResult,
   type TotpEnrollment,
 } from './auth.types.js';
@@ -54,6 +57,17 @@ const mask = (identifier: string): string =>
 
 const isUsable = (user: LoginUserRecord): boolean =>
   user.deletedAt === null && user.status === 'ACTIVE';
+
+/** PENDING_DELETION gets its own reason: the app offers "Restore my account" (recovery flow). */
+const inactiveError = (user: LoginUserRecord): ForbiddenError =>
+  user.status === 'PENDING_DELETION'
+    ? new ForbiddenError(
+        'This account is scheduled for deletion. Restore it with account recovery.',
+        {
+          details: { reason: 'ACCOUNT_PENDING_DELETION' },
+        },
+      )
+    : new ForbiddenError('This account is not active');
 
 /**
  * Public API of the auth feature: customer OTP login, admin password + TOTP MFA login, refresh
@@ -118,7 +132,7 @@ export class AuthService {
         reason: 'inactive',
         ...this.metaOf(meta),
       });
-      throw new ForbiddenError('This account is not active');
+      throw inactiveError(user);
     }
     await this.event({
       type: 'OTP_VERIFIED',
@@ -168,7 +182,7 @@ export class AuthService {
         reason: 'inactive',
         ...this.metaOf(meta),
       });
-      throw new ForbiddenError('This account is not active');
+      throw inactiveError(candidate);
     }
 
     const [access, hasTotp] = await Promise.all([
@@ -233,6 +247,11 @@ export class AuthService {
   }
 
   // ── Tokens ───────────────────────────────────────────────────────────────────────────────
+
+  /** Deletes credentials, password history, MFA factors / codes and devices (account purge). */
+  purgeUserData(userId: string, tx: Tx): Promise<void> {
+    return this.deps.authRepository.purgeUser(userId, tx);
+  }
 
   async refresh(refreshToken: string, meta: RequestMeta): Promise<AuthTokens> {
     const result = await this.deps.sessionsService.rotate(refreshToken, meta);
@@ -371,6 +390,89 @@ export class AuthService {
       type: 'PASSWORD_RESET',
       success: true,
       userId: user.id,
+      ...this.metaOf(meta),
+    });
+  }
+
+  // ── Warehouse staff invitations (D-56) ───────────────────────────────────────────────────
+
+  /**
+   * Emails a 48 h invitation code to a PENDING staff account. Returns false when delivery failed
+   * (the account and its role stay; the inviter can resend). 429 inside the resend cooldown.
+   */
+  async sendStaffInvitation(user: {
+    id: string;
+    email: string | null;
+    fullName: string;
+  }): Promise<boolean> {
+    const { email } = user;
+    if (email === null) return false;
+    const deliver = async (code: string) => {
+      const text = [
+        `Hello ${user.fullName},`,
+        `You have been invited to the FarmX Warehouse portal. Your invitation code is ${code}.`,
+        'It is valid for 48 hours. Open the portal, choose "Accept invitation", enter this email and the code, and set your password.',
+        'If you did not expect this invitation, ignore this message.',
+      ].join('\n\n');
+      await this.deps.emailSender.send(email, 'Your FarmX Warehouse invitation', text);
+    };
+    try {
+      await this.deps.otpService.issue('staff_invite', user.id, deliver, STAFF_INVITE_TTL_SECONDS);
+    } catch (error) {
+      if (error instanceof RateLimitError) throw error;
+      this.deps.logger.warn({ err: error, userId: user.id }, 'staff invitation not delivered');
+      return false;
+    }
+    await this.event({ type: 'OTP_SENT', success: true, userId: user.id, reason: 'staff_invite' });
+    return true;
+  }
+
+  /**
+   * Accept a warehouse invitation: the emailed code proves the address; the account gets its
+   * first password and becomes ACTIVE. Same 400 for an unknown email, a wrong code or an account
+   * that is not a pending invitation (never reveals which).
+   */
+  async acceptStaffInvitation(
+    email: string,
+    code: string,
+    newPassword: string,
+    meta: RequestMeta,
+  ): Promise<void> {
+    const user = await this.deps.usersService.findLoginUser(email);
+    const pending =
+      user !== null &&
+      user.userType === 'INTERNAL' &&
+      user.deletedAt === null &&
+      user.status === 'PENDING_VERIFICATION';
+    const outcome = pending
+      ? await this.deps.otpService.verify('staff_invite', user.id, code)
+      : 'invalid';
+    if (!pending || outcome !== 'ok') {
+      await this.event({
+        type: 'OTP_FAILED',
+        success: false,
+        userId: user?.id ?? null,
+        identifier: user === null ? mask(email) : null,
+        reason: `staff_invite_${outcome}`,
+        ...this.metaOf(meta),
+      });
+      throw new BadRequestError(INVALID_CODE);
+    }
+    const lowered = email.trim().toLowerCase();
+    const hash = await this.deps.credentialsService.hashNewPassword(
+      newPassword,
+      [lowered, lowered.split('@')[0] ?? '', user.fullName].filter((v) => v !== ''),
+      'newPassword',
+    );
+    await this.deps.runInTransaction(async (tx) => {
+      await this.deps.credentialsService.setInvitedPassword(user.id, hash, tx);
+      await this.deps.usersService.activateInvitedStaff(user.id, tx);
+    });
+    await this.event({
+      type: 'PASSWORD_CHANGED',
+      success: true,
+      userId: user.id,
+      reason: 'invitation_accepted',
       ...this.metaOf(meta),
     });
   }

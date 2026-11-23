@@ -816,6 +816,8 @@ export class ProductsService {
       brandId: v.product.brandId,
       hsnCode: v.hsnCode,
       gstRate: v.gstRate === null ? null : v.gstRate.toFixed(2),
+      // Gross grams of one sellable pack: warehouse capacity in kg (D-56).
+      weightGrams: v.weightGrams,
       minOrderQty: v.minOrderQty,
       maxOrderQty: v.maxOrderQty,
       version: v.version,
@@ -1105,9 +1107,19 @@ export class ProductsService {
       brandId: product.brandId,
       hsnCode: v.hsnCode,
       gstRate: v.gstRate === null ? null : v.gstRate.toFixed(2),
+      weightGrams: v.weightGrams,
       minOrderQty: v.minOrderQty,
       maxOrderQty: v.maxOrderQty,
       version: v.version,
+      // D-57: warehouse (WMS) projection fields (additive).
+      brandName: product.brandName,
+      primaryImageUrl:
+        product.media.find((m) => m.kind === 'IMAGE' && (m.variantId === null || m.variantId === v.id))
+          ?.url ?? null,
+      drugSchedule: product.drugSchedule ?? null,
+      isAntimicrobial: product.isAntimicrobial,
+      isVetConsultRequired: product.isVetConsultRequired,
+      hazardClass: product.hazardClass ?? null,
     };
   }
 

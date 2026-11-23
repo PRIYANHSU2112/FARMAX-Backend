@@ -57,8 +57,22 @@ const example = {
   version: 1,
   createdAt: '2026-11-21T09:00:00.000Z',
   lines: [
-    { warehouseId: IDS.warehouse, variantId: IDS.variant, qty: 5, releasedQty: 0, issuedQty: 0, heldQty: 5 },
-    { warehouseId: IDS.depot, variantId: IDS.variant, qty: 7, releasedQty: 0, issuedQty: 0, heldQty: 7 },
+    {
+      warehouseId: IDS.warehouse,
+      variantId: IDS.variant,
+      qty: 5,
+      releasedQty: 0,
+      issuedQty: 0,
+      heldQty: 5,
+    },
+    {
+      warehouseId: IDS.depot,
+      variantId: IDS.variant,
+      qty: 7,
+      releasedQty: 0,
+      issuedQty: 0,
+      heldQty: 7,
+    },
   ],
 };
 
@@ -84,7 +98,12 @@ export const RESERVATION_DOCS = {
     description: 'One variant may be split across warehouses (several lines, e.g. 5 + 7).',
     auth: AUTH_ADMIN,
     permission: 'inventory.view',
-    success: { status: 200, description: 'Reservation', data: reservationSchema, example: ok(example) },
+    success: {
+      status: 200,
+      description: 'Reservation',
+      data: reservationSchema,
+      example: ok(example),
+    },
     errors: [404, 422],
   },
   release: {

@@ -94,6 +94,8 @@ model StockLedgerEntry {
   @@index([warehouseId, variantId, createdAt])
   @@index([variantId, createdAt])
   @@index([refType, refId])
+  /// Append-only, time-ordered: BRIN serves admin `from`/`to` scans across all warehouses (D-56).
+  @@index([createdAt], type: Brin)
   @@map("inventory_stock_ledger")
 }
 

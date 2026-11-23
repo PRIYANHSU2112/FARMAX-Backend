@@ -5,6 +5,7 @@ import { byBodyField, byIp, rateLimit } from '../../middleware/rate-limit.js';
 import { requireAuth, requireAuthAllowingEnrollment } from '../../middleware/require-auth.js';
 import { AUTH_DOCS } from './auth.docs.js';
 import {
+  acceptInvitationSchema,
   adminLoginSchema,
   changePasswordSchema,
   forgotPasswordSchema,
@@ -156,6 +157,24 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       ),
     },
     (request, reply) => controller(request).resetPassword(request, reply),
+  );
+
+  app.post<{ Body: { email: string; code: string; newPassword: string } }>(
+    '/auth/invitations/accept',
+    {
+      schema: { ...acceptInvitationSchema, ...routeDocs(AUTH_DOCS.acceptInvitation) },
+      preHandler: rateLimit(
+        {
+          action: 'invite-accept',
+          dimension: 'id',
+          value: byBodyField('email'),
+          limit: 10,
+          windowSeconds: HOUR,
+        },
+        { action: 'invite-accept', dimension: 'ip', value: byIp, limit: 30, windowSeconds: HOUR },
+      ),
+    },
+    (request, reply) => controller(request).acceptInvitation(request, reply),
   );
 
   app.post<{ Body: { currentPassword: string; newPassword: string } }>(

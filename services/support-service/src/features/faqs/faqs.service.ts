@@ -7,9 +7,18 @@ import type { Cradle } from '@fastify/awilix';
 
 import type { App } from '../../middleware/http.js';
 import type { Actor } from '../audit/index.js';
-import type { CategoryInput, FaqCategoryView, FaqInput, FaqListQuery, FaqView } from './faqs.types.js';
+import type {
+  CategoryInput,
+  FaqCategoryView,
+  FaqInput,
+  FaqListQuery,
+  FaqView,
+} from './faqs.types.js';
 
-type Deps = Pick<Cradle, 'faqsRepository' | 'auditService' | 'runInTransaction' | 'cache' | 'cacheGen'>;
+type Deps = Pick<
+  Cradle,
+  'faqsRepository' | 'auditService' | 'runInTransaction' | 'cache' | 'cacheGen'
+>;
 
 const CONTENT_TTL = 600;
 
@@ -22,13 +31,17 @@ export class FaqsService {
   }
 
   /** Display order, or full-text ranking when `q` is given. `cursor` = next offset. */
-  async list(query: FaqListQuery): Promise<{ items: FaqView[]; nextCursor: string | null; limit: number }> {
+  async list(
+    query: FaqListQuery,
+  ): Promise<{ items: FaqView[]; nextCursor: string | null; limit: number }> {
     const offset = query.cursor === undefined ? 0 : Number(query.cursor);
     const q = query.q?.trim();
-    const rows = await this.cached(['list', query.app, query.categoryId ?? '', q ?? '', offset, query.limit], () =>
-      q === undefined || q === ''
-        ? this.deps.faqsRepository.list(query.app, query.categoryId, offset, query.limit + 1)
-        : this.deps.faqsRepository.search(query.app, q, offset, query.limit + 1),
+    const rows = await this.cached(
+      ['list', query.app, query.categoryId ?? '', q ?? '', offset, query.limit],
+      () =>
+        q === undefined || q === ''
+          ? this.deps.faqsRepository.list(query.app, query.categoryId, offset, query.limit + 1)
+          : this.deps.faqsRepository.search(query.app, q, offset, query.limit + 1),
     );
     const hasMore = rows.length > query.limit;
     return {
@@ -116,18 +129,27 @@ export class FaqsService {
   private async assertCategory(categoryId: string, app: App | undefined): Promise<void> {
     const categoryApp = await this.deps.faqsRepository.categoryApp(categoryId);
     if (categoryApp === null || (app !== undefined && categoryApp !== app))
-      throw new ValidationError([{ path: 'body.categoryId', message: 'is not a category of this app' }]);
+      throw new ValidationError([
+        { path: 'body.categoryId', message: 'is not a category of this app' },
+      ]);
   }
 
   private async write<T extends object>(
     actor: Actor,
     action: string,
     targetType: 'faq' | 'faq_category',
-    work: (tx: Parameters<Parameters<Cradle['runInTransaction']>[0]>[0]) => Promise<{ id: string; row: T }>,
+    work: (
+      tx: Parameters<Parameters<Cradle['runInTransaction']>[0]>[0],
+    ) => Promise<{ id: string; row: T }>,
   ): Promise<T> {
     const { row } = await this.deps.runInTransaction(async (tx) => {
       const result = await work(tx);
-      await this.deps.auditService.record(tx, actor, { action, targetType, targetId: result.id, after: result.row });
+      await this.deps.auditService.record(tx, actor, {
+        action,
+        targetType,
+        targetId: result.id,
+        after: result.row,
+      });
       return result;
     });
     await this.deps.cacheGen.bumpContent();
@@ -136,7 +158,10 @@ export class FaqsService {
 
   private async cached<T>(parts: (string | number)[], load: () => Promise<T>): Promise<T> {
     const gen = await this.deps.cacheGen.content();
-    const hash = createHash('sha1').update(JSON.stringify(['faq', ...parts])).digest('hex').slice(0, 24);
+    const hash = createHash('sha1')
+      .update(JSON.stringify(['faq', ...parts]))
+      .digest('hex')
+      .slice(0, 24);
     return this.deps.cache.getOrSet(supportKeys.content(gen, hash), CONTENT_TTL, load);
   }
 }

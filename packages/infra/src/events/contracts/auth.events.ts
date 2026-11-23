@@ -22,7 +22,7 @@ export type AuthEventType = (typeof AUTH_EVENTS)[keyof typeof AUTH_EVENTS];
 
 export type UserTypeV1 = 'INTERNAL' | 'CUSTOMER' | 'VENDOR' | 'LOGISTICS_PARTNER';
 export type UserStatusV1 =
-  'PENDING_VERIFICATION' | 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED';
+  'PENDING_VERIFICATION' | 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED' | 'PENDING_DELETION';
 
 /** A user account was created (self sign-up, admin, field executive, vendor onboarding). */
 export interface UserRegisteredV1 {

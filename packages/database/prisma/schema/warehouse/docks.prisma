@@ -1,0 +1,135 @@
+// warehouse-service feature: docks (D-56 P2). Dock doors and their bookings, staging areas and
+// yard slots (W2.07). Bookings are manual until Gate (W5) creates them. Times are "HH:mm" in the
+// warehouse's timezone.
+
+enum WmsDockType {
+  UNLOADING
+  LOADING
+  BOTH
+}
+
+enum WmsVehicleClass {
+  MINI_TRUCK
+  TRUCK
+  HEAVY_TRUCK
+  ANY
+}
+
+/// Tonnes and pallets are never added or converted (pallet weight varies).
+enum WmsCapacityUnit {
+  TONNES
+  PALLETS
+}
+
+enum WmsBookingDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WmsBookingStatus {
+  PLANNED
+  IN_USE
+  DONE
+  CANCELLED
+}
+
+enum WmsStagingKind {
+  INBOUND
+  OUTBOUND
+  BOTH
+}
+
+enum WmsSlotStatus {
+  AVAILABLE
+  OCCUPIED
+  BLOCKED
+}
+
+model WmsDockDoor {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  warehouseId     String            @db.Uuid
+  /// Unique per warehouse, e.g. D1.
+  code            String            @db.VarChar(20)
+  name            String            @db.VarChar(80)
+  type            WmsDockType
+  vehicleClass    WmsVehicleClass
+  capacityPerDay  Decimal           @db.Decimal(10, 2)
+  /// Locked while open bookings exist.
+  capacityUnit    WmsCapacityUnit
+  opensAt         String?           @db.VarChar(5)
+  closesAt        String?           @db.VarChar(5)
+  status          WmsResourceStatus @default(ACTIVE)
+  version         Int               @default(0)
+  createdByUserId String?           @db.Uuid
+  updatedByUserId String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  bookings WmsDockBooking[]
+
+  @@unique([warehouseId, code])
+  @@map("warehouse_dock_doors")
+}
+
+/// No two PLANNED / IN_USE bookings of one door overlap (exclusion constraint in the migration).
+model WmsDockBooking {
+  id              String              @id @default(uuid(7)) @db.Uuid
+  warehouseId     String              @db.Uuid
+  dockDoorId      String              @db.Uuid
+  direction       WmsBookingDirection
+  /// Shipment / vehicle reference, e.g. INB-1045 or AP 37 BC 2210.
+  refNo           String              @db.VarChar(40)
+  loadQty         Decimal             @db.Decimal(10, 2)
+  /// Copied from the door at booking time.
+  loadUnit        WmsCapacityUnit
+  plannedStart    DateTime
+  plannedEnd      DateTime
+  status          WmsBookingStatus    @default(PLANNED)
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdByUserId String?             @db.Uuid
+  updatedByUserId String?             @db.Uuid
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  door WmsDockDoor @relation(fields: [dockDoorId], references: [id], onDelete: Restrict)
+
+  @@index([warehouseId, plannedStart])
+  @@index([dockDoorId, status])
+  @@map("warehouse_dock_bookings")
+}
+
+model WmsStagingArea {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  warehouseId      String            @db.Uuid
+  name             String            @db.VarChar(80)
+  kind             WmsStagingKind
+  capacityPallets  Int
+  temperatureClass WmsTempClass      @default(AMB)
+  status           WmsResourceStatus @default(ACTIVE)
+  createdByUserId  String?           @db.Uuid
+  updatedByUserId  String?           @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([warehouseId, name])
+  @@map("warehouse_staging_areas")
+}
+
+model WmsYardSlot {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  warehouseId     String          @db.Uuid
+  code            String          @db.VarChar(20)
+  vehicleClass    WmsVehicleClass @default(ANY)
+  status          WmsSlotStatus   @default(AVAILABLE)
+  /// Vehicle number while OCCUPIED.
+  occupiedByRef   String?         @db.VarChar(40)
+  occupiedSince   DateTime?
+  createdByUserId String?         @db.Uuid
+  updatedByUserId String?         @db.Uuid
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([warehouseId, code])
+  @@map("warehouse_yard_slots")
+}

@@ -62,9 +62,10 @@ export class Snapshot<T> {
   async get(): Promise<T> {
     const now = Date.now();
     const local = this.local;
-    if (local !== undefined && now - local.checkedAt < (this.opts.localTtlMs ?? 5_000)) return local.value;
+    if (local !== undefined && now - local.checkedAt < (this.opts.localTtlMs ?? 5_000))
+      return local.value;
     const gen = await this.opts.gen();
-    if (local !== undefined && local.gen === gen && gen !== 'nocache') {
+    if (local?.gen === gen && gen !== 'nocache') {
       local.checkedAt = now;
       return local.value;
     }

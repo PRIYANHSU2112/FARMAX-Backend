@@ -9,6 +9,10 @@ model InventoryVariantProjection {
   isActive         Boolean   @default(false)
   /// AMB, AMB_CTL, CC_REF, CC_FRZ, HAZ (CC_* need a cold-chain warehouse).
   temperatureClass String    @default("AMB") @db.VarChar(10)
+  /// Root catalog category (categoryPath[0]); warehouse stock-by-category (D-56 P3).
+  rootCategoryId   String?   @db.Uuid
+  /// Gross grams of one sellable pack; null/0 = unknown (excluded from capacity kg, reported).
+  weightGrams      Int?
   /// product-service variant version + event time; an older snapshot never overwrites a newer one.
   factsVersion     BigInt    @default(-1)
   factsAt          DateTime?

@@ -1,0 +1,22 @@
+// warehouse-service feature: audit. Same shape as inventory_audit_log; append-only (D-22).
+
+model WmsAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  /// Null for system actors (event consumers, jobs).
+  actorUserId String?  @db.Uuid
+  /// warehouse.create, warehouse.activate, service_area.create, …
+  action      String   @db.VarChar(60)
+  /// warehouse, service_area
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.VarChar(64)
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  ip          String?  @db.VarChar(45)
+  requestId   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("warehouse_audit_log")
+}

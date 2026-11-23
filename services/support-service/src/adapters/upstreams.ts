@@ -1,12 +1,20 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import { AppError, ErrorCode, ServiceUnavailableError, ValidationError } from '@farmx/common/errors';
+import {
+  AppError,
+  ErrorCode,
+  ServiceUnavailableError,
+  ValidationError,
+} from '@farmx/common/errors';
 import type { Logger } from '@farmx/common/logger';
 import { INTERNAL_TOKEN_HEADER } from '@farmx/common/middleware';
 
 import type { SupportConfig } from '../config/index.js';
 
-type Deps = { config: Readonly<SupportConfig>; logger: Logger };
+interface Deps {
+  config: Readonly<SupportConfig>;
+  logger: Logger;
+}
 
 /**
  * Service-to-service calls (`/internal/*`, shared token, never through the gateway). Called ONLY
@@ -126,8 +134,10 @@ export class OrderClient {
 
   /** The order when it belongs to `userId` (anyone else's order answers null, like a 404). */
   async snapshotFor(orderId: string, userId: string): Promise<OrderSnapshot | null> {
-    const order = await this.http.get<InternalOrder>(`/internal/orders/${encodeURIComponent(orderId)}`);
-    if (order === null || order.userId !== userId) return null;
+    const order = await this.http.get<InternalOrder>(
+      `/internal/orders/${encodeURIComponent(orderId)}`,
+    );
+    if (order?.userId !== userId) return null;
     return {
       orderId: order.id,
       orderNo: order.orderNo,
@@ -181,27 +191,15 @@ export class MediaClient {
     if (receipts.length > 0 && secret === undefined)
       throw new ServiceUnavailableError('Attachments are not configured');
     const now = Math.floor(Date.now() / 1000);
+    const prod = this.deps.config.APP_ENV === 'prod';
     const seen = new Set<string>();
     return receipts.map((receipt, i) => {
-      const path = `attachments[${String(i)}]`;
       const payload = verifyReceipt(receipt, secret ?? '');
-      const problem =
-        payload === null
-          ? 'is not a valid upload receipt'
-          : payload.exp < now
-            ? 'has expired; upload the file again'
-            : payload.purpose !== 'support' || payload.uploaderId !== uploaderId
-              ? 'was not uploaded by you for support'
-              : !EVIDENCE_MIME.has(payload.mime)
-                ? 'must be a JPEG, PNG, WebP image or a PDF'
-                : payload.size > EVIDENCE_MAX_BYTES
-                  ? 'must be at most 10 MB'
-                  : payload.scanStatus === 'UNSCANNED' && this.deps.config.APP_ENV === 'prod'
-                    ? 'was not virus-scanned'
-                  : seen.has(payload.key)
-                    ? 'is attached twice'
-                    : null;
-      if (problem !== null || payload === null) throw new ValidationError([{ path, message: `File ${problem ?? ''}` }]);
+      const problem = receiptProblem(payload, uploaderId, now, prod, seen);
+      if (problem !== null || payload === null)
+        throw new ValidationError([
+          { path: `body.attachments[${String(i)}]`, message: `File ${problem ?? 'is invalid'}` },
+        ]);
       seen.add(payload.key);
       return {
         key: payload.key,
@@ -218,18 +216,40 @@ export class MediaClient {
   /** Short-lived signed GET URLs for private keys (caller already checked ticket access). */
   async signRead(keys: readonly string[]): Promise<Record<string, string>> {
     if (keys.length === 0) return {};
-    const res = await this.http.post<{ urls: Record<string, string> }>('/internal/media/sign-read', {
-      keys,
-      expiresInSeconds: 300,
-    });
+    const res = await this.http.post<{ urls: Record<string, string> }>(
+      '/internal/media/sign-read',
+      {
+        keys,
+        expiresInSeconds: 300,
+      },
+    );
     return res?.urls ?? {};
   }
 
-  /** Deletes private files (account deletion scrub). Best effort. */
+  /** Deletes private files (account deletion scrub). Idempotent. */
   async remove(keys: readonly string[]): Promise<void> {
-    if (keys.length === 0) return;
-    await this.http.post('/internal/media/delete', { keys });
+    for (let i = 0; i < keys.length; i += 100)
+      await this.http.post('/internal/media/delete', { keys: keys.slice(i, i + 100) });
   }
+}
+
+/** Why a receipt is refused (null = acceptable). Exported for unit tests. */
+export function receiptProblem(
+  payload: ReceiptPayload | null,
+  uploaderId: string,
+  nowEpochSec: number,
+  prod: boolean,
+  seen: ReadonlySet<string>,
+): string | null {
+  if (payload === null) return 'is not a valid upload receipt';
+  if (payload.exp < nowEpochSec) return 'has expired; upload the file again';
+  if (payload.purpose !== 'support' || payload.uploaderId !== uploaderId)
+    return 'was not uploaded by you for support';
+  if (!EVIDENCE_MIME.has(payload.mime)) return 'must be a JPEG, PNG, WebP image or a PDF';
+  if (payload.size > EVIDENCE_MAX_BYTES) return 'must be at most 10 MB';
+  if (payload.scanStatus === 'UNSCANNED' && prod) return 'was not virus-scanned';
+  if (seen.has(payload.key)) return 'is attached twice';
+  return null;
 }
 
 /** `base64url(json).base64url(hmacSha256(json))` — the format media-service signs. */

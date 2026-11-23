@@ -33,6 +33,11 @@
 //                             (double-entry, append-only, sum-zero deferred trigger), WalletTopup, WalletSetting,
 //                             PointsAccount, PointsJournal, PointsPosting, PointsLot, PointsLotConsumption,
 //                             WalletAuditLog, WalletAdjustment, WalletLedgerCheck
+//   support/*.prisma          support-service (D-55): SupportSetting, SupportCalendar, SupportHoliday, FaqCategory,
+//                             Faq (tsvector), FaqVote, LegalDocument, SupportTopic, SupportPriorityRule, SupportSlaPolicy,
+//                             SupportTicket, SupportTicketMessage, SupportTicketParticipant, SupportTicketEvent,
+//                             SupportAttachment, SupportAgent, SupportCannedReply, SupportAuditLog
+//   auth/deletion.prisma      auth-service "deletion" AccountDeletionRequest (D-55)
 //   <service>/…          add a folder per new service
 
 generator client {

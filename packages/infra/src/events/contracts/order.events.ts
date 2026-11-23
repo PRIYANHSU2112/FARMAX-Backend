@@ -31,6 +31,11 @@ export interface OrderPlacedV1 {
   /** Rupees with paise. */
   grandTotal: string;
   paymentDueAt: string;
+  /**
+   * Delivery destination for warehouse operations (D-56): the address snapshot's name, district
+   * and PIN. Absent on events published before it.
+   */
+  shipTo?: { name: string; district: string | null; pinCode: string };
 }
 
 /** Payment captured for an open order → inventory commits the reservation (no expiry). */

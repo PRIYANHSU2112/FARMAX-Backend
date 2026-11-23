@@ -1,0 +1,85 @@
+// warehouse-service feature: storage (D-56 P2). Zones → racks → bins of one warehouse
+// (W2.05 / wizard step 3). Bin occupancy (`used*`) stays 0 until put-away (W8) fills it.
+
+/// ACTIVE · INACTIVE · MAINTENANCE (zones, racks, bins, docks, staging; rules and staff use the first two).
+enum WmsResourceStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+model WmsZone {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  warehouseId        String            @db.Uuid
+  /// UPPERCASE, unique per warehouse, e.g. A.
+  code               String            @db.VarChar(20)
+  name               String            @db.VarChar(80)
+  temperatureClass   WmsTempClass
+  minTempC           Decimal?          @db.Decimal(4, 1)
+  maxTempC           Decimal?          @db.Decimal(4, 1)
+  isFoodGrade        Boolean           @default(false)
+  /// catalog-service category ids stored here ("product type").
+  productCategoryIds String[]          @db.Uuid
+  status             WmsResourceStatus @default(ACTIVE)
+  sortOrder          Int               @default(0)
+  version            Int               @default(0)
+  createdByUserId    String?           @db.Uuid
+  updatedByUserId    String?           @db.Uuid
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  racks WmsRack[]
+
+  @@unique([warehouseId, code])
+  @@index([warehouseId, status])
+  @@map("warehouse_zones")
+}
+
+model WmsRack {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  warehouseId     String            @db.Uuid
+  zoneId          String            @db.Uuid
+  /// Unique per warehouse, e.g. A-01.
+  code            String            @db.VarChar(20)
+  maxWeightKg     Decimal           @db.Decimal(10, 2)
+  volumeM3        Decimal           @db.Decimal(10, 3)
+  status          WmsResourceStatus @default(ACTIVE)
+  version         Int               @default(0)
+  createdByUserId String?           @db.Uuid
+  updatedByUserId String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  zone WmsZone  @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  bins WmsBin[]
+
+  @@unique([warehouseId, code])
+  @@index([zoneId])
+  @@map("warehouse_racks")
+}
+
+/// Bin limits sum to at most the rack's (checked under the rack row lock).
+model WmsBin {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  warehouseId     String            @db.Uuid
+  zoneId          String            @db.Uuid
+  rackId          String            @db.Uuid
+  /// Unique per warehouse, e.g. A-01-01.
+  code            String            @db.VarChar(24)
+  maxWeightKg     Decimal           @db.Decimal(10, 2)
+  volumeM3        Decimal           @db.Decimal(10, 3)
+  /// Filled by put-away (W8); 0 until then.
+  usedWeightKg    Decimal           @default(0) @db.Decimal(10, 2)
+  usedVolumeM3    Decimal           @default(0) @db.Decimal(10, 3)
+  status          WmsResourceStatus @default(ACTIVE)
+  createdByUserId String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  rack WmsRack @relation(fields: [rackId], references: [id], onDelete: Restrict)
+
+  @@unique([warehouseId, code])
+  @@index([rackId])
+  @@index([warehouseId, zoneId, status])
+  @@map("warehouse_bins")
+}

@@ -35,9 +35,7 @@ export class RealtimeHub {
   private subscriber: Redis | undefined;
   private subscribing: Promise<void> | undefined;
 
-  constructor(
-    private readonly deps: { redis: () => Redis; channel: string; logger: Logger },
-  ) {}
+  constructor(private readonly deps: { redis: () => Redis; channel: string; logger: Logger }) {}
 
   /** Fire-and-forget; never throws. */
   publish(room: string, event: string, data: unknown, options: PublishOptions = {}): void {

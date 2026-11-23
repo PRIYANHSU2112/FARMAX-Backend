@@ -5,6 +5,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { rateLimitUploads } from '../../middleware/rate-limit.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { MEDIA_DOCS } from './media.docs.js';
+import type { PrivatePurpose } from './media.support.js';
 import { type MediaKind, PARSER_MAX_BYTES } from './media.types.js';
 import { uploadSchema } from './media.validation.js';
 
@@ -17,7 +18,7 @@ export const mediaRoutes: FastifyPluginAsync = async (app) => {
     limits: { fileSize: PARSER_MAX_BYTES, files: 1, fields: 5, parts: 6, headerPairs: 100 },
   });
 
-  app.post<{ Querystring: { type?: MediaKind; purpose?: 'support' } }>(
+  app.post<{ Querystring: { type?: MediaKind; purpose?: PrivatePurpose } }>(
     '/upload',
     {
       schema: { ...uploadSchema, ...routeDocs(MEDIA_DOCS.upload) },

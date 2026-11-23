@@ -1,0 +1,100 @@
+// warehouse-service feature: warehouses (D-56). The warehouse master: the mother (central)
+// warehouse and the C&F depots, their setup lifecycle and status history. inventory-service keeps
+// an event-fed copy (`inventory_warehouses`, same ids) for stock and allocation.
+// Only services/warehouse-service/src/features/warehouses/warehouses.repository.ts touches these.
+
+/// MOTHER = central warehouse (one live at a time), DEPOT = C&F depot.
+enum WmsWarehouseType {
+  MOTHER
+  DEPOT
+}
+
+/// SETUP (draft, wizard) → ACTIVE ↔ LIMITED (stock moves, no new allocations) → INACTIVE.
+enum WmsWarehouseStatus {
+  SETUP
+  ACTIVE
+  LIMITED
+  INACTIVE
+}
+
+/// Same values as product temperature classes (Normal, Cool, Cold, Frozen, Special).
+enum WmsTempClass {
+  AMB
+  AMB_CTL
+  CC_REF
+  CC_FRZ
+  HAZ
+}
+
+model WmsWarehouse {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  /// UPPERCASE, immutable, never reused (deleted drafts keep theirs).
+  code               String             @unique @db.VarChar(20)
+  name               String             @db.VarChar(120)
+  type               WmsWarehouseType
+  status             WmsWarehouseStatus @default(SETUP)
+  /// A depot's central warehouse (null for the central warehouse itself).
+  parentWarehouseId  String?            @db.Uuid
+  /// auth-service user id of the manager / in-charge.
+  managerUserId      String?            @db.Uuid
+  /// E.164 (+91…), the warehouse's own contact number.
+  phone              String?            @db.VarChar(16)
+  email              String?            @db.VarChar(254)
+  addressLine        String             @db.VarChar(250)
+  landmark           String?            @db.VarChar(120)
+  city               String             @db.VarChar(80)
+  /// Required for new warehouses; empty only on rows imported from inventory (see reviewFields).
+  district           String?            @db.VarChar(80)
+  /// 2-digit GST state code, e.g. 37 = Andhra Pradesh.
+  stateCode          String             @db.Char(2)
+  pinCode            String             @db.Char(6)
+  latitude           Decimal?           @db.Decimal(9, 6)
+  longitude          Decimal?           @db.Decimal(9, 6)
+  totalAreaSqft      Int?
+  /// Storage capacity in kg (the form also accepts tonnes).
+  capacityKg         Decimal?           @db.Decimal(14, 2)
+  temperatureClasses WmsTempClass[]
+  /// The admin's switch; allocation also needs status ACTIVE.
+  isAllocatable      Boolean            @default(true)
+  /// Lower = preferred when two warehouses cover a PIN at the same coverage priority.
+  priority           Int                @default(100)
+  timezone           String             @default("Asia/Kolkata") @db.VarChar(40)
+  statusReason       String?            @db.VarChar(500)
+  statusChangedAt    DateTime?
+  statusChangedBy    String?            @db.Uuid
+  activatedAt        DateTime?
+  /// Copied from inventory on the D-56 migration; `reviewFields` lists data still to confirm.
+  importedAt         DateTime?
+  reviewFields       String[]           @default([])
+  /// Bumped on every master-data change (warehouse.upserted.v1).
+  version            Int                @default(0)
+  /// Bumped on every coverage change (warehouse.coverage_replaced.v1).
+  coverageVersion    Int                @default(0)
+  /// lower(code name city): trigram search.
+  searchText         String             @db.VarChar(400)
+  createdByUserId    String?            @db.Uuid
+  updatedByUserId    String?            @db.Uuid
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  /// Soft delete: discarded SETUP drafts only.
+  deletedAt          DateTime?
+
+  @@index([status, type])
+  @@index([parentWarehouseId])
+  @@index([stateCode, city])
+  @@map("warehouse_warehouses")
+}
+
+/// Append-only (trigger): every status transition, timestamped and attributed.
+model WmsStatusEvent {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  warehouseId String              @db.Uuid
+  fromStatus  WmsWarehouseStatus?
+  toStatus    WmsWarehouseStatus
+  reason      String?             @db.VarChar(500)
+  actorUserId String?             @db.Uuid
+  createdAt   DateTime            @default(now())
+
+  @@index([warehouseId, createdAt])
+  @@map("warehouse_status_events")
+}

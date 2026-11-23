@@ -27,7 +27,9 @@ const topicSchema = Joi.object({
 const ruleSchema = Joi.object({
   id: Joi.string().guid(),
   name: Joi.string().example('Cold-chain delivery issue'),
-  app: Joi.string().valid(...APPS).allow(null),
+  app: Joi.string()
+    .valid(...APPS)
+    .allow(null),
   topicCode: Joi.string().allow(null),
   conditions: Joi.object({
     temperatureClasses: Joi.array().items(Joi.string()).example(['CC_REF', 'CC_FRZ']),
@@ -37,7 +39,9 @@ const ruleSchema = Joi.object({
   }),
   priority: Joi.string().valid(...PRIORITIES),
   reasonLabel: Joi.string().example('cold chain'),
-  team: Joi.string().valid(...TEAMS).allow(null),
+  team: Joi.string()
+    .valid(...TEAMS)
+    .allow(null),
   sortOrder: Joi.number().integer(),
   isActive: Joi.boolean(),
   updatedAt: Joi.date().iso(),
@@ -64,7 +68,11 @@ const publicTopic = Joi.object({
 });
 
 const admin = { tag: ADMIN_SUPPORT_CONFIG_TAG, auth: AUTH_ADMIN } as const;
-const write = { ...admin, permission: 'support.configure', rateLimit: '120 writes per user per minute' } as const;
+const write = {
+  ...admin,
+  permission: 'support.configure',
+  rateLimit: '120 writes per user per minute',
+} as const;
 
 export const TOPIC_DOCS = {
   config: {
@@ -88,32 +96,87 @@ export const TOPIC_DOCS = {
     },
     errors: [422],
   },
-  listTopics: { ...admin, permission: 'support.view', summary: 'List ticket topics', description: 'All apps (filter `app`), inactive included.', success: { status: 200, description: 'Topics', data: Joi.array().items(topicSchema) } },
+  listTopics: {
+    ...admin,
+    permission: 'support.view',
+    summary: 'List ticket topics',
+    description: 'All apps (filter `app`), inactive included.',
+    success: { status: 200, description: 'Topics', data: Joi.array().items(topicSchema) },
+  },
   createTopic: {
     ...write,
     summary: 'Add a ticket topic',
-    description: '`code` (UPPER_SNAKE) and `app` never change. `defaultPriority` and `team` apply when no priority rule matches. `requiresOrder` makes the order mandatory. Audited.',
-    requestExample: { app: 'CUSTOMER', code: 'DELIVERY_RETURNS', label: 'Delivery & returns', defaultPriority: 'MEDIUM', team: 'SUPPORT', requiresOrder: true, isCommonIssue: true },
+    description:
+      '`code` (UPPER_SNAKE) and `app` never change. `defaultPriority` and `team` apply when no priority rule matches. `requiresOrder` makes the order mandatory. Audited.',
+    requestExample: {
+      app: 'CUSTOMER',
+      code: 'DELIVERY_RETURNS',
+      label: 'Delivery & returns',
+      defaultPriority: 'MEDIUM',
+      team: 'SUPPORT',
+      requiresOrder: true,
+      isCommonIssue: true,
+    },
     success: { status: 201, description: 'Created', data: topicSchema },
     errors: [409, 422],
   },
-  updateTopic: { ...write, summary: 'Edit or turn off a topic', description: 'Needs `reason`. Existing tickets keep their topic snapshot. Audited.', success: { status: 200, description: 'Updated', data: topicSchema }, errors: [404, 422] },
-  listRules: { ...admin, permission: 'support.view', summary: 'List priority rules', description: 'Evaluated in `sortOrder`; the first rule whose every present condition holds sets the priority, its reason label (shown as "High · cold chain") and optionally the team.', success: { status: 200, description: 'Rules', data: Joi.array().items(ruleSchema) } },
+  updateTopic: {
+    ...write,
+    summary: 'Edit or turn off a topic',
+    description: 'Needs `reason`. Existing tickets keep their topic snapshot. Audited.',
+    success: { status: 200, description: 'Updated', data: topicSchema },
+    errors: [404, 422],
+  },
+  listRules: {
+    ...admin,
+    permission: 'support.view',
+    summary: 'List priority rules',
+    description:
+      'Evaluated in `sortOrder`; the first rule whose every present condition holds sets the priority, its reason label (shown as "High · cold chain") and optionally the team.',
+    success: { status: 200, description: 'Rules', data: Joi.array().items(ruleSchema) },
+  },
   createRule: {
     ...write,
     summary: 'Add a priority rule',
-    description: 'Conditions (all optional, all present must hold): `temperatureClasses` (any order line), `minOrderAmount` (₹ grand total), `keywords` (whole words in the ticket text), `requesterTypes`. Scope with `app` / `topicCode` (null = any). Audited.',
-    requestExample: { name: 'Cold-chain delivery issue', topicCode: 'DELIVERY_RETURNS', conditions: { temperatureClasses: ['CC_REF', 'CC_FRZ'] }, priority: 'HIGH', reasonLabel: 'cold chain', sortOrder: 10 },
+    description:
+      'Conditions (all optional, all present must hold): `temperatureClasses` (any order line), `minOrderAmount` (₹ grand total), `keywords` (whole words in the ticket text), `requesterTypes`. Scope with `app` / `topicCode` (null = any). Audited.',
+    requestExample: {
+      name: 'Cold-chain delivery issue',
+      topicCode: 'DELIVERY_RETURNS',
+      conditions: { temperatureClasses: ['CC_REF', 'CC_FRZ'] },
+      priority: 'HIGH',
+      reasonLabel: 'cold chain',
+      sortOrder: 10,
+    },
     success: { status: 201, description: 'Created', data: ruleSchema },
     errors: [422],
   },
-  updateRule: { ...write, summary: 'Edit or turn off a priority rule', description: 'Needs `reason`. Applies to new tickets only. Audited.', success: { status: 200, description: 'Updated', data: ruleSchema }, errors: [404, 422] },
-  listPolicies: { ...admin, permission: 'support.view', summary: 'List SLA policies', description: 'Every app × priority cell (unsaved cells show wall-clock defaults).', success: { status: 200, description: 'Policies', data: Joi.array().items(policySchema) } },
+  updateRule: {
+    ...write,
+    summary: 'Edit or turn off a priority rule',
+    description: 'Needs `reason`. Applies to new tickets only. Audited.',
+    success: { status: 200, description: 'Updated', data: ruleSchema },
+    errors: [404, 422],
+  },
+  listPolicies: {
+    ...admin,
+    permission: 'support.view',
+    summary: 'List SLA policies',
+    description: 'Every app × priority cell (unsaved cells show wall-clock defaults).',
+    success: { status: 200, description: 'Policies', data: Joi.array().items(policySchema) },
+  },
   savePolicy: {
     ...write,
     summary: 'Set the SLA of an app + priority',
-    description: 'First-response and resolution targets in minutes. `businessHoursOnly` counts only the calendar\'s working time (skips nights, closed days, holidays) and needs `calendarId`. New tickets and priority changes use it; existing deadlines are kept. Audited.',
-    requestExample: { calendarId: null, firstResponseMins: 60, resolveMins: 480, businessHoursOnly: false, reason: 'Tighter cold-chain SLA' },
+    description:
+      "First-response and resolution targets in minutes. `businessHoursOnly` counts only the calendar's working time (skips nights, closed days, holidays) and needs `calendarId`. New tickets and priority changes use it; existing deadlines are kept. Audited.",
+    requestExample: {
+      calendarId: null,
+      firstResponseMins: 60,
+      resolveMins: 480,
+      businessHoursOnly: false,
+      reason: 'Tighter cold-chain SLA',
+    },
     success: { status: 200, description: 'Saved', data: policySchema },
     errors: [422],
   },

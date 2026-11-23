@@ -24,6 +24,7 @@
     "@fastify/swagger-ui": "catalog:",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
+    "amqplib": "^0.10.9",
     "argon2": "catalog:",
     "awilix": "catalog:",
     "fastify": "catalog:",

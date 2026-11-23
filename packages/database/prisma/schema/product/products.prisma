@@ -290,6 +290,8 @@ model ProductVariant {
   maxOrderQty     Int?
   /// Retail pack that B2C buyers may purchase (PRD p15).
   isB2cEligible   Boolean   @default(false)
+  /// Gross weight in grams of ONE sellable pack (the unit inventory counts); null = not set.
+  /// Drives warehouse capacity in kg (D-56); unknown weights are excluded, never guessed.
   weightGrams     Int?
   lengthMm        Int?
   widthMm         Int?

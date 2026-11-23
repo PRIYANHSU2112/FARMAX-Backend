@@ -19,6 +19,12 @@ export const createProjectionEventHandlers = ({
         name: `${d.productName} ${d.variantName}`.trim().slice(0, 250),
         isActive: d.isActive,
         temperatureClass: d.temperatureClass,
+        // Older events may lack the category fields (Partial: read defensively).
+        rootCategoryId:
+          (d as Partial<VariantFactsV1>).categoryPath?.[0] ??
+          (d as Partial<VariantFactsV1>).categoryId ??
+          null,
+        weightGrams: d.weightGrams ?? null,
       },
       d.version,
       new Date(event.occurredAt),

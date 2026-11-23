@@ -1,160 +1,73 @@
-import { BadRequestError, ConflictError, NotFoundError } from '@farmx/common/errors';
-import type { Paginated } from '@farmx/common/types';
+import { BadRequestError, NotFoundError } from '@farmx/common/errors';
 import type { Tx } from '@farmx/database';
+import type { WarehouseCoverageReplacedV1, WarehouseUpsertedV1 } from '@farmx/infra/events';
 import { inventoryKeys } from '@farmx/infra/redis';
 import type { Cradle } from '@fastify/awilix';
 
-import type { Actor } from '../audit/index.js';
-import type {
-  AllocationCandidate,
-  CoverageView,
-  CreateWarehouseInput,
-  PutCoverageInput,
-  UpdateWarehouseInput,
-  WarehouseListQuery,
-  WarehouseStatusInput,
-  WarehouseView,
-} from './warehouses.types.js';
+import type { AllocationCandidate, WarehouseView } from './warehouses.types.js';
 
 const COVERAGE_TTL_SECONDS = 60;
-
-const staffId = (actor: Actor): string => {
-  if (actor.userId === null) throw new Error('warehouse changes need a staff actor');
-  return actor.userId;
-};
-
-const versionConflict = (current: number) =>
-  new ConflictError('The warehouse was changed by someone else; reload and retry', {
-    details: { reason: 'VERSION_CONFLICT', currentVersion: current },
-  });
+const COLD = new Set(['CC_REF', 'CC_FRZ']);
 
 /**
- * Warehouses are master data: every change is audited and bumps `version` (optimistic
- * concurrency through `expectedVersion`, under a row lock). Coverage + flags feed allocation,
- * which reads them through a short Redis cache invalidated by a version key on every change.
+ * The warehouses inventory allocates to: a read-only copy of warehouse-service master data
+ * (D-56), applied from `warehouse.*` events (version-guarded, same ids). Allocation reads PIN
+ * coverage through a short Redis cache invalidated by a version key on every applied change.
  */
 export class WarehousesService {
   private readonly repo: Cradle['warehousesRepository'];
-  private readonly runInTransaction: Cradle['runInTransaction'];
-  private readonly auditService: Cradle['auditService'];
   private readonly redis: Cradle['redis'];
   private readonly logger: Cradle['logger'];
-  /** Lazy (awilix proxy): stock depends on warehouses, so it is resolved at call time, not here. */
+  /** Lazy (awilix proxy): stock depends on warehouses, so it is resolved at call time. */
   private readonly lazy: Pick<Cradle, 'stockService'>;
 
-  constructor(
-    deps: Pick<
-      Cradle,
-      'warehousesRepository' | 'runInTransaction' | 'auditService' | 'redis' | 'logger' | 'stockService'
-    >,
-  ) {
+  constructor(deps: Pick<Cradle, 'warehousesRepository' | 'redis' | 'logger' | 'stockService'>) {
     this.lazy = deps;
     this.repo = deps.warehousesRepository;
-    this.runInTransaction = deps.runInTransaction;
-    this.auditService = deps.auditService;
     this.redis = deps.redis;
     this.logger = deps.logger;
   }
 
-  list(query: WarehouseListQuery): Promise<Paginated<WarehouseView>> {
-    return this.repo.list(query);
-  }
+  // ── Projection (event consumer, inside the inbox transaction) ──
 
-  async get(id: string): Promise<WarehouseView> {
-    const row = await this.repo.find(id);
-    if (row === null) throw new NotFoundError('Warehouse');
-    return row;
-  }
-
-  async create(actor: Actor, input: CreateWarehouseInput): Promise<WarehouseView> {
-    const view = await this.runInTransaction(async (tx) => {
-      const created = await this.repo.create(tx, input, staffId(actor));
-      await this.auditService.record(tx, actor, {
-        action: 'warehouse.create',
-        targetType: 'warehouse',
-        targetId: created.id,
-        after: created,
-      });
-      return created;
+  /**
+   * ACTIVE and LIMITED take stock movements; only ACTIVE plus the admin switch is allocatable;
+   * a cold-chain warehouse stores CC_REF or CC_FRZ. A discarded draft is removed.
+   */
+  async applyUpserted(tx: Tx, d: WarehouseUpsertedV1): Promise<void> {
+    if (d.deleted) {
+      if (await this.repo.deleteIfNotNewer(tx, d.warehouseId, d.version))
+        await this.afterChange(tx, d.warehouseId, true);
+      return;
+    }
+    const { changed, allocationChanged } = await this.repo.upsertNewer(tx, {
+      id: d.warehouseId,
+      version: d.version,
+      code: d.code,
+      name: d.name,
+      type: d.type,
+      addressLine: d.addressLine,
+      city: d.city,
+      stateCode: d.stateCode,
+      pinCode: d.pinCode,
+      isActive: d.status === 'ACTIVE' || d.status === 'LIMITED',
+      isAllocatable: d.status === 'ACTIVE' && d.isAllocatable,
+      hasColdChain: d.temperatureClasses.some((c) => COLD.has(c)),
+      priority: d.priority,
     });
-    await this.bumpCoverageVersion();
-    return view;
+    if (changed) await this.afterChange(tx, d.warehouseId, allocationChanged);
   }
 
-  async update(actor: Actor, id: string, input: UpdateWarehouseInput): Promise<WarehouseView> {
-    const { expectedVersion, reason, ...changes } = input;
-    const view = await this.runInTransaction(async (tx) => {
-      const before = await this.lockedAt(tx, id, expectedVersion);
-      const after = await this.repo.update(tx, id, changes, staffId(actor));
-      await this.auditService.record(tx, actor, {
-        action: 'warehouse.update',
-        targetType: 'warehouse',
-        targetId: id,
-        before: pick(before, Object.keys(changes)),
-        after: pick(after, Object.keys(changes)),
-        reason: reason ?? null,
-      });
-      return after;
-    });
-    await this.bumpCoverageVersion();
-    if (changes.isAllocatable !== undefined) await this.recomputeAvailability(id);
-    return view;
+  async applyCoverage(tx: Tx, d: WarehouseCoverageReplacedV1): Promise<void> {
+    if (await this.repo.replaceCoverageIfNewer(tx, d.warehouseId, d.coverageVersion, d.entries))
+      await this.afterChange(tx, d.warehouseId, false);
   }
 
-  /** Activate / deactivate. An inactive warehouse takes no new movements and is never allocated. */
-  async setStatus(actor: Actor, id: string, input: WarehouseStatusInput): Promise<WarehouseView> {
-    const view = await this.runInTransaction(async (tx) => {
-      const before = await this.lockedAt(tx, id, input.expectedVersion);
-      if (before.isActive === input.isActive)
-        throw new ConflictError(`Warehouse is already ${input.isActive ? 'active' : 'inactive'}`);
-      const after = await this.repo.update(
-        tx,
-        id,
-        { isActive: input.isActive, statusReason: input.reason },
-        staffId(actor),
-      );
-      await this.auditService.record(tx, actor, {
-        action: input.isActive ? 'warehouse.activate' : 'warehouse.deactivate',
-        targetType: 'warehouse',
-        targetId: id,
-        before: { isActive: before.isActive },
-        after: { isActive: after.isActive },
-        reason: input.reason,
-      });
-      return after;
-    });
-    await this.bumpCoverageVersion();
-    await this.recomputeAvailability(id);
-    return view;
-  }
-
-  async coverage(id: string): Promise<CoverageView> {
-    const warehouse = await this.get(id);
-    return { warehouseId: id, version: warehouse.version, entries: await this.repo.coverage(id) };
-  }
-
-  /** Replaces the whole PIN list (bumps the warehouse version). */
-  async putCoverage(actor: Actor, id: string, input: PutCoverageInput): Promise<CoverageView> {
-    await this.runInTransaction(async (tx) => {
-      await this.lockedAt(tx, id, input.expectedVersion);
-      const removed = await this.repo.replaceCoverage(tx, id, input.entries);
-      await this.repo.update(tx, id, {}, staffId(actor));
-      await this.auditService.record(tx, actor, {
-        action: 'warehouse.coverage_replace',
-        targetType: 'warehouse',
-        targetId: id,
-        before: { count: removed },
-        after: { count: input.entries.length },
-        reason: input.reason,
-      });
-    });
-    await this.bumpCoverageVersion();
-    return this.coverage(id);
-  }
+  // ── Reads (allocation, stock movements) ──
 
   /**
    * Allocation candidates for a PIN (best first). Cached 60 s under the coverage version, so any
-   * warehouse / coverage change is visible at once; Redis down → straight from the database.
+   * applied warehouse / coverage change is visible at once; Redis down → straight from the DB.
    */
   async candidatesForPin(pinCode: string): Promise<AllocationCandidate[]> {
     let key: string | undefined;
@@ -187,33 +100,20 @@ export class WarehousesService {
 
   /** For stock movements: the warehouse must exist and be active (checked inside the tx). */
   async requireActive(tx: Tx, id: string): Promise<WarehouseView> {
-    const row = await this.repo.find(id, tx);
-    if (row === null) throw new NotFoundError('Warehouse');
+    const row = await this.requireExists(tx, id);
     if (!row.isActive) throw new BadRequestError('Warehouse is inactive');
     return row;
   }
 
-  private async lockedAt(tx: Tx, id: string, expectedVersion: number): Promise<WarehouseView> {
-    const row = await this.repo.lock(tx, id);
-    if (row === null) throw new NotFoundError('Warehouse');
-    if (row.version !== expectedVersion) throw versionConflict(row.version);
-    return row;
-  }
-
-  /** Network availability counts only active + allocatable warehouses: recompute its variants. */
-  private async recomputeAvailability(id: string): Promise<void> {
-    await this.lazy.stockService.markWarehouseDirty(id).catch((err: unknown) => {
-      this.logger.error({ err, warehouseId: id }, 'availability dirty mark failed');
-    });
-  }
-
-  private async bumpCoverageVersion(): Promise<void> {
+  /**
+   * Cached candidates are dropped (version key; at worst they live COVERAGE_TTL_SECONDS longer if
+   * Redis fails) and, when allocatability changed, every stocked variant's network availability
+   * is recomputed (the dirty marks commit with the change).
+   */
+  private async afterChange(tx: Tx, id: string, allocationChanged: boolean): Promise<void> {
+    if (allocationChanged) await this.lazy.stockService.markWarehouseDirty(id, tx);
     await this.redis.incr(inventoryKeys.coverageVersion()).catch((err: unknown) => {
-      // Cached candidates then live at most COVERAGE_TTL_SECONDS longer.
       this.logger.warn({ err }, 'coverage cache version bump failed');
     });
   }
 }
-
-const pick = (row: WarehouseView, keys: string[]): Record<string, unknown> =>
-  Object.fromEntries(keys.map((k) => [k, (row as unknown as Record<string, unknown>)[k]]));

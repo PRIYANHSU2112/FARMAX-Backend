@@ -64,6 +64,11 @@ export interface ReservationCommittedV1 {
   orderRef: string;
   /** Committed after it had expired: the stock was secured again (recovery). */
   recovered: boolean;
+  /**
+   * What is held, per warehouse (a split order has several warehouses). Added for D-56
+   * (warehouse-service order read model); absent on events published before it.
+   */
+  lines?: { warehouseId: string; variantId: string; qty: number }[];
 }
 
 /** A late payment could not be honoured: the reservation had expired and the stock is gone. */
@@ -79,7 +84,8 @@ export interface ReservationReleasedV1 {
   orderRef: string;
   /** FULL: nothing is held any more; PARTIAL: only `lines` were released. */
   scope: 'FULL' | 'PARTIAL';
-  lines: { variantId: string; qty: number }[];
+  /** `warehouseId` added for D-56 (absent on events published before it). */
+  lines: { variantId: string; qty: number; warehouseId?: string }[];
 }
 
 export interface InventoryEventMap {

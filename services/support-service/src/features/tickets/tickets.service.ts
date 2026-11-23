@@ -12,10 +12,10 @@ import { type BusinessCalendar, startClocks } from '../topics/index.js';
 import { isActive, loadDelta, transitionPatch } from './tickets.lifecycle.js';
 import type { NewEvent, NewMessage } from './tickets.repository.js';
 import {
+  ACTIVE_STATUSES,
   type ActionCard,
   type CreateTicketInput,
   DONE_STATUSES,
-  ACTIVE_STATUSES,
   type MessageView,
   type TicketActor,
   type TicketListQuery,
@@ -37,7 +37,7 @@ export interface RequesterCtx {
   ip: string | null;
 }
 
-/** What a change inside the shared pipeline does to one locked ticket. */
+/** What one change does to a locked ticket (all inside the same transaction). */
 export interface ChangePlan {
   patch?: Record<string, unknown>;
   events?: NewEvent[];
@@ -45,7 +45,7 @@ export interface ChangePlan {
   messages?: NewMessage[];
   loadDeltas?: [string | null, number][];
   joins?: [string, 'REQUESTER' | 'AGENT'][];
-  /** Outbox writes (same transaction), given the updated row and the stored messages. */
+  /** Outbox writes, given the updated row and the stored messages. */
   emit?: (tx: Tx, t: TicketRow, messages: readonly MessageView[]) => Promise<void>;
 }
 
@@ -89,23 +89,43 @@ export class TicketsService {
     intake?: { agentId: string; agentName: string },
   ): Promise<{ ticket: TicketRow; replayed: boolean }> {
     if (idempotencyKey !== undefined) {
-      const existing = await this.deps.ticketsRepository.findByIdempotency(r.userId, idempotencyKey);
+      const existing = await this.deps.ticketsRepository.findByIdempotency(
+        r.userId,
+        idempotencyKey,
+      );
       if (existing !== null) return { ticket: existing, replayed: true };
     }
     const topic = await this.deps.topicsService.activeTopic(r.app, input.topicCode);
     if (topic.requiresOrder && input.orderId === undefined)
-      throw new ValidationError([{ path: 'body.orderId', message: `is required for "${topic.label}"` }]);
+      throw new ValidationError([
+        { path: 'body.orderId', message: `is required for "${topic.label}"` },
+      ]);
     const settings = await this.deps.settingsService.current();
-    const files = await this.verifyFiles(input.attachments ?? [], intake?.agentId ?? r.userId, topic.allowsEvidence);
+    if ((input.attachments?.length ?? 0) > settings.limits.maxAttachmentsPerMessage)
+      throw new ValidationError([
+        {
+          path: 'body.attachments',
+          message: `at most ${String(settings.limits.maxAttachmentsPerMessage)} files`,
+        },
+      ]);
+    const files = this.verifyFiles(
+      input.attachments ?? [],
+      intake?.agentId ?? r.userId,
+      topic.allowsEvidence,
+    );
 
     const [order, contact] = await Promise.all([
-      input.orderId === undefined ? null : this.deps.orderClient.snapshotFor(input.orderId, r.userId),
+      input.orderId === undefined
+        ? null
+        : this.deps.orderClient.snapshotFor(input.orderId, r.userId),
       this.contactOf(r.userId, input.callbackRequested === true),
     ]);
     if (input.orderId !== undefined && order === null)
       throw new ValidationError([{ path: 'body.orderId', message: 'is not one of your orders' }]);
     if (input.callbackRequested === true && (contact?.phone ?? null) === null)
-      throw new ValidationError([{ path: 'body.callbackRequested', message: 'your account has no phone number' }]);
+      throw new ValidationError([
+        { path: 'body.callbackRequested', message: 'your account has no phone number' },
+      ]);
 
     const decision = await this.deps.topicsService.decide(
       {
@@ -119,20 +139,27 @@ export class TicketsService {
       topic,
     );
     const { policy, calendar } = await this.deps.topicsService.policy(r.app, decision.priority);
-    const candidates = intake === undefined ? await this.deps.agentsService.onlineCandidates(decision.team, r.app) : [];
+    const candidates =
+      intake === undefined
+        ? await this.deps.agentsService.onlineCandidates(decision.team, r.app)
+        : [];
     const now = new Date();
     const id = uuidv7(now.getTime());
+    const channel = input.channel ?? 'APP';
 
     let created: { ticket: TicketRow; messages: MessageView[] };
     try {
       created = await this.deps.runInTransaction(async (tx) => {
         await advisoryXactLock(tx, `support-open:${r.userId}`);
-        if ((await this.deps.ticketsRepository.countActive(tx, r.userId)) >= settings.limits.maxOpenTicketsPerUser)
+        if (
+          (await this.deps.ticketsRepository.countActive(tx, r.userId)) >=
+          settings.limits.maxOpenTicketsPerUser
+        )
           throw new ConflictError('You have too many open tickets; reply on an existing one', {
             details: { reason: 'OPEN_TICKET_LIMIT', limit: settings.limits.maxOpenTicketsPerUser },
           });
         const ticketNo = await this.deps.ticketsRepository.nextTicketNo(tx, now);
-        let assignee: { userId: string; displayName: string } | null = null;
+        let assignee: { userId: string; displayName: string } | null;
         if (intake !== undefined) {
           assignee = { userId: intake.agentId, displayName: intake.agentName };
           await this.deps.agentsService.adjustLoad(tx, intake.agentId, 1);
@@ -156,9 +183,9 @@ export class TicketsService {
           team: decision.team,
           assigneeId: assignee?.userId ?? null,
           assigneeName: assignee?.displayName ?? null,
-          channel: input.channel ?? 'APP',
+          channel,
           orderId: order?.orderId ?? null,
-          orderContext: order === null ? undefined : snapshotJson(order),
+          ...(order === null ? {} : { orderContext: snapshotJson(order) }),
           callbackRequested: input.callbackRequested === true,
           callbackPhone: input.callbackRequested === true ? (contact?.phone ?? null) : null,
           slaPolicy: { ...policy },
@@ -175,38 +202,62 @@ export class TicketsService {
           kind: 'TEXT',
           body: input.description,
           attachmentIds: attachments.map((a) => a.id),
+          attachmentViews: attachments,
           clientMessageId: `create:${id}`,
         });
-        await this.deps.ticketsRepository.linkAttachments(tx, attachments.map((a) => a.id), first.id);
-        await this.deps.ticketsRepository.join(tx, id, r.userId, 'REQUESTER', intake === undefined ? first.seq : 0);
-        const messages = [{ ...first, attachments }];
+        await this.deps.ticketsRepository.linkAttachments(
+          tx,
+          attachments.map((a) => a.id),
+          first.id,
+        );
+        await this.deps.ticketsRepository.join(
+          tx,
+          id,
+          r.userId,
+          'REQUESTER',
+          intake === undefined ? first.seq : 0,
+        );
+        const messages = [first];
         const events: NewEvent[] = [
           {
             type: 'CREATED',
             to: decision.priority,
             actorId: intake?.agentId ?? r.userId,
-            meta: { ruleId: decision.ruleId, reason: decision.reason, team: decision.team, channel: input.channel ?? 'APP' },
+            meta: {
+              ruleId: decision.ruleId,
+              reason: decision.reason,
+              team: decision.team,
+              channel,
+            },
           },
         ];
         if (assignee !== null) {
-          messages.push(await this.deps.ticketsRepository.appendMessage(tx, id, joinedMessage(assignee.displayName)));
+          messages.push(
+            await this.deps.ticketsRepository.appendMessage(
+              tx,
+              id,
+              joinedMessage(assignee.displayName),
+            ),
+          );
           await this.deps.ticketsRepository.join(tx, id, assignee.userId, 'AGENT');
-          events.push({ type: 'ASSIGNEE', to: assignee.userId, actorId: intake?.agentId ?? null, reason: intake === undefined ? 'auto-assign' : 'intake' });
+          events.push({
+            type: 'ASSIGNEE',
+            to: assignee.userId,
+            actorId: intake?.agentId ?? null,
+            reason: intake === undefined ? 'auto-assign' : 'intake',
+          });
         }
         await this.deps.ticketsRepository.addEvents(tx, id, events);
-        const ticket = (await this.deps.ticketsRepository.lock(tx, id)) as TicketRow;
+        const ticket = await this.mustLock(tx, id);
         await emitSupportEvent(
           tx,
           SUPPORT_EVENTS.ticketCreated,
           {
-            ticketId: id,
-            ticketNo,
-            app: r.app,
-            requesterId: r.userId,
+            ...refOf(ticket),
             topicCode: topic.code,
             priority: decision.priority,
             team: decision.team,
-            channel: input.channel ?? 'APP',
+            channel,
             resolveDueAt: ticket.resolveDueAt.toISOString(),
           },
           r.requestId ?? id,
@@ -215,7 +266,10 @@ export class TicketsService {
       });
     } catch (err) {
       if (idempotencyKey !== undefined) {
-        const existing = await this.deps.ticketsRepository.findByIdempotency(r.userId, idempotencyKey);
+        const existing = await this.deps.ticketsRepository.findByIdempotency(
+          r.userId,
+          idempotencyKey,
+        );
         if (existing !== null) return { ticket: existing, replayed: true };
       }
       throw err;
@@ -229,14 +283,22 @@ export class TicketsService {
   async list(r: RequesterCtx, query: TicketListQuery) {
     const statuses = query.tab === 'open' ? ACTIVE_STATUSES : DONE_STATUSES;
     const [rows, counts] = await Promise.all([
-      this.deps.ticketsRepository.listForRequester(r.userId, statuses, query.cursor, query.limit + 1),
+      this.deps.ticketsRepository.listForRequester(
+        r.userId,
+        statuses,
+        query.cursor,
+        query.limit + 1,
+      ),
       this.deps.ticketsRepository.countsForRequester(r.userId),
     ]);
     const page = rows.slice(0, query.limit);
-    const reads = await this.deps.ticketsRepository.readSeqs(page.map((t) => t.id), r.userId);
+    const unread = await this.deps.ticketsRepository.unreadCounts(
+      page.map((t) => t.id),
+      r.userId,
+    );
     const sum = (list: readonly string[]) => list.reduce((n, s) => n + (counts[s] ?? 0), 0);
     return {
-      items: page.map((t) => requesterView(t, reads.get(t.id) ?? 0)),
+      items: page.map((t) => requesterView(t, unread.get(t.id) ?? 0)),
       nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
       limit: query.limit,
       counts: { open: sum(ACTIVE_STATUSES), resolved: sum(DONE_STATUSES) },
@@ -245,8 +307,8 @@ export class TicketsService {
 
   async detail(r: RequesterCtx, id: string) {
     const t = await this.accessible({ userId: r.userId, agent: false }, id);
-    const reads = await this.deps.ticketsRepository.readSeqs([id], r.userId);
-    return requesterView(t, reads.get(id) ?? 0);
+    const unread = await this.deps.ticketsRepository.unreadCounts([id], r.userId);
+    return requesterView(t, unread.get(id) ?? 0);
   }
 
   async messages(
@@ -255,25 +317,33 @@ export class TicketsService {
     opts: { afterSeq?: number; beforeSeq?: number; limit: number },
   ) {
     await this.accessible(viewer, id);
-    const rows = await this.deps.ticketsRepository.messages(id, { ...opts, includeInternal: viewer.agent });
+    const rows = await this.deps.ticketsRepository.messages(id, {
+      ...opts,
+      includeInternal: viewer.agent,
+    });
     return rows.map((m) => messageFor(m, viewer.userId, viewer.agent));
   }
 
   /** Signed, 5-minute URL of one attachment (participants / agents only). */
-  async attachmentUrl(viewer: { userId: string; agent: boolean }, id: string, attachmentId: string) {
+  async attachmentUrl(
+    viewer: { userId: string; agent: boolean },
+    id: string,
+    attachmentId: string,
+  ) {
     await this.accessible(viewer, id);
     const file = await this.deps.ticketsRepository.attachmentKey(id, attachmentId);
     if (file === null) throw new NotFoundError('Attachment');
     const urls = await this.deps.mediaClient.signRead([file.mediaKey]);
     const url = urls[file.mediaKey];
-    if (url === undefined) throw new NotFoundError('Attachment');
+    if (url === undefined || url === '') throw new NotFoundError('Attachment');
     return { url, expiresInSeconds: 300, mime: file.mime, fileName: file.fileName };
   }
 
   /** The ticket when the viewer may see it; anyone else's ticket is a 404 (no existence leak). */
   async accessible(viewer: { userId: string; agent: boolean }, id: string): Promise<TicketRow> {
     const t = await this.deps.ticketsRepository.find(id);
-    if (t === null || (!viewer.agent && t.requesterId !== viewer.userId)) throw new NotFoundError('Ticket');
+    if (t === null || (!viewer.agent && t.requesterId !== viewer.userId))
+      throw new NotFoundError('Ticket');
     return t;
   }
 
@@ -284,14 +354,23 @@ export class TicketsService {
    * reply wakes a waiting ticket / reopens a resolved one; an agent's first public reply claims an
    * unassigned ticket and stops the first-response clock. Internal notes reach agents only.
    */
-  async addMessage(actor: TicketActor, ticketId: string, input: SendInput): Promise<{ message: ReturnType<typeof messageFor>; replayed: boolean }> {
+  async addMessage(
+    actor: TicketActor,
+    ticketId: string,
+    input: SendInput,
+  ): Promise<{ message: ReturnType<typeof messageFor>; replayed: boolean }> {
     const isAgent = actor.role === 'AGENT';
-    const viewer = { userId: actor.userId, agent: isAgent };
     const replay = async () => {
-      const existing = await this.deps.ticketsRepository.findByClientId(ticketId, actor.userId, input.clientMessageId);
-      return existing === null ? null : { message: messageFor(existing, actor.userId, isAgent), replayed: true };
+      const existing = await this.deps.ticketsRepository.findByClientId(
+        ticketId,
+        actor.userId,
+        input.clientMessageId,
+      );
+      return existing === null
+        ? null
+        : { message: messageFor(existing, actor.userId, isAgent), replayed: true };
     };
-    const pre = await this.accessible(viewer, ticketId);
+    const pre = await this.accessible({ userId: actor.userId, agent: isAgent }, ticketId);
     const early = await replay();
     if (early !== null) return early;
     if (pre.status === 'CLOSED') throw closedError(pre);
@@ -299,74 +378,117 @@ export class TicketsService {
     const kind = isAgent ? (input.kind ?? 'TEXT') : 'TEXT';
     const isPublic = kind !== 'INTERNAL_NOTE';
     const settings = await this.deps.settingsService.current();
-    const topic = await this.deps.topicsService.topicById(pre.topicId);
     if ((input.attachments?.length ?? 0) > settings.limits.maxAttachmentsPerMessage)
-      throw new ValidationError([{ path: 'body.attachments', message: `at most ${String(settings.limits.maxAttachmentsPerMessage)} files` }]);
-    const files = await this.verifyFiles(input.attachments ?? [], actor.userId, topic?.allowsEvidence ?? true);
+      throw new ValidationError([
+        {
+          path: 'body.attachments',
+          message: `at most ${String(settings.limits.maxAttachmentsPerMessage)} files`,
+        },
+      ]);
+    const topic = await this.deps.topicsService.topicById(pre.topicId);
+    const files = this.verifyFiles(
+      input.attachments ?? [],
+      actor.userId,
+      topic?.allowsEvidence ?? true,
+    );
     const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const agentName = isAgent ? (actor.name ?? (await this.deps.agentsService.displayName(actor.userId)) ?? 'Support') : null;
+    const agentName = isAgent
+      ? (actor.name ?? (await this.deps.agentsService.displayName(actor.userId)) ?? 'Support')
+      : null;
 
     try {
       const changed = await this.change(
-        { ...actor, name: agentName ?? actor.name },
+        actor,
         ticketId,
         { requesterOnly: !isAgent, cal },
         async (t, tx, now) => {
           if (t.status === 'CLOSED') throw closedError(t);
-          const plan: Required<Pick<ChangePlan, 'patch' | 'events' | 'messages' | 'loadDeltas' | 'joins'>> & ChangePlan = {
-            patch: {},
-            events: [],
-            messages: [],
-            loadDeltas: [],
-            joins: [],
-          };
+          const patch: Record<string, unknown> = {};
+          const events: NewEvent[] = [];
+          const messages: NewMessage[] = [];
+          const loadDeltas: [string | null, number][] = [];
+          const joins: [string, 'REQUESTER' | 'AGENT'][] = [];
           if (!isAgent && (t.status === 'WAITING_ON_REQUESTER' || t.status === 'RESOLVED')) {
-            Object.assign(plan.patch, transitionPatch(t, 'OPEN', 'REQUESTER_MESSAGE', policyOf(t), cal, now));
-            plan.loadDeltas.push([t.assigneeId, loadDelta(t.status, 'OPEN')]);
-            plan.events.push({ type: 'STATUS', from: t.status, to: 'OPEN', actorId: actor.userId, reason: 'requester replied' });
+            Object.assign(
+              patch,
+              transitionPatch(t, 'OPEN', 'REQUESTER_MESSAGE', policyOf(t), cal, now),
+            );
+            loadDeltas.push([t.assigneeId, loadDelta(t.status, 'OPEN')]);
+            events.push({
+              type: 'STATUS',
+              from: t.status,
+              to: 'OPEN',
+              actorId: actor.userId,
+              reason: 'requester replied',
+            });
           }
           if (isAgent && isPublic) {
             if (t.assigneeId === null) {
-              Object.assign(plan.patch, { assigneeId: actor.userId, assigneeName: agentName, ...(t.status === 'NEW' ? { status: 'OPEN' } : {}) });
-              plan.loadDeltas.push([actor.userId, 1]);
-              plan.messages.push(joinedMessage(agentName ?? 'Support'));
-              plan.events.push({ type: 'ASSIGNEE', from: null, to: actor.userId, actorId: actor.userId, reason: 'first reply' });
+              Object.assign(patch, {
+                assigneeId: actor.userId,
+                assigneeName: agentName,
+                ...(t.status === 'NEW' ? { status: 'OPEN' } : {}),
+              });
+              loadDeltas.push([actor.userId, 1]);
+              messages.push(joinedMessage(agentName ?? 'Support'));
+              events.push({
+                type: 'ASSIGNEE',
+                from: null,
+                to: actor.userId,
+                actorId: actor.userId,
+                reason: 'first reply',
+              });
             }
-            if (t.firstRespondedAt === null) plan.patch.firstRespondedAt = now;
+            if (t.firstRespondedAt === null) patch.firstRespondedAt = now;
           }
-          if (isAgent) plan.joins.push([actor.userId, 'AGENT']);
-          const attachments = await this.deps.ticketsRepository.insertAttachments(tx, ticketId, files);
-          const fileIds = attachments.map((a) => a.id);
-          plan.messages.push({
+          if (isAgent) joins.push([actor.userId, 'AGENT']);
+          const attachments = await this.deps.ticketsRepository.insertAttachments(
+            tx,
+            ticketId,
+            files,
+          );
+          messages.push({
             senderId: actor.userId,
             senderRole: isAgent ? 'AGENT' : 'REQUESTER',
-            senderName: isAgent ? agentName : (t.requesterName ?? null),
+            senderName: isAgent ? agentName : t.requesterName,
             kind,
             body: input.body,
-            attachmentIds: fileIds,
+            attachmentIds: attachments.map((a) => a.id),
             attachmentViews: attachments,
             card: input.card ?? null,
             clientMessageId: input.clientMessageId,
           });
-          plan.emit = async (etx, updated, stored) => {
-            const own = stored.at(-1);
-            if (isAgent && isPublic && own !== undefined)
-              await emitSupportEvent(etx, SUPPORT_EVENTS.ticketReplied, {
-                ...refOf(updated),
-                messageId: own.id,
-                seq: own.seq,
-                agentId: actor.userId,
-              }, actor.requestId ?? ticketId);
-            if (updated.status !== t.status)
-              await emitSupportEvent(etx, SUPPORT_EVENTS.ticketStatusChanged, { ...refOf(updated), from: t.status, to: updated.status, actorId: actor.userId }, actor.requestId ?? ticketId);
+          return {
+            patch,
+            events,
+            messages,
+            loadDeltas,
+            joins,
+            emit: async (etx, updated, stored) => {
+              const own = stored.at(-1);
+              if (isAgent && isPublic && own !== undefined)
+                await emitSupportEvent(
+                  etx,
+                  SUPPORT_EVENTS.ticketReplied,
+                  { ...refOf(updated), messageId: own.id, seq: own.seq, agentId: actor.userId },
+                  actor.requestId ?? ticketId,
+                );
+              if (updated.status !== t.status)
+                await emitSupportEvent(
+                  etx,
+                  SUPPORT_EVENTS.ticketStatusChanged,
+                  { ...refOf(updated), from: t.status, to: updated.status, actorId: actor.userId },
+                  actor.requestId ?? ticketId,
+                );
+            },
           };
-          return plan;
         },
       );
       const own = changed.messages.at(-1);
       if (own === undefined) throw new Error('addMessage: message not stored');
       return { message: messageFor(own, actor.userId, isAgent), replayed: false };
     } catch (err) {
+      // A concurrent retry with the same clientMessageId won the unique index: return its message.
       const again = await replay();
       if (again !== null) return again;
       throw err;
@@ -375,10 +497,16 @@ export class TicketsService {
 
   async markRead(viewer: { userId: string; agent: boolean }, ticketId: string, seq: number) {
     await this.accessible(viewer, ticketId);
-    const lastReadSeq = await this.deps.ticketsRepository.markRead(ticketId, viewer.userId, viewer.agent ? 'AGENT' : 'REQUESTER', seq);
+    const role = viewer.agent ? 'AGENT' : 'REQUESTER';
+    const lastReadSeq = await this.deps.ticketsRepository.markRead(
+      ticketId,
+      viewer.userId,
+      role,
+      seq,
+    );
     this.deps.realtimeHub.publish(ticketRoom(ticketId), 'read', {
       ticketId,
-      role: viewer.agent ? 'AGENT' : 'REQUESTER',
+      role,
       seq: lastReadSeq,
     });
     return { ticketId, lastReadSeq };
@@ -390,46 +518,96 @@ export class TicketsService {
   async feedback(r: RequesterCtx, id: string, resolved: boolean, comment?: string) {
     const pre = await this.accessible({ userId: r.userId, agent: false }, id);
     const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const actor = requesterActor(r);
-    const { ticket } = await this.change(actor, id, { requesterOnly: true, cal }, async (t, _tx, now) => {
-      if (t.status !== 'RESOLVED') throw new ConflictError('Feedback is only possible on a resolved ticket', { details: { reason: 'NOT_RESOLVED' } });
-      const to = resolved ? 'CLOSED' : 'OPEN';
-      return {
-        patch: { ...transitionPatch(t, to, 'REQUESTER', policyOf(t), cal, now), csat: resolved ? 'YES' : 'NOT_YET', csatComment: comment ?? null },
-        loadDeltas: [[t.assigneeId, loadDelta(t.status, to)]],
-        events: [
-          { type: 'CSAT', to: resolved ? 'YES' : 'NOT_YET', actorId: r.userId, reason: comment ?? null },
-          { type: 'STATUS', from: t.status, to, actorId: r.userId },
-        ],
-        messages: [systemMessage(resolved ? 'Marked as solved by the customer' : 'Reopened: the problem is not solved yet')],
-        emit: (tx, u) => emitSupportEvent(tx, SUPPORT_EVENTS.ticketStatusChanged, { ...refOf(u), from: t.status, to, actorId: r.userId }, r.requestId ?? id),
-      };
-    });
-    return requesterView(ticket, ticket.lastPublicSeq);
+    const { ticket } = await this.change(
+      requesterActor(r),
+      id,
+      { requesterOnly: true, cal },
+      (t, _tx, now) => {
+        if (t.status !== 'RESOLVED')
+          throw new ConflictError('Feedback is only possible on a resolved ticket', {
+            details: { reason: 'NOT_RESOLVED' },
+          });
+        const to = resolved ? 'CLOSED' : 'OPEN';
+        return Promise.resolve<ChangePlan>({
+          patch: {
+            ...transitionPatch(t, to, 'REQUESTER', policyOf(t), cal, now),
+            csat: resolved ? 'YES' : 'NOT_YET',
+            csatComment: comment ?? null,
+          },
+          loadDeltas: [[t.assigneeId, loadDelta(t.status, to)]],
+          events: [
+            {
+              type: 'CSAT',
+              to: resolved ? 'YES' : 'NOT_YET',
+              actorId: r.userId,
+              reason: comment ?? null,
+            },
+            { type: 'STATUS', from: t.status, to, actorId: r.userId },
+          ],
+          messages: [
+            systemMessage(
+              resolved
+                ? 'Marked as solved by the customer'
+                : 'Reopened: the problem is not solved yet',
+            ),
+          ],
+          emit: (tx, u) =>
+            emitSupportEvent(
+              tx,
+              SUPPORT_EVENTS.ticketStatusChanged,
+              { ...refOf(u), from: t.status, to, actorId: r.userId },
+              r.requestId ?? id,
+            ),
+        });
+      },
+    );
+    return requesterView(ticket, 0);
   }
 
   /** Withdraw an open ticket. */
   async close(r: RequesterCtx, id: string, reason?: string) {
     const pre = await this.accessible({ userId: r.userId, agent: false }, id);
     const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const { ticket } = await this.change(requesterActor(r), id, { requesterOnly: true, cal }, async (t, _tx, now) => {
-      if (!isActive(t.status)) throw new ConflictError(`Ticket is already ${t.status}`, { details: { reason: 'INVALID_TRANSITION' } });
-      return {
-        patch: transitionPatch(t, 'CLOSED', 'REQUESTER', policyOf(t), cal, now),
-        loadDeltas: [[t.assigneeId, loadDelta(t.status, 'CLOSED')]],
-        events: [{ type: 'STATUS', from: t.status, to: 'CLOSED', actorId: r.userId, reason: reason ?? 'withdrawn' }],
-        messages: [systemMessage('Closed by the customer')],
-        emit: (tx, u) => emitSupportEvent(tx, SUPPORT_EVENTS.ticketStatusChanged, { ...refOf(u), from: t.status, to: 'CLOSED', actorId: r.userId }, r.requestId ?? id),
-      };
-    });
-    return requesterView(ticket, ticket.lastPublicSeq);
+    const { ticket } = await this.change(
+      requesterActor(r),
+      id,
+      { requesterOnly: true, cal },
+      (t, _tx, now) => {
+        if (!isActive(t.status))
+          throw new ConflictError(`Ticket is already ${t.status}`, {
+            details: { reason: 'INVALID_TRANSITION' },
+          });
+        return Promise.resolve<ChangePlan>({
+          patch: transitionPatch(t, 'CLOSED', 'REQUESTER', policyOf(t), cal, now),
+          loadDeltas: [[t.assigneeId, loadDelta(t.status, 'CLOSED')]],
+          events: [
+            {
+              type: 'STATUS',
+              from: t.status,
+              to: 'CLOSED',
+              actorId: r.userId,
+              reason: reason ?? 'withdrawn',
+            },
+          ],
+          messages: [systemMessage('Closed by the customer')],
+          emit: (tx, u) =>
+            emitSupportEvent(
+              tx,
+              SUPPORT_EVENTS.ticketStatusChanged,
+              { ...refOf(u), from: t.status, to: 'CLOSED', actorId: r.userId },
+              r.requestId ?? id,
+            ),
+        });
+      },
+    );
+    return requesterView(ticket, 0);
   }
 
   // ── The shared change pipeline ──
 
   /**
    * lock → (owner / version check) → plan → patch + version bump → agent load → messages (gap-free
-   * seq) → participants → history → outbox — one transaction; realtime fan-out after commit.
+   * seq) → participants → history → outbox: ONE transaction; realtime fan-out after commit.
    */
   async change(
     actor: TicketActor,
@@ -439,7 +617,8 @@ export class TicketsService {
   ): Promise<{ ticket: TicketRow; messages: MessageView[] }> {
     const result = await this.deps.runInTransaction(async (tx) => {
       const t = await this.deps.ticketsRepository.lock(tx, ticketId);
-      if (t === null || (opts.requesterOnly === true && t.requesterId !== actor.userId)) throw new NotFoundError('Ticket');
+      if (t === null || (opts.requesterOnly === true && t.requesterId !== actor.userId))
+        throw new NotFoundError('Ticket');
       if (opts.ifMatch !== undefined && opts.ifMatch !== t.version)
         throw new ConflictError('The ticket changed meanwhile; reload and retry', {
           details: { reason: 'STALE_VERSION', version: t.version },
@@ -448,18 +627,22 @@ export class TicketsService {
       const p = await plan(t, tx, now);
       if (p.patch !== undefined && Object.keys(p.patch).length > 0)
         await this.deps.ticketsRepository.update(tx, ticketId, { ...p.patch, updatedAt: now });
-      for (const [userId, delta] of p.loadDeltas ?? []) await this.deps.agentsService.adjustLoad(tx, userId, delta);
+      for (const [userId, delta] of p.loadDeltas ?? [])
+        await this.deps.agentsService.adjustLoad(tx, userId, delta);
       const messages: MessageView[] = [];
       for (const m of p.messages ?? []) {
         const stored = await this.deps.ticketsRepository.appendMessage(tx, ticketId, m);
-        if ((m.attachmentIds?.length ?? 0) > 0) await this.deps.ticketsRepository.linkAttachments(tx, m.attachmentIds ?? [], stored.id);
-        messages.push({ ...stored, attachments: m.attachmentViews ?? [] });
+        if ((m.attachmentIds?.length ?? 0) > 0)
+          await this.deps.ticketsRepository.linkAttachments(tx, m.attachmentIds ?? [], stored.id);
+        messages.push(stored);
       }
-      for (const [userId, role] of p.joins ?? []) await this.deps.ticketsRepository.join(tx, ticketId, userId, role);
+      for (const [userId, role] of p.joins ?? [])
+        await this.deps.ticketsRepository.join(tx, ticketId, userId, role);
       const last = messages.at(-1);
-      if (last?.senderId === actor.userId) await this.deps.ticketsRepository.join(tx, ticketId, actor.userId, actor.role, last.seq);
+      if (last?.senderId === actor.userId)
+        await this.deps.ticketsRepository.join(tx, ticketId, actor.userId, actor.role, last.seq);
       await this.deps.ticketsRepository.addEvents(tx, ticketId, p.events ?? []);
-      const updated = (await this.deps.ticketsRepository.lock(tx, ticketId)) as TicketRow;
+      const updated = await this.mustLock(tx, ticketId);
       await p.emit?.(tx, updated, messages);
       return { ticket: updated, messages };
     });
@@ -481,16 +664,37 @@ export class TicketsService {
     hub.publish(
       AGENTS_ROOM,
       'queue.updated',
-      { ...pulse, app: t.app, assigneeId: t.assigneeId, requesterName: t.requesterName, topicLabel: t.topicLabel, firstRespondedAt: t.firstRespondedAt },
+      {
+        ...pulse,
+        app: t.app,
+        assigneeId: t.assigneeId,
+        requesterName: t.requesterName,
+        topicLabel: t.topicLabel,
+        firstRespondedAt: t.firstRespondedAt,
+      },
       { audience: ['agent'] },
     );
   }
 
   // ── Helpers ──
 
-  private async verifyFiles(receipts: readonly string[], uploaderId: string, allowed: boolean): Promise<VerifiedUpload[]> {
+  /** Re-reads a row this transaction already locked (or inserted). */
+  private async mustLock(tx: Tx, id: string): Promise<TicketRow> {
+    const t = await this.deps.ticketsRepository.lock(tx, id);
+    if (t === null) throw new NotFoundError('Ticket');
+    return t;
+  }
+
+  private verifyFiles(
+    receipts: readonly string[],
+    uploaderId: string,
+    allowed: boolean,
+  ): VerifiedUpload[] {
     if (receipts.length === 0) return [];
-    if (!allowed) throw new ValidationError([{ path: 'body.attachments', message: 'this topic does not accept files' }]);
+    if (!allowed)
+      throw new ValidationError([
+        { path: 'body.attachments', message: 'this topic does not accept files' },
+      ]);
     return this.deps.mediaClient.verifyReceipts(receipts, uploaderId);
   }
 
@@ -500,7 +704,10 @@ export class TicketsService {
       return await this.deps.authDirectory.contact(userId);
     } catch (err) {
       if (required) throw err;
-      this.deps.logger.warn({ err, userId }, 'auth directory unavailable; ticket without requester name');
+      this.deps.logger.warn(
+        { err, userId },
+        'auth directory unavailable; ticket without requester name',
+      );
       return null;
     }
   }
@@ -516,12 +723,20 @@ export const systemMessage = (body: string): NewMessage => ({
   body,
 });
 
-export const joinedMessage = (name: string): NewMessage => systemMessage(`${name} · Support joined`);
+export const joinedMessage = (name: string): NewMessage =>
+  systemMessage(`${name} · Support joined`);
 
-export const refOf = (t: TicketRow) => ({ ticketId: t.id, ticketNo: t.ticketNo, app: t.app, requesterId: t.requesterId });
+export const refOf = (t: TicketRow) => ({
+  ticketId: t.id,
+  ticketNo: t.ticketNo,
+  app: t.app,
+  requesterId: t.requesterId,
+});
 
 const closedError = (t: TicketRow) =>
-  new ConflictError(`Ticket ${t.ticketNo} is closed; raise a new ticket`, { details: { reason: 'TICKET_CLOSED' } });
+  new ConflictError(`Ticket ${t.ticketNo} is closed; raise a new ticket`, {
+    details: { reason: 'TICKET_CLOSED' },
+  });
 
 const requesterActor = (r: RequesterCtx): TicketActor => ({
   userId: r.userId,

@@ -1,0 +1,55 @@
+// warehouse-service feature: team (D-56 P2). Warehouse-specific facts about staff (W2.06). The
+// account and its roles live in auth-service (invite-only); this keeps the work areas, shift,
+// warehouse contact phone and identity documents (private media-service files).
+
+enum WmsWorkArea {
+  RECEIVING
+  STORAGE
+  PICKING
+  DISPATCH
+}
+
+enum WmsStaffDocType {
+  ID_PROOF
+  ADDRESS_PROOF
+  PHOTO
+}
+
+model WmsStaffProfile {
+  warehouseId     String            @db.Uuid
+  /// auth-service user id.
+  userId          String            @db.Uuid
+  /// Kept here: phones are unique across all auth users (a staff member may also be a customer).
+  phone           String?           @db.VarChar(16)
+  /// Empty = all areas.
+  workAreas       WmsWorkArea[]
+  /// calendar feature shift id.
+  shiftId         String?           @db.Uuid
+  /// INACTIVE after removal (the row stays for the team history).
+  status          WmsResourceStatus @default(ACTIVE)
+  createdByUserId String?           @db.Uuid
+  updatedByUserId String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@id([warehouseId, userId])
+  @@index([warehouseId, status])
+  @@map("warehouse_staff_profiles")
+}
+
+/// One current file per document type (re-upload replaces it).
+model WmsStaffDocument {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  warehouseId      String          @db.Uuid
+  userId           String          @db.Uuid
+  docType          WmsStaffDocType
+  /// Private media-service object key (never a URL); read through short signed URLs.
+  mediaKey         String          @db.VarChar(300)
+  mime             String          @db.VarChar(80)
+  sizeBytes        Int
+  uploadedByUserId String          @db.Uuid
+  uploadedAt       DateTime        @default(now())
+
+  @@unique([warehouseId, userId, docType])
+  @@map("warehouse_staff_documents")
+}

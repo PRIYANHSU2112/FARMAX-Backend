@@ -37,6 +37,15 @@ export class AuthRepository {
     this.db = db;
   }
 
+  /** Account purge (deletion feature): every secret and device of the user, in the caller's tx. */
+  async purgeUser(userId: string, tx: Tx): Promise<void> {
+    await tx.mfaRecoveryCode.deleteMany({ where: { userId } });
+    await tx.mfaFactor.deleteMany({ where: { userId } });
+    await tx.passwordHistory.deleteMany({ where: { userId } });
+    await tx.credential.deleteMany({ where: { userId } });
+    await tx.userDevice.deleteMany({ where: { userId } });
+  }
+
   // ── Credentials ──────────────────────────────────────────────────────────────────────────
 
   /** Creates the user's credential and its first password-history row. */
@@ -90,6 +99,23 @@ export class AuthRepository {
   }
 
   /** Replaces the password (and clears any lockout) + appends to history. */
+  /** First password of an invited account (or a replacement): credential upsert + history. */
+  async upsertPassword(userId: string, passwordHash: string, tx: Tx): Promise<void> {
+    await withPrismaErrors(async () => {
+      await tx.credential.upsert({
+        where: { userId },
+        create: { userId, passwordHash },
+        update: {
+          passwordHash,
+          passwordUpdatedAt: new Date(),
+          failedLoginCount: 0,
+          lockedUntil: null,
+        },
+      });
+      await tx.passwordHistory.create({ data: { userId, passwordHash } });
+    });
+  }
+
   async setPassword(userId: string, passwordHash: string, tx: Tx): Promise<void> {
     await withPrismaErrors(async () => {
       await tx.credential.update({

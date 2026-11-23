@@ -17,6 +17,7 @@ import type { Cradle } from '@fastify/awilix';
 import type { MultipartFile } from '@fastify/multipart';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import type { PrivatePurpose } from './media.support.js';
 import { MAX_BYTES, type MediaKind, PARSER_MAX_BYTES } from './media.types.js';
 import { typeForExtension } from './processing/detect.js';
 
@@ -52,7 +53,7 @@ export class MediaController {
   }
 
   async upload(
-    request: FastifyRequest<{ Querystring: { type?: MediaKind; purpose?: 'support' } }>,
+    request: FastifyRequest<{ Querystring: { type?: MediaKind; purpose?: PrivatePurpose } }>,
     reply: FastifyReply,
   ) {
     if (!request.isMultipart()) {
@@ -102,8 +103,12 @@ export class MediaController {
 
       const incoming = { path: tempPath, filename: file.filename, mimetype: file.mimetype, size };
       const uploaded =
-        request.query.purpose === 'support'
-          ? await this.supportUploads.upload(incoming, request.user?.id ?? '')
+        request.query.purpose !== undefined
+          ? await this.supportUploads.upload(
+              incoming,
+              request.user?.id ?? '',
+              request.query.purpose,
+            )
           : await this.mediaService.uploadMedia(incoming, request.query.type);
       return await reply.code(201).send(ok(uploaded));
     } catch (error) {

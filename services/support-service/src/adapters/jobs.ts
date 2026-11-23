@@ -38,7 +38,11 @@ export class JobsRuntime {
       defaultJobOptions: { removeOnComplete: 100, removeOnFail: 500 },
     });
     await this.queue.upsertJobScheduler('sla-sweep', { every: 30_000 }, { name: 'sla-sweep' });
-    await this.queue.upsertJobScheduler('auto-close', { every: 10 * 60_000 }, { name: 'auto-close' });
+    await this.queue.upsertJobScheduler(
+      'auto-close',
+      { every: 10 * 60_000 },
+      { name: 'auto-close' },
+    );
 
     this.worker = new Worker(
       JOBS_QUEUE,

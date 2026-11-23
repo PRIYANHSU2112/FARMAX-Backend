@@ -1,5 +1,6 @@
 export type WarehouseType = 'MOTHER' | 'DEPOT';
 
+/** The projected warehouse (D-56: warehouse-service owns the master data). */
 export interface WarehouseView {
   id: string;
   code: string;
@@ -15,67 +16,9 @@ export interface WarehouseView {
   priority: number;
   statusReason: string | null;
   version: number;
+  coverageVersion: number;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface CreateWarehouseInput {
-  code: string;
-  name: string;
-  type: WarehouseType;
-  addressLine: string;
-  city: string;
-  stateCode: string;
-  pinCode: string;
-  isAllocatable?: boolean;
-  hasColdChain?: boolean;
-  priority?: number;
-}
-
-export interface UpdateWarehouseInput {
-  expectedVersion: number;
-  name?: string;
-  type?: WarehouseType;
-  addressLine?: string;
-  city?: string;
-  stateCode?: string;
-  pinCode?: string;
-  isAllocatable?: boolean;
-  hasColdChain?: boolean;
-  priority?: number;
-  reason?: string;
-}
-
-export interface WarehouseStatusInput {
-  expectedVersion: number;
-  isActive: boolean;
-  reason: string;
-}
-
-export interface WarehouseListQuery {
-  cursor?: string;
-  limit: number;
-  isActive?: boolean;
-  type?: WarehouseType;
-  /** Code or name prefix, case-insensitive. */
-  q?: string;
-}
-
-export interface CoverageEntry {
-  pinCode: string;
-  priority: number;
-}
-
-export interface PutCoverageInput {
-  expectedVersion: number;
-  entries: CoverageEntry[];
-  reason: string;
-}
-
-export interface CoverageView {
-  warehouseId: string;
-  version: number;
-  entries: CoverageEntry[];
 }
 
 /** A warehouse that may serve a PIN, in allocation order (best first). */
@@ -85,4 +28,21 @@ export interface AllocationCandidate {
   coveragePriority: number;
   warehousePriority: number;
   hasColdChain: boolean;
+}
+
+/** What the projection stores from warehouse.upserted.v1. */
+export interface ProjectedWarehouse {
+  id: string;
+  version: number;
+  code: string;
+  name: string;
+  type: WarehouseType;
+  addressLine: string;
+  city: string;
+  stateCode: string;
+  pinCode: string;
+  isActive: boolean;
+  isAllocatable: boolean;
+  hasColdChain: boolean;
+  priority: number;
 }

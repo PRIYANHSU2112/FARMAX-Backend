@@ -1,17 +1,30 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@farmx/common/errors';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@farmx/common/errors';
 import { SUPPORT_EVENTS } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
 import { emitSupportEvent } from '../../adapters/events.js';
-import { type App, APPS } from '../../middleware/http.js';
+import type { App } from '../../middleware/http.js';
+import { omit } from '../../middleware/http.js';
 import { type Priority, type Team, recomputeForPolicy } from '../topics/index.js';
 import { loadDelta, transitionPatch } from './tickets.lifecycle.js';
-import { type SendInput, joinedMessage, refOf, systemMessage } from './tickets.service.js';
+import {
+  type ChangePlan,
+  type SendInput,
+  joinedMessage,
+  refOf,
+  systemMessage,
+} from './tickets.service.js';
 import {
   type Channel,
   type CreateTicketInput,
   type QueueQuery,
   type TicketActor,
+  type TicketRow,
   type TicketStatus,
   policyOf,
 } from './tickets.types.js';
@@ -27,6 +40,13 @@ const APP_OF_TYPE: Record<string, App> = {
   VENDOR: 'VENDOR',
   LOGISTICS_PARTNER: 'LOGISTICS',
   INTERNAL: 'WAREHOUSE',
+};
+
+const STATUS_TEXT: Partial<Record<TicketStatus, string>> = {
+  WAITING_ON_REQUESTER: 'Waiting for your reply',
+  RESOLVED: 'Marked as resolved. Did this solve your problem?',
+  CLOSED: 'Ticket closed',
+  OPEN: 'Ticket reopened',
 };
 
 /** Agent console: one priority queue for every app and channel. */
@@ -48,10 +68,8 @@ export class TicketsAdminService {
   }
 
   async detail(id: string) {
-    const t = await this.deps.ticketsRepository.find(id);
-    if (t === null) throw new NotFoundError('Ticket');
-    const events = await this.deps.ticketsRepository.events(id);
-    return { ...agentView(t), events };
+    const t = await this.mustFind(id);
+    return { ...agentView(t), events: await this.deps.ticketsRepository.events(id) };
   }
 
   /** Reply (TEXT), INTERNAL_NOTE or ACTION_CARD — same path as the WebSocket. */
@@ -62,43 +80,77 @@ export class TicketsAdminService {
   /** Take an unassigned ticket. Two agents racing → exactly one wins, the other gets 409. */
   async claim(actor: TicketActor, id: string) {
     const name = await this.agentName(actor.userId);
-    const pre = await this.mustFind(id);
-    const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const { ticket } = await this.deps.ticketsService.change(actor, id, { cal }, async (t, tx) => {
+    const ticket = await this.run(actor, id, undefined, async (t, tx) => {
       if (!(await this.deps.ticketsRepository.claim(tx, id, actor.userId, name)))
         throw new ConflictError(
-          t.assigneeId === null ? `Ticket ${t.ticketNo} is ${t.status}` : `Ticket ${t.ticketNo} is already assigned to ${t.assigneeName ?? 'another agent'}`,
+          t.assigneeId === null
+            ? `Ticket ${t.ticketNo} is ${t.status}`
+            : `Ticket ${t.ticketNo} is already assigned to ${t.assigneeName ?? 'another agent'}`,
           { details: { reason: 'ALREADY_ASSIGNED', assigneeId: t.assigneeId } },
         );
       return {
         loadDeltas: [[actor.userId, 1]],
         joins: [[actor.userId, 'AGENT']],
         messages: [joinedMessage(name)],
-        events: [{ type: 'ASSIGNEE', from: null, to: actor.userId, actorId: actor.userId, reason: 'claimed' }],
+        events: [
+          {
+            type: 'ASSIGNEE',
+            from: null,
+            to: actor.userId,
+            actorId: actor.userId,
+            reason: 'claimed',
+          },
+        ],
         emit: (etx, u) =>
           t.status === u.status
             ? Promise.resolve()
-            : emitSupportEvent(etx, SUPPORT_EVENTS.ticketStatusChanged, { ...refOf(u), from: t.status, to: u.status, actorId: actor.userId }, actor.requestId ?? id),
+            : emitSupportEvent(
+                etx,
+                SUPPORT_EVENTS.ticketStatusChanged,
+                { ...refOf(u), from: t.status, to: u.status, actorId: actor.userId },
+                actor.requestId ?? id,
+              ),
       };
     });
     return agentView(ticket);
   }
 
-  async assign(actor: TicketActor, id: string, assigneeId: string, reason: string | undefined, ifMatch?: number) {
+  async assign(
+    actor: TicketActor,
+    id: string,
+    assigneeId: string,
+    reason: string | undefined,
+    ifMatch?: number,
+  ) {
     const name = await this.agentName(assigneeId);
-    const pre = await this.mustFind(id);
-    const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const { ticket } = await this.deps.ticketsService.change(actor, id, { ifMatch, cal }, async (t) => {
+    const ticket = await this.run(actor, id, ifMatch, (t) => {
       if (t.status === 'CLOSED') throw new ConflictError('Ticket is closed');
       if (t.assigneeId === assigneeId) throw new ConflictError(`Already assigned to ${name}`);
       const active = t.status !== 'RESOLVED';
-      return {
-        patch: { assigneeId, assigneeName: name, ...(t.status === 'NEW' ? { status: 'OPEN' } : {}) },
-        loadDeltas: active ? [[t.assigneeId, -1], [assigneeId, 1]] : [],
+      return Promise.resolve<ChangePlan>({
+        patch: {
+          assigneeId,
+          assigneeName: name,
+          ...(t.status === 'NEW' ? { status: 'OPEN' } : {}),
+        },
+        loadDeltas: active
+          ? [
+              [t.assigneeId, -1],
+              [assigneeId, 1],
+            ]
+          : [],
         joins: [[assigneeId, 'AGENT']],
         messages: [joinedMessage(name)],
-        events: [{ type: 'ASSIGNEE', from: t.assigneeId, to: assigneeId, actorId: actor.userId, reason: reason ?? null }],
-      };
+        events: [
+          {
+            type: 'ASSIGNEE',
+            from: t.assigneeId,
+            to: assigneeId,
+            actorId: actor.userId,
+            reason: reason ?? null,
+          },
+        ],
+      });
     });
     return agentView(ticket);
   }
@@ -114,83 +166,144 @@ export class TicketsAdminService {
     ifMatch?: number,
   ) {
     const name = input.assigneeId === undefined ? null : await this.agentName(input.assigneeId);
-    const pre = await this.mustFind(id);
-    const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const { ticket } = await this.deps.ticketsService.change(actor, id, { ifMatch, cal }, async (t, _tx, now) => {
-      if (t.status === 'CLOSED' || t.status === 'RESOLVED') throw new ConflictError(`Ticket is ${t.status}`);
+    const me = await this.agentName(actor.userId);
+    const ticket = await this.run(actor, id, ifMatch, (t, _tx, now) => {
+      if (t.status === 'CLOSED' || t.status === 'RESOLVED')
+        throw new ConflictError(`Ticket is ${t.status}`);
       const assigneeId = input.assigneeId ?? null;
       const changesAssignee = assigneeId !== null && assigneeId !== t.assigneeId;
-      const note = input.note ?? `Escalated to ${name ?? `the ${input.team.toLowerCase()} team`}`;
-      return {
+      const level = t.escalationLevel + 1;
+      return Promise.resolve<ChangePlan>({
         patch: {
           team: input.team,
-          escalationLevel: t.escalationLevel + 1,
+          escalationLevel: level,
           ...(changesAssignee ? { assigneeId, assigneeName: name } : {}),
           ...(t.status === 'NEW' && assigneeId !== null ? { status: 'OPEN' } : {}),
           ...(t.firstRespondedAt === null ? { firstRespondedAt: now } : {}),
         },
-        loadDeltas: changesAssignee ? [[t.assigneeId, -1], [assigneeId, 1]] : [],
-        joins: [[actor.userId, 'AGENT'], ...(assigneeId === null ? [] : [[assigneeId, 'AGENT'] as [string, 'AGENT']])],
+        loadDeltas: changesAssignee
+          ? [
+              [t.assigneeId, -1],
+              [assigneeId, 1],
+            ]
+          : [],
+        joins: assigneeId === null ? [] : [[assigneeId, 'AGENT']],
         messages: [
           {
             senderId: actor.userId,
             senderRole: 'AGENT',
-            senderName: actor.name,
+            senderName: me,
             kind: 'ESCALATION',
-            body: note,
-            card: { team: input.team, level: t.escalationLevel + 1, to: name },
+            body: input.note ?? `Escalated to ${name ?? `the ${input.team.toLowerCase()} team`}`,
+            card: { team: input.team, level, to: name },
           },
         ],
-        events: [{ type: 'ESCALATION', from: t.team, to: input.team, actorId: actor.userId, reason: input.reason, meta: { assigneeId, level: t.escalationLevel + 1 } }],
+        events: [
+          {
+            type: 'ESCALATION',
+            from: t.team,
+            to: input.team,
+            actorId: actor.userId,
+            reason: input.reason,
+            meta: { assigneeId, level },
+          },
+        ],
         emit: (etx, u) =>
-          emitSupportEvent(etx, SUPPORT_EVENTS.ticketEscalated, { ...refOf(u), team: input.team, level: u.escalationLevel, assigneeId: u.assigneeId, actorId: actor.userId }, actor.requestId ?? id),
-      };
+          emitSupportEvent(
+            etx,
+            SUPPORT_EVENTS.ticketEscalated,
+            {
+              ...refOf(u),
+              team: input.team,
+              level: u.escalationLevel,
+              assigneeId: u.assigneeId,
+              actorId: actor.userId,
+            },
+            actor.requestId ?? id,
+          ),
+      });
     });
     return agentView(ticket);
   }
 
   /** Manual priority: locks it against rules and recomputes the SLA deadlines from the original start. */
-  async setPriority(actor: TicketActor, id: string, priority: Priority, reason: string, ifMatch?: number) {
+  async setPriority(
+    actor: TicketActor,
+    id: string,
+    priority: Priority,
+    reason: string,
+    ifMatch?: number,
+  ) {
     const pre = await this.mustFind(id);
     const { policy, calendar } = await this.deps.topicsService.policy(pre.app, priority);
-    const { ticket } = await this.deps.ticketsService.change(actor, id, { ifMatch, cal: calendar }, async (t) => {
-      if (t.status === 'CLOSED') throw new ConflictError('Ticket is closed');
-      if (t.priority === priority) throw new ConflictError(`Priority is already ${priority}`);
-      const deadlines = recomputeForPolicy(t, policy, calendar);
-      return {
-        patch: { priority, priorityReason: 'set by agent', priorityLocked: true, slaPolicy: { ...policy }, ...deadlines },
-        events: [
-          { type: 'PRIORITY', from: t.priority, to: priority, actorId: actor.userId, reason },
-          { type: 'SLA_RECOMPUTE', actorId: actor.userId, meta: { firstResponseDueAt: deadlines.firstResponseDueAt ?? t.firstResponseDueAt, resolveDueAt: deadlines.resolveDueAt } },
-        ],
-      };
-    });
+    const { ticket } = await this.deps.ticketsService.change(
+      actor,
+      id,
+      { ifMatch, cal: calendar },
+      (t) => {
+        if (t.status === 'CLOSED') throw new ConflictError('Ticket is closed');
+        if (t.priority === priority) throw new ConflictError(`Priority is already ${priority}`);
+        const deadlines = recomputeForPolicy(t, policy, calendar);
+        return Promise.resolve<ChangePlan>({
+          patch: {
+            priority,
+            priorityReason: 'set by agent',
+            priorityLocked: true,
+            slaPolicy: { ...policy },
+            ...deadlines,
+          },
+          events: [
+            { type: 'PRIORITY', from: t.priority, to: priority, actorId: actor.userId, reason },
+            {
+              type: 'SLA_RECOMPUTE',
+              actorId: actor.userId,
+              meta: {
+                firstResponseDueAt: deadlines.firstResponseDueAt ?? t.firstResponseDueAt,
+                resolveDueAt: deadlines.resolveDueAt,
+              },
+            },
+          ],
+        });
+      },
+    );
     return agentView(ticket);
   }
 
   /** Waiting on requester / resolve / close / reopen (state machine; SLA pause and resume). */
-  async setStatus(actor: TicketActor, id: string, to: TicketStatus, reason: string | undefined, ifMatch?: number) {
+  async setStatus(
+    actor: TicketActor,
+    id: string,
+    to: TicketStatus,
+    reason: string | undefined,
+    ifMatch?: number,
+  ) {
     if (to === 'CLOSED' && reason === undefined)
-      throw new ValidationError([{ path: 'body.reason', message: 'is required to close a ticket' }]);
+      throw new ValidationError([
+        { path: 'body.reason', message: 'is required to close a ticket' },
+      ]);
     const pre = await this.mustFind(id);
     const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
-    const { ticket } = await this.deps.ticketsService.change(actor, id, { ifMatch, cal }, async (t, _tx, now) => {
-      const patch = transitionPatch(t, to, 'AGENT', policyOf(t), cal, now);
-      const text: Partial<Record<TicketStatus, string>> = {
-        WAITING_ON_REQUESTER: 'Waiting for your reply',
-        RESOLVED: 'Marked as resolved. Did this solve your problem?',
-        CLOSED: 'Ticket closed',
-        OPEN: 'Ticket reopened',
-      };
-      return {
-        patch,
-        loadDeltas: [[t.assigneeId, loadDelta(t.status, to)]],
-        events: [{ type: 'STATUS', from: t.status, to, actorId: actor.userId, reason: reason ?? null }],
-        messages: [systemMessage(text[to] ?? to)],
-        emit: (etx, u) =>
-          emitSupportEvent(etx, SUPPORT_EVENTS.ticketStatusChanged, { ...refOf(u), from: t.status, to, actorId: actor.userId }, actor.requestId ?? id),
-      };
-    });
+    const { ticket } = await this.deps.ticketsService.change(
+      actor,
+      id,
+      { ifMatch, cal },
+      (t, _tx, now) =>
+        Promise.resolve<ChangePlan>({
+          patch: transitionPatch(t, to, 'AGENT', policyOf(t), cal, now),
+          loadDeltas: [[t.assigneeId, loadDelta(t.status, to)]],
+          events: [
+            { type: 'STATUS', from: t.status, to, actorId: actor.userId, reason: reason ?? null },
+          ],
+          messages: [systemMessage(STATUS_TEXT[to] ?? to)],
+          emit: (etx, u) =>
+            emitSupportEvent(
+              etx,
+              SUPPORT_EVENTS.ticketStatusChanged,
+              { ...refOf(u), from: t.status, to, actorId: actor.userId },
+              actor.requestId ?? id,
+            ),
+        }),
+    );
     return agentView(ticket);
   }
 
@@ -202,12 +315,21 @@ export class TicketsAdminService {
   ) {
     const contact = await this.deps.authDirectory.contact(input.requesterId);
     const app = contact === null ? undefined : APP_OF_TYPE[contact.userType];
-    if (contact === null || app === undefined || !APPS.includes(app))
-      throw new ValidationError([{ path: 'body.requesterId', message: 'is not a customer, vendor, driver or staff user' }]);
+    if (contact === null || app === undefined)
+      throw new ValidationError([
+        { path: 'body.requesterId', message: 'is not a customer, vendor, driver or staff user' },
+      ]);
     const name = await this.agentName(actor.userId);
+    const ticketInput = omit(input, ['requesterId']); // resolved above into the requester context
     const { ticket, replayed } = await this.deps.ticketsService.create(
-      { userId: contact.id, userType: contact.userType, app, requestId: actor.requestId, ip: actor.ip },
-      input,
+      {
+        userId: contact.id,
+        userType: contact.userType,
+        app,
+        requestId: actor.requestId,
+        ip: actor.ip,
+      },
+      ticketInput,
       idempotencyKey === undefined ? undefined : `intake:${idempotencyKey}`.slice(0, 64),
       { agentId: actor.userId, agentName: name },
     );
@@ -215,15 +337,35 @@ export class TicketsAdminService {
   }
 
   attachmentUrl(actor: TicketActor, id: string, attachmentId: string) {
-    return this.deps.ticketsService.attachmentUrl({ userId: actor.userId, agent: true }, id, attachmentId);
+    return this.deps.ticketsService.attachmentUrl(
+      { userId: actor.userId, agent: true },
+      id,
+      attachmentId,
+    );
   }
 
-  messages(actor: TicketActor, id: string, opts: { afterSeq?: number; beforeSeq?: number; limit: number }) {
+  messages(
+    actor: TicketActor,
+    id: string,
+    opts: { afterSeq?: number; beforeSeq?: number; limit: number },
+  ) {
     return this.deps.ticketsService.messages({ userId: actor.userId, agent: true }, id, opts);
   }
 
   read(actor: TicketActor, id: string, seq: number) {
     return this.deps.ticketsService.markRead({ userId: actor.userId, agent: true }, id, seq);
+  }
+
+  /** Change pipeline with the ticket's own calendar (status / assignment changes). */
+  private async run(
+    actor: TicketActor,
+    id: string,
+    ifMatch: number | undefined,
+    plan: Parameters<Cradle['ticketsService']['change']>[3],
+  ): Promise<TicketRow> {
+    const pre = await this.mustFind(id);
+    const cal = await this.deps.topicsService.calendarOf(policyOf(pre));
+    return (await this.deps.ticketsService.change(actor, id, { ifMatch, cal }, plan)).ticket;
   }
 
   private async agentName(userId: string): Promise<string> {
@@ -232,7 +374,7 @@ export class TicketsAdminService {
     return name;
   }
 
-  private async mustFind(id: string) {
+  private async mustFind(id: string): Promise<TicketRow> {
     const t = await this.deps.ticketsRepository.find(id);
     if (t === null) throw new NotFoundError('Ticket');
     return t;

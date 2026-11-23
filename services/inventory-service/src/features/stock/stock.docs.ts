@@ -16,7 +16,9 @@ const levelSchema = Joi.object({
   variantId: Joi.string().guid(),
   sku: Joi.string().allow(null),
   name: Joi.string().allow(null),
-  onHand: Joi.number().integer().description('Physical good units (includes reserved and safety stock)'),
+  onHand: Joi.number()
+    .integer()
+    .description('Physical good units (includes reserved and safety stock)'),
   reserved: Joi.number().integer().description('Held by ACTIVE / COMMITTED reservations'),
   damaged: Joi.number().integer().description('Out of onHand, waiting for write-off'),
   safetyStock: Joi.number().integer().description('Protected; never sold'),
@@ -118,7 +120,8 @@ export const STOCK_DOCS = {
   listLevels: {
     tag: ADMIN_STOCK_TAG,
     summary: 'List warehouse stock',
-    description: 'Filters: `warehouseId`, `variantId`, `lowStock=true` (sellable ≤ reorderLevel > 0).',
+    description:
+      'Filters: `warehouseId`, `variantId`, `lowStock=true` (sellable ≤ reorderLevel > 0).',
     auth: AUTH_ADMIN,
     permission: 'inventory.view',
     success: {
@@ -220,7 +223,8 @@ export const STOCK_DOCS = {
   listOperations: {
     tag: ADMIN_STOCK_TAG,
     summary: 'List stock operations',
-    description: 'Newest first. Filters: `warehouseId`, `type`, `status` (e.g. PENDING adjustments).',
+    description:
+      'Newest first. Filters: `warehouseId`, `type`, `status` (e.g. PENDING adjustments).',
     auth: AUTH_ADMIN,
     permission: 'inventory.view',
     success: {

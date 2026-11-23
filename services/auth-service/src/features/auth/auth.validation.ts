@@ -93,6 +93,15 @@ export const resetPasswordSchema = {
   }),
 };
 
+/** POST /auth/invitations/accept — warehouse staff invitation (D-56). */
+export const acceptInvitationSchema = {
+  body: Joi.object({
+    email: Joi.string().trim().lowercase().email().max(254).required(),
+    code: otpCode.required(),
+    newPassword: newPassword.required(),
+  }),
+};
+
 export const changePasswordSchema = {
   body: Joi.object({
     currentPassword: Joi.string().min(1).max(PASSWORD_MAX_LENGTH).required(),

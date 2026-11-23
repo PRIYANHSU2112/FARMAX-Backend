@@ -49,7 +49,9 @@ export const DEFAULT_SETTINGS: SupportSettings = {
   chat: { enabled: true, calendarId: null },
 };
 
-const PHONE = Joi.string().pattern(/^\+[1-9]\d{7,14}$/).messages({ 'string.pattern.base': 'must be E.164, e.g. +919876543210' });
+const PHONE = Joi.string()
+  .pattern(/^\+[1-9]\d{7,14}$/)
+  .messages({ 'string.pattern.base': 'must be E.164, e.g. +919876543210' });
 
 export const SETTING_SCHEMAS: Record<SettingKey, Joi.ObjectSchema> = {
   contacts: Joi.object<ContactsSetting>({

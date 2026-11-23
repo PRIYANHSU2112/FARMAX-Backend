@@ -51,9 +51,15 @@ export function matches(rule: PriorityRule, facts: TicketFacts): boolean {
   if (rule.app !== null && rule.app !== facts.app) return false;
   if (rule.topicCode !== null && rule.topicCode !== facts.topicCode) return false;
   const c = rule.conditions;
-  if (c.temperatureClasses?.length && !c.temperatureClasses.some((t) => facts.temperatureClasses.includes(t)))
+  if (
+    c.temperatureClasses?.length &&
+    !c.temperatureClasses.some((t) => facts.temperatureClasses.includes(t))
+  )
     return false;
-  if (c.minOrderAmount !== undefined && (facts.orderAmount === null || facts.orderAmount < c.minOrderAmount))
+  if (
+    c.minOrderAmount !== undefined &&
+    (facts.orderAmount === null || facts.orderAmount < c.minOrderAmount)
+  )
     return false;
   if (c.keywords?.length && !hasKeyword(facts.text, c.keywords)) return false;
   if (c.requesterTypes?.length && !c.requesterTypes.includes(facts.requesterType)) return false;
@@ -69,5 +75,10 @@ export function decidePriority(
   const rule = rules.find((r) => matches(r, facts));
   if (rule === undefined)
     return { priority: topic.defaultPriority, reason: null, team: topic.team, ruleId: null };
-  return { priority: rule.priority, reason: rule.reasonLabel, team: rule.team ?? topic.team, ruleId: rule.id };
+  return {
+    priority: rule.priority,
+    reason: rule.reasonLabel,
+    team: rule.team ?? topic.team,
+    ruleId: rule.id,
+  };
 }

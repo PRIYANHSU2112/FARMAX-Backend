@@ -1,0 +1,34 @@
+// warehouse-service feature: storage-rules (D-56 P2). Storage compatibility rules (W2.08).
+// Saved and checked for consistency now; ENFORCED only when put-away (W8) places stock.
+
+enum WmsStorageRuleType {
+  SEGREGATION
+  HAZARD_CLASS
+  FOOD_GRADE_ZONE
+  INCOMPATIBLE
+}
+
+model WmsStorageRule {
+  id                  String             @id @default(uuid(7)) @db.Uuid
+  warehouseId         String             @db.Uuid
+  type                WmsStorageRuleType
+  name                String             @db.VarChar(80)
+  /// catalog-service category ids the rule is about.
+  subjectCategoryIds  String[]           @db.Uuid
+  /// …kept away from these categories.
+  keepAwayCategoryIds String[]           @db.Uuid
+  /// storage feature zone id the subject must be stored in (optional).
+  allowedZoneId       String?            @db.Uuid
+  /// Zone-level separation in metres (W8 enforcement: same zone = 0 m).
+  minDistanceM        Decimal?           @db.Decimal(8, 2)
+  notes               String?            @db.VarChar(500)
+  status              WmsResourceStatus  @default(ACTIVE)
+  version             Int                @default(0)
+  createdByUserId     String?            @db.Uuid
+  updatedByUserId     String?            @db.Uuid
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([warehouseId, type, status])
+  @@map("warehouse_storage_rules")
+}

@@ -33,8 +33,7 @@ export interface Shortfall {
 }
 
 export type AllocationPlan =
-  | { ok: true; allocations: Allocation[]; split: boolean }
-  | { ok: false; shortfall: Shortfall[] };
+  { ok: true; allocations: Allocation[]; split: boolean } | { ok: false; shortfall: Shortfall[] };
 
 export type SellableFn = (warehouseId: string, variantId: string) => number;
 
@@ -68,7 +67,9 @@ export function planAllocation(
         requested: l.qty,
         available: Math.max(
           0,
-          ...candidates.filter((c) => eligible(c, l)).map((c) => sellable(c.warehouseId, l.variantId)),
+          ...candidates
+            .filter((c) => eligible(c, l))
+            .map((c) => sellable(c.warehouseId, l.variantId)),
         ),
       })),
     };

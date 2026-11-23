@@ -22,6 +22,8 @@ export const INVENTORY_BINDINGS = [
   'order.rejected.v1',
   'order.cancelled.v1',
   'order.failed.v1',
+  'warehouse.upserted.v1',
+  'warehouse.coverage_replaced.v1',
 ];
 
 export type EventHandlerMap = Partial<
@@ -77,6 +79,7 @@ export class EventsRuntime {
       handlers: {
         ...this.cradle.projectionEventHandlers,
         ...this.cradle.reservationEventHandlers,
+        ...this.cradle.warehouseEventHandlers,
       },
     });
     this.consumer = new RabbitConsumer({

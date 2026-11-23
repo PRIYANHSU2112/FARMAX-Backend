@@ -16,17 +16,19 @@ export interface BusinessCalendar {
   holidays: ReadonlySet<string>;
 }
 
+type Instant = DateTime;
+
 /** Safety bound: a calendar with (almost) no working time never loops forever. */
 const MAX_DAYS = 800;
 const MINUTE_MS = 60_000;
 
 interface Window {
-  start: DateTime<boolean>;
-  end: DateTime<boolean>;
+  start: Instant;
+  end: Instant;
 }
 
 /** The working windows of one local day (empty on holidays / closed weekdays). */
-function windowsOf(day: DateTime<boolean>, cal: BusinessCalendar): Window[] {
+function windowsOf(day: Instant, cal: BusinessCalendar): Window[] {
   if (cal.holidays.has(day.toISODate() ?? '')) return [];
   const weekday = day.weekday % 7; // luxon: Mon=1 … Sun=7 → Sun=0
   return cal.weekly
@@ -35,7 +37,7 @@ function windowsOf(day: DateTime<boolean>, cal: BusinessCalendar): Window[] {
     .sort((a, b) => a.start.toMillis() - b.start.toMillis());
 }
 
-const atMinute = (day: DateTime<boolean>, minute: number): DateTime<boolean> =>
+const atMinute = (day: Instant, minute: number): Instant =>
   minute >= 1440
     ? day.plus({ days: 1 }).startOf('day')
     : day.set({ hour: Math.floor(minute / 60), minute: minute % 60, second: 0, millisecond: 0 });
@@ -44,10 +46,14 @@ const hasWorkingTime = (cal: BusinessCalendar): boolean =>
   cal.weekly.some((w) => w.endMinute > w.startMinute);
 
 /** `start` + `minutes` of working time. */
-export function addBusinessMinutes(start: Date, minutes: number, cal: BusinessCalendar | null): Date {
+export function addBusinessMinutes(
+  start: Date,
+  minutes: number,
+  cal: BusinessCalendar | null,
+): Date {
   if (minutes <= 0) return new Date(start);
   if (cal === null || !hasWorkingTime(cal)) return new Date(start.getTime() + minutes * MINUTE_MS);
-  let cursor: DateTime<boolean> = DateTime.fromJSDate(start, { zone: cal.timezone });
+  let cursor: Instant = DateTime.fromJSDate(start, { zone: cal.timezone });
   let remainingMs = minutes * MINUTE_MS;
   for (let i = 0; i < MAX_DAYS; i += 1) {
     for (const w of windowsOf(cursor.startOf('day'), cal)) {
@@ -68,8 +74,8 @@ export function businessMinutesBetween(from: Date, to: Date, cal: BusinessCalend
   if (to <= from) return 0;
   if (cal === null || !hasWorkingTime(cal))
     return Math.floor((to.getTime() - from.getTime()) / MINUTE_MS);
-  const end = DateTime.fromJSDate(to, { zone: cal.timezone });
-  let cursor: DateTime<boolean> = DateTime.fromJSDate(from, { zone: cal.timezone });
+  const end: Instant = DateTime.fromJSDate(to, { zone: cal.timezone });
+  let cursor: Instant = DateTime.fromJSDate(from, { zone: cal.timezone });
   let totalMs = 0;
   for (let i = 0; i < MAX_DAYS && cursor < end; i += 1) {
     for (const w of windowsOf(cursor.startOf('day'), cal)) {
@@ -104,7 +110,11 @@ const calOf = (policy: SlaPolicySnapshot, cal: BusinessCalendar | null) =>
   policy.businessHoursOnly ? cal : null;
 
 /** Clocks of a new ticket. */
-export function startClocks(createdAt: Date, policy: SlaPolicySnapshot, cal: BusinessCalendar | null) {
+export function startClocks(
+  createdAt: Date,
+  policy: SlaPolicySnapshot,
+  cal: BusinessCalendar | null,
+) {
   const c = calOf(policy, cal);
   return {
     slaStartedAt: createdAt,
@@ -120,7 +130,12 @@ export const pauseClock = (state: SlaState, now: Date) =>
   state.slaPausedAt === null ? { slaPausedAt: now } : {};
 
 /** Back from waiting: the paused working minutes push the resolve deadline out. */
-export function resumeClock(state: SlaState, policy: SlaPolicySnapshot, cal: BusinessCalendar | null, now: Date) {
+export function resumeClock(
+  state: SlaState,
+  policy: SlaPolicySnapshot,
+  cal: BusinessCalendar | null,
+  now: Date,
+) {
   if (state.slaPausedAt === null) return {};
   const c = calOf(policy, cal);
   const pausedBizMins = state.pausedBizMins + businessMinutesBetween(state.slaPausedAt, now, c);
@@ -139,18 +154,26 @@ export function recomputeForPolicy(
   state: SlaState & { createdAt: Date },
   policy: SlaPolicySnapshot,
   cal: BusinessCalendar | null,
-) {
+): { firstResponseDueAt?: Date; resolveDueAt: Date } {
   const c = calOf(policy, cal);
   return {
     ...(state.firstRespondedAt === null
       ? { firstResponseDueAt: addBusinessMinutes(state.createdAt, policy.firstResponseMins, c) }
       : {}),
-    resolveDueAt: addBusinessMinutes(state.slaStartedAt, policy.resolveMins + state.pausedBizMins, c),
+    resolveDueAt: addBusinessMinutes(
+      state.slaStartedAt,
+      policy.resolveMins + state.pausedBizMins,
+      c,
+    ),
   };
 }
 
 /** Reopen ("Not yet" or a reply after resolution): a fresh resolve cycle from now. */
-export function restartResolveClock(policy: SlaPolicySnapshot, cal: BusinessCalendar | null, now: Date) {
+export function restartResolveClock(
+  policy: SlaPolicySnapshot,
+  cal: BusinessCalendar | null,
+  now: Date,
+) {
   return {
     slaStartedAt: now,
     slaPausedAt: null,

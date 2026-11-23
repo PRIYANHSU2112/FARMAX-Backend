@@ -3,7 +3,9 @@ import type { ServiceModule } from '@farmx/common/server';
 import { accessInternalModule, accessModule } from '../features/access/index.js';
 import { auditModule } from '../features/audit/index.js';
 import { authModule } from '../features/auth/index.js';
+import { deletionModule } from '../features/deletion/index.js';
 import { sessionsModule } from '../features/sessions/index.js';
+import { staffInternalModule } from '../features/staff/index.js';
 import { tokensModule } from '../features/tokens/index.js';
 import { meModule, usersInternalModule, usersModule } from '../features/users/index.js';
 
@@ -13,17 +15,21 @@ import { meModule, usersInternalModule, usersModule } from '../features/users/in
  * @farmx/common/server.
  *   /auth/*                 auth (login, refresh, logout, passwords) · /me/mfa/*  auth
  *   /me · /me/sessions      users (me), sessions
+ *   /me/deletion-request · /auth/account-recovery/*   deletion (self-service delete + recovery)
  *   /admin/users            users · /admin/roles, /admin/permissions  access
  *   /admin/audit-logs       audit · /.well-known/jwks.json  tokens
+ *   /auth/invitations/accept  auth (D-56) · /internal/staff/*  staff (warehouse invitations)
  */
 export const features: readonly ServiceModule[] = [
   tokensModule,
   authModule,
   sessionsModule,
   meModule,
+  deletionModule,
   usersModule,
   accessModule,
   accessInternalModule,
   usersInternalModule,
+  staffInternalModule,
   auditModule,
 ];

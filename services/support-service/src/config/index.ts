@@ -69,9 +69,18 @@ const schema = Joi.object<SupportConfig>({
     .default('')
     .when('APP_ENV', {
       is: 'prod',
-      then: Joi.string().pattern(/^https:\/\/[^,*\s]+(,https:\/\/[^,*\s]+)*$/).messages({
-        'string.pattern.base': 'SUPPORT_WS_ORIGINS must be comma-separated https origins in prod (no *)',
-      }),
+      then: Joi.string()
+        .custom((value: string, helpers) =>
+          value
+            .split(',')
+            .map((o) => o.trim())
+            .every((o) => o.startsWith('https://') && !o.includes('*'))
+            ? value
+            : helpers.error('any.invalid'),
+        )
+        .messages({
+          'any.invalid': 'SUPPORT_WS_ORIGINS must be comma-separated https origins in prod (no *)',
+        }),
     }),
 });
 

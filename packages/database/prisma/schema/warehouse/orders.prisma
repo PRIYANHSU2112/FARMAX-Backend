@@ -1,0 +1,43 @@
+// warehouse-service feature: orders (D-56 P3). Event-fed read model of the orders each warehouse
+// must fulfil: order.placed (header), inventory.reservation_committed (what each warehouse holds),
+// order.confirmed / delivered, and releases / cancellations. Status only moves forward.
+
+enum WmsFulfilmentStatus {
+  /// Paid; stock committed at this warehouse; waiting for admin confirmation.
+  NEW
+  /// Confirmed by admin: the warehouse must pick, pack and dispatch.
+  ALLOCATED
+  DELIVERED
+  CANCELLED
+}
+
+model WmsOrderHeader {
+  orderId    String   @id @db.Uuid
+  orderNo    String   @db.VarChar(30)
+  shipToName String?  @db.VarChar(120)
+  district   String?  @db.VarChar(80)
+  pinCode    String?  @db.Char(6)
+  placedAt   DateTime
+
+  @@index([orderNo])
+  @@map("warehouse_order_headers")
+}
+
+model WmsOrderAllocation {
+  orderId     String              @db.Uuid
+  warehouseId String              @db.Uuid
+  status      WmsFulfilmentStatus @default(NEW)
+  /// variantId → qty still held here (partial releases subtract).
+  lines       Json
+  lineCount   Int
+  unitCount   Int
+  paidAt      DateTime
+  confirmedAt DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  lastEventAt DateTime
+
+  @@id([orderId, warehouseId])
+  @@index([warehouseId, status, orderId(sort: Desc)])
+  @@map("warehouse_order_allocations")
+}

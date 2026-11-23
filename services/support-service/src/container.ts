@@ -3,7 +3,13 @@ import type { TokenVerifier } from '@farmx/common/middleware';
 import { type RunInTransaction, createTransactionRunner } from '@farmx/database';
 import { type Database, closeDatabase, getDatabase } from '@farmx/database/client';
 import { ConnectTokens, RealtimeHub } from '@farmx/infra/realtime';
-import { type Cache, type Redis, createCache, createCacheClient, supportKeys } from '@farmx/infra/redis';
+import {
+  type Cache,
+  type Redis,
+  createCache,
+  createCacheClient,
+  supportKeys,
+} from '@farmx/infra/redis';
 import type { Cradle } from '@fastify/awilix';
 import { type AwilixContainer, asClass, asFunction, asValue, createContainer } from 'awilix';
 
@@ -64,11 +70,17 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
       .disposer(async (client) => {
         await client.quit();
       }),
-    cache: asFunction(({ redis, logger: log }: Cradle) => createCache(redis, { logger: log })).singleton(),
+    cache: asFunction(({ redis, logger: log }: Cradle) =>
+      createCache(redis, { logger: log }),
+    ).singleton(),
     cacheGen: asClass(CacheGen).singleton(),
     accessClient: asFunction(
       (cradle: Cradle) =>
-        new AccessClient({ config: cradle.config, logger: cradle.logger, redis: () => cradle.redis }),
+        new AccessClient({
+          config: cradle.config,
+          logger: cradle.logger,
+          redis: () => cradle.redis,
+        }),
     ).singleton(),
     tokenVerifier: asFunction((cradle: Cradle) =>
       buildTokenVerifier(cradle.config, cradle.logger, () => cradle.redis),
@@ -88,7 +100,11 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
       .disposer((hub) => hub.close()),
     wsTokens: asFunction(
       (cradle: Cradle) =>
-        new ConnectTokens({ redis: () => cradle.redis, key: supportKeys.wsToken, audience: 'support-ws' }),
+        new ConnectTokens({
+          redis: () => cradle.redis,
+          key: supportKeys.wsToken,
+          audience: 'support-ws',
+        }),
     ).singleton(),
     eventsRuntime: asFunction((cradle: Cradle) => new EventsRuntime(cradle))
       .singleton()

@@ -13,7 +13,15 @@ const PRESENCE_REFRESH_MS = 45_000;
 
 type Deps = Pick<
   Cradle,
-  'config' | 'logger' | 'redis' | 'realtimeHub' | 'wsTokens' | 'accessClient' | 'settingsService' | 'agentsService' | 'ticketsService'
+  | 'config'
+  | 'logger'
+  | 'redis'
+  | 'realtimeHub'
+  | 'wsTokens'
+  | 'accessClient'
+  | 'settingsService'
+  | 'agentsService'
+  | 'ticketsService'
 >;
 
 /**
@@ -56,7 +64,10 @@ export class ChatService {
     let app: string;
     let tags: string[];
     if (as === 'agent') {
-      if (user.userType !== 'INTERNAL' || !(await this.deps.accessClient.hasPermission(user.id, 'support.view')))
+      if (
+        user.userType !== 'INTERNAL' ||
+        !(await this.deps.accessClient.hasPermission(user.id, 'support.view'))
+      )
         throw new ForbiddenError('Agent console access needs support.view');
       const manage = await this.deps.accessClient.hasPermission(user.id, 'support.manage');
       app = 'ADMIN';

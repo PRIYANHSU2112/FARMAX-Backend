@@ -6,8 +6,18 @@ import type { App } from '../../middleware/http.js';
 import type { LegalDraftInput, LegalKind, LegalSection, LegalView } from './legal.types.js';
 
 const VIEW = {
-  id: true, kind: true, app: true, version: true, title: true, intro: true, sections: true, status: true,
-  effectiveFrom: true, publishedAt: true, publishedBy: true, updatedAt: true,
+  id: true,
+  kind: true,
+  app: true,
+  version: true,
+  title: true,
+  intro: true,
+  sections: true,
+  status: true,
+  effectiveFrom: true,
+  publishedAt: true,
+  publishedBy: true,
+  updatedAt: true,
 } as const;
 
 const toView = (r: Prisma.LegalDocumentGetPayload<{ select: typeof VIEW }>): LegalView => ({
@@ -53,7 +63,12 @@ export class LegalRepository {
     return (agg._max.version ?? 0) + 1;
   }
 
-  async create(tx: Tx, input: LegalDraftInput, version: number, createdBy: string): Promise<LegalView> {
+  async create(
+    tx: Tx,
+    input: LegalDraftInput,
+    version: number,
+    createdBy: string,
+  ): Promise<LegalView> {
     return toView(
       await withPrismaErrors(() =>
         tx.legalDocument.create({
@@ -80,7 +95,9 @@ export class LegalRepository {
         data: {
           ...(input.title === undefined ? {} : { title: input.title }),
           ...(input.intro === undefined ? {} : { intro: input.intro }),
-          ...(input.sections === undefined ? {} : { sections: input.sections as unknown as Prisma.InputJsonValue }),
+          ...(input.sections === undefined
+            ? {}
+            : { sections: input.sections as unknown as Prisma.InputJsonValue }),
           ...(input.effectiveFrom === undefined ? {} : { effectiveFrom: input.effectiveFrom }),
         },
         select: VIEW,

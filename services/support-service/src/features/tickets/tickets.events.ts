@@ -4,7 +4,10 @@ import type { Cradle } from '@fastify/awilix';
 
 import type { EventHandlerMap } from '../../adapters/events.js';
 
-type Deps = Pick<Cradle, 'ticketsRepository' | 'agentsService' | 'mediaClient' | 'realtimeHub' | 'logger'>;
+type Deps = Pick<
+  Cradle,
+  'ticketsRepository' | 'agentsService' | 'mediaClient' | 'realtimeHub' | 'logger'
+>;
 
 /**
  * auth-service user lifecycle (inbox: a redelivered event is a no-op).
@@ -21,7 +24,10 @@ export const createTicketEventHandlers = (deps: Deps): EventHandlerMap => ({
       await deps.agentsService.adjustLoad(tx, t.assigneeId, -1);
     const scrubbed = await deps.ticketsRepository.scrubRequester(tx, userId);
     deps.realtimeHub.kickUser(userId, 'account deleted');
-    deps.logger.info({ userId, tickets: scrubbed, files: keys.length }, 'support data scrubbed for deleted user');
+    deps.logger.info(
+      { userId, tickets: scrubbed, files: keys.length },
+      'support data scrubbed for deleted user',
+    );
   },
   'user.status_changed.v1': (event: EventEnvelope) => {
     const { userId, status } = event.data as UserStatusChangedV1;

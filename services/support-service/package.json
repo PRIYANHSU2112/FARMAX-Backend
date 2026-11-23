@@ -39,9 +39,11 @@
     "@farmx/tsconfig": "workspace:*",
     "@types/luxon": "^3.7.1",
     "@types/node": "catalog:",
+    "@types/ws": "^8.18.2",
     "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "^8.22.2"
   }
 }

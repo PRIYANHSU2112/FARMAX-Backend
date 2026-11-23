@@ -11,7 +11,10 @@ import type { AgentInput, AgentView, CannedReplyInput, CannedReplyView } from '.
 /** Presence TTL; open agent sockets refresh it every 45 s. */
 export const PRESENCE_TTL_SECONDS = 90;
 
-type Deps = Pick<Cradle, 'agentsRepository' | 'auditService' | 'runInTransaction' | 'redis' | 'authDirectory' | 'logger'>;
+type Deps = Pick<
+  Cradle,
+  'agentsRepository' | 'auditService' | 'runInTransaction' | 'redis' | 'authDirectory' | 'logger'
+>;
 
 export class AgentsService {
   constructor(private readonly deps: Deps) {}
@@ -25,22 +28,31 @@ export class AgentsService {
   /** The caller's agent profile; 403 when they are not an active agent. */
   async me(userId: string): Promise<AgentView> {
     const agent = await this.deps.agentsRepository.find(userId);
-    if (agent === null || !agent.isActive) throw new ForbiddenError('You are not an active support agent');
+    if (!agent?.isActive) throw new ForbiddenError('You are not an active support agent');
     return { ...agent, online: (await this.onlineSet([userId])).has(userId) };
   }
 
   /** Display name for system messages ("Swathi joined"); null when not an agent. */
+  /** Display name of an ACTIVE agent (system messages, assignment); null = not an active agent. */
   async displayName(userId: string): Promise<string | null> {
-    return (await this.deps.agentsRepository.find(userId))?.displayName ?? null;
+    const agent = await this.deps.agentsRepository.find(userId);
+    return agent?.isActive === true ? agent.displayName : null;
   }
 
   async save(actor: Actor, userId: string, input: AgentInput): Promise<AgentView> {
     const contact = await this.deps.authDirectory.contact(userId);
-    if (contact === null || contact.userType !== 'INTERNAL')
-      throw new ValidationError([{ path: 'params.userId', message: 'must be an existing staff (INTERNAL) user' }]);
+    if (contact?.userType !== 'INTERNAL')
+      throw new ValidationError([
+        { path: 'params.userId', message: 'must be an existing staff (INTERNAL) user' },
+      ]);
     return this.deps.runInTransaction(async (tx) => {
       const agent = await this.deps.agentsRepository.upsert(tx, userId, input);
-      await this.deps.auditService.record(tx, actor, { action: 'agent.save', targetType: 'agent', targetId: userId, after: input });
+      await this.deps.auditService.record(tx, actor, {
+        action: 'agent.save',
+        targetType: 'agent',
+        targetId: userId,
+        after: input,
+      });
       return agent;
     });
   }
@@ -65,7 +77,9 @@ export class AgentsService {
   }
 
   adjustLoad(tx: Tx, userId: string | null, delta: number): Promise<void> {
-    return userId === null ? Promise.resolve() : this.deps.agentsRepository.adjustLoad(tx, userId, delta);
+    return userId === null
+      ? Promise.resolve()
+      : this.deps.agentsRepository.adjustLoad(tx, userId, delta);
   }
 
   // ── Presence (chat sockets) ──
@@ -75,7 +89,8 @@ export class AgentsService {
     if (ids.length === 0) return;
     try {
       const pipeline = this.deps.redis.pipeline();
-      for (const id of ids) pipeline.set(supportKeys.agentOnline(id), '1', 'EX', PRESENCE_TTL_SECONDS);
+      for (const id of ids)
+        pipeline.set(supportKeys.agentOnline(id), '1', 'EX', PRESENCE_TTL_SECONDS);
       await pipeline.exec();
     } catch (err) {
       this.deps.logger.warn({ err }, 'agent presence write failed');
@@ -105,16 +120,30 @@ export class AgentsService {
   async createCanned(actor: Actor, input: CannedReplyInput): Promise<CannedReplyView> {
     return this.deps.runInTransaction(async (tx) => {
       const row = await this.deps.agentsRepository.createCanned(tx, input, actor.userId ?? '');
-      await this.deps.auditService.record(tx, actor, { action: 'canned.create', targetType: 'canned_reply', targetId: row.id, after: { title: row.title } });
+      await this.deps.auditService.record(tx, actor, {
+        action: 'canned.create',
+        targetType: 'canned_reply',
+        targetId: row.id,
+        after: { title: row.title },
+      });
       return row;
     });
   }
 
-  async updateCanned(actor: Actor, id: string, input: Partial<CannedReplyInput>): Promise<CannedReplyView> {
+  async updateCanned(
+    actor: Actor,
+    id: string,
+    input: Partial<CannedReplyInput>,
+  ): Promise<CannedReplyView> {
     return this.deps.runInTransaction(async (tx) => {
       const row = await this.deps.agentsRepository.updateCanned(tx, id, input);
       if (row === null) throw new NotFoundError('Canned reply');
-      await this.deps.auditService.record(tx, actor, { action: 'canned.update', targetType: 'canned_reply', targetId: id, after: { title: row.title, isActive: row.isActive } });
+      await this.deps.auditService.record(tx, actor, {
+        action: 'canned.update',
+        targetType: 'canned_reply',
+        targetId: id,
+        after: { title: row.title, isActive: row.isActive },
+      });
       return row;
     });
   }

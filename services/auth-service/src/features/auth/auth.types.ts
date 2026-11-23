@@ -18,7 +18,11 @@ export const OTP_LENGTH = 6;
 export const OTP_TTL_SECONDS = 300;
 export const OTP_MAX_ATTEMPTS = 5;
 export const OTP_RESEND_COOLDOWN_SECONDS = 30;
-export type OtpPurpose = 'login' | 'pwd_reset';
+export type OtpPurpose =
+  'login' | 'pwd_reset' | 'account_delete' | 'account_recovery' | 'staff_invite';
+
+/** Warehouse staff invitation code (emailed): valid 48 hours, same 5 attempts (D-56). */
+export const STAFF_INVITE_TTL_SECONDS = 48 * 3600;
 
 /** MFA login challenge: 5 minutes, 5 attempts. TOTP: 30 s steps, ±1 step tolerance. */
 export const MFA_CHALLENGE_TTL_SECONDS = 300;

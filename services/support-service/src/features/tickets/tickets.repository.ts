@@ -14,12 +14,24 @@ import type {
 } from './tickets.types.js';
 
 const MESSAGE = {
-  id: true, ticketId: true, seq: true, senderId: true, senderRole: true, senderName: true, kind: true,
-  visibility: true, body: true, attachmentIds: true, card: true, clientMessageId: true, createdAt: true,
+  id: true,
+  ticketId: true,
+  seq: true,
+  senderId: true,
+  senderRole: true,
+  senderName: true,
+  kind: true,
+  visibility: true,
+  body: true,
+  attachmentIds: true,
+  card: true,
+  clientMessageId: true,
+  createdAt: true,
 } as const;
 type MessageRow = Prisma.SupportTicketMessageGetPayload<{ select: typeof MESSAGE }>;
 
 const ATTACHMENT = { id: true, kind: true, mime: true, size: true, fileName: true } as const;
+const ACTIVE: TicketStatus[] = ['NEW', 'OPEN', 'WAITING_ON_REQUESTER'];
 
 export interface NewMessage {
   senderId: string | null;
@@ -66,38 +78,46 @@ export class TicketsRepository {
     return `TK-${String(now.getUTCFullYear())}-${String(row?.n ?? 0).padStart(6, '0')}`;
   }
 
-  async insertTicket(tx: Tx, data: Prisma.SupportTicketUncheckedCreateInput): Promise<TicketRow> {
-    return (await withPrismaErrors(() => tx.supportTicket.create({ data }))) as TicketRow;
+  async insertTicket(tx: Tx, data: Prisma.SupportTicketUncheckedCreateInput): Promise<void> {
+    await withPrismaErrors(() => tx.supportTicket.create({ data, select: { id: true } }));
   }
 
   async find(id: string): Promise<TicketRow | null> {
-    return (await withPrismaErrors(() => this.deps.db.supportTicket.findUnique({ where: { id } }))) as TicketRow | null;
+    return await withPrismaErrors(() => this.deps.db.supportTicket.findUnique({ where: { id } }));
   }
 
   async findByIdempotency(requesterId: string, key: string): Promise<TicketRow | null> {
-    return (await this.deps.db.supportTicket.findUnique({
+    return await this.deps.db.supportTicket.findUnique({
       where: { requesterId_idempotencyKey: { requesterId, idempotencyKey: key } },
-    })) as TicketRow | null;
+    });
   }
 
   /** Row lock for the rest of the transaction (every state change goes through this). */
   async lock(tx: Tx, id: string): Promise<TicketRow | null> {
-    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "support_tickets" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    const rows = await tx.$queryRaw<
+      { id: string }[]
+    >`SELECT "id" FROM "support_tickets" WHERE "id" = ${id}::uuid FOR UPDATE`;
     if (rows.length === 0) return null;
-    return (await tx.supportTicket.findUnique({ where: { id } })) as TicketRow | null;
+    return await tx.supportTicket.findUnique({ where: { id } });
   }
 
   async countActive(tx: Tx, requesterId: string): Promise<number> {
-    return tx.supportTicket.count({
-      where: { requesterId, status: { in: ['NEW', 'OPEN', 'WAITING_ON_REQUESTER'] } },
-    });
+    return tx.supportTicket.count({ where: { requesterId, status: { in: ACTIVE } } });
   }
 
   /** Patch + version bump. With `expectedVersion`, a stale version updates nothing (→ false). */
-  async update(tx: Tx, id: string, patch: Record<string, unknown>, expectedVersion?: number): Promise<boolean> {
+  async update(
+    tx: Tx,
+    id: string,
+    patch: Record<string, unknown>,
+    expectedVersion?: number,
+  ): Promise<boolean> {
     const res = await tx.supportTicket.updateMany({
       where: { id, ...(expectedVersion === undefined ? {} : { version: expectedVersion }) },
-      data: { ...(patch as Prisma.SupportTicketUpdateManyMutationInput), version: { increment: 1 } },
+      data: {
+        ...(patch as Prisma.SupportTicketUpdateManyMutationInput),
+        version: { increment: 1 },
+      },
     });
     return res.count === 1;
   }
@@ -122,24 +142,28 @@ export class TicketsRepository {
     cursor: string | undefined,
     take: number,
   ): Promise<TicketRow[]> {
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.deps.db.supportTicket.findMany({
         where: { requesterId, status: { in: [...statuses] } },
         orderBy: [{ lastMessageAt: 'desc' }, { id: 'desc' }],
         take,
         ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
       }),
-    )) as TicketRow[];
+    );
   }
 
   async countsForRequester(requesterId: string): Promise<Record<string, number>> {
-    const rows = await this.deps.db.supportTicket.groupBy({ by: ['status'], where: { requesterId }, _count: { _all: true } });
+    const rows = await this.deps.db.supportTicket.groupBy({
+      by: ['status'],
+      where: { requesterId },
+      _count: { _all: true },
+    });
     return Object.fromEntries(rows.map((r) => [r.status, r._count._all]));
   }
 
   async queue(query: QueueQuery, me: string, take: number): Promise<TicketRow[]> {
     const where: Prisma.SupportTicketWhereInput = {
-      ...(query.status === undefined ? { status: { in: ['NEW', 'OPEN', 'WAITING_ON_REQUESTER'] } } : { status: { in: query.status } }),
+      status: { in: query.status ?? ACTIVE },
       ...(query.priority === undefined ? {} : { priority: { in: query.priority } }),
       ...(query.app === undefined ? {} : { app: query.app }),
       ...(query.team === undefined ? {} : { team: query.team }),
@@ -154,10 +178,14 @@ export class TicketsRepository {
       ...(query.q === undefined
         ? {}
         : {
-            OR: [
-              { ticketNo: { equals: query.q.toUpperCase() } },
-              { requesterName: { contains: query.q, mode: 'insensitive' } },
-              { orderContext: { path: ['orderNo'], equals: query.q } },
+            AND: [
+              {
+                OR: [
+                  { ticketNo: { equals: query.q.toUpperCase() } },
+                  { requesterName: { contains: query.q, mode: 'insensitive' } },
+                  { orderContext: { path: ['orderNo'], equals: query.q } },
+                ],
+              },
             ],
           }),
     };
@@ -167,25 +195,32 @@ export class TicketsRepository {
         : query.sort === 'oldest'
           ? [{ createdAt: 'asc' }, { id: 'asc' }]
           : [{ priority: 'asc' }, { resolveDueAt: 'asc' }, { id: 'asc' }];
-    return (await withPrismaErrors(() =>
+    return await withPrismaErrors(() =>
       this.deps.db.supportTicket.findMany({
         where,
         orderBy,
         take,
         ...(query.cursor === undefined ? {} : { cursor: { id: query.cursor }, skip: 1 }),
       }),
-    )) as TicketRow[];
+    );
   }
 
   async stats(me: string) {
-    const active = { status: { in: ['NEW', 'OPEN', 'WAITING_ON_REQUESTER'] as TicketStatus[] } };
+    const active = { status: { in: ACTIVE } };
     const [byStatus, byPriority, unassigned, mine, breached] = await Promise.all([
       this.deps.db.supportTicket.groupBy({ by: ['status'], where: active, _count: { _all: true } }),
-      this.deps.db.supportTicket.groupBy({ by: ['priority'], where: active, _count: { _all: true } }),
+      this.deps.db.supportTicket.groupBy({
+        by: ['priority'],
+        where: active,
+        _count: { _all: true },
+      }),
       this.deps.db.supportTicket.count({ where: { ...active, assigneeId: null } }),
       this.deps.db.supportTicket.count({ where: { ...active, assigneeId: me } }),
       this.deps.db.supportTicket.count({
-        where: { ...active, OR: [{ firstResponseBreachedAt: { not: null } }, { resolveBreachedAt: { not: null } }] },
+        where: {
+          ...active,
+          OR: [{ firstResponseBreachedAt: { not: null } }, { resolveBreachedAt: { not: null } }],
+        },
       }),
     ]);
     return {
@@ -229,20 +264,24 @@ export class TicketsRepository {
         visibility: isPublic ? 'PUBLIC' : 'INTERNAL',
         body: msg.body,
         attachmentIds: msg.attachmentIds ?? [],
-        card: (msg.card ?? undefined) as Prisma.InputJsonValue | undefined,
+        card: msg.card ?? undefined,
         clientMessageId: msg.clientMessageId ?? null,
       },
       select: MESSAGE,
     });
-    return toMessage(created, []);
+    return toMessage(created, msg.attachmentViews ?? []);
   }
 
-  async findByClientId(ticketId: string, senderId: string, clientMessageId: string): Promise<MessageView | null> {
+  async findByClientId(
+    ticketId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<MessageView | null> {
     const row = await this.deps.db.supportTicketMessage.findUnique({
       where: { ticketId_senderId_clientMessageId: { ticketId, senderId, clientMessageId } },
       select: MESSAGE,
     });
-    return row === null ? null : (await this.withAttachments([row]))[0] ?? null;
+    return row === null ? null : ((await this.withAttachments([row]))[0] ?? null);
   }
 
   /** A page of messages: after `afterSeq` (ascending, resync) or the latest / before `beforeSeq`. */
@@ -261,7 +300,11 @@ export class TicketsRepository {
           })
         : (
             await this.deps.db.supportTicketMessage.findMany({
-              where: { ticketId, ...visibility, ...(opts.beforeSeq === undefined ? {} : { seq: { lt: opts.beforeSeq } }) },
+              where: {
+                ticketId,
+                ...visibility,
+                ...(opts.beforeSeq === undefined ? {} : { seq: { lt: opts.beforeSeq } }),
+              },
               orderBy: { seq: 'desc' },
               take: opts.limit,
               select: MESSAGE,
@@ -275,15 +318,27 @@ export class TicketsRepository {
     const attachments =
       ids.length === 0
         ? []
-        : await this.deps.db.supportAttachment.findMany({ where: { id: { in: ids } }, select: { ...ATTACHMENT } });
+        : await this.deps.db.supportAttachment.findMany({
+            where: { id: { in: ids } },
+            select: ATTACHMENT,
+          });
     const byId = new Map(attachments.map((a) => [a.id, a]));
-    return rows.map((r) => toMessage(r, r.attachmentIds.flatMap((id) => byId.get(id) ?? [])));
+    return rows.map((r) =>
+      toMessage(
+        r,
+        r.attachmentIds.flatMap((id) => byId.get(id) ?? []),
+      ),
+    );
   }
 
   // ── Attachments ──
 
   /** Binds verified uploads to the ticket. unique(mediaKey): one file can never serve two tickets. */
-  async insertAttachments(tx: Tx, ticketId: string, files: readonly VerifiedUpload[]): Promise<AttachmentView[]> {
+  async insertAttachments(
+    tx: Tx,
+    ticketId: string,
+    files: readonly VerifiedUpload[],
+  ): Promise<AttachmentView[]> {
     const out: AttachmentView[] = [];
     for (const f of files) {
       out.push(
@@ -308,10 +363,14 @@ export class TicketsRepository {
   }
 
   async linkAttachments(tx: Tx, ids: readonly string[], messageId: string): Promise<void> {
-    if (ids.length > 0) await tx.supportAttachment.updateMany({ where: { id: { in: [...ids] } }, data: { messageId } });
+    if (ids.length > 0)
+      await tx.supportAttachment.updateMany({
+        where: { id: { in: [...ids] } },
+        data: { messageId },
+      });
   }
 
-  async attachmentKey(ticketId: string, attachmentId: string): Promise<{ mediaKey: string; mime: string; fileName: string | null } | null> {
+  attachmentKey(ticketId: string, attachmentId: string) {
     return this.deps.db.supportAttachment.findFirst({
       where: { id: attachmentId, ticketId },
       select: { mediaKey: true, mime: true, fileName: true },
@@ -320,7 +379,13 @@ export class TicketsRepository {
 
   // ── Participants ──
 
-  async join(tx: Tx, ticketId: string, userId: string, role: 'REQUESTER' | 'AGENT', lastReadSeq = 0): Promise<void> {
+  async join(
+    tx: Tx,
+    ticketId: string,
+    userId: string,
+    role: 'REQUESTER' | 'AGENT',
+    lastReadSeq = 0,
+  ): Promise<void> {
     await tx.$executeRaw`
       INSERT INTO "support_ticket_participants" ("ticketId", "userId", "role", "lastReadSeq")
       VALUES (${ticketId}::uuid, ${userId}::uuid, ${role}, ${lastReadSeq})
@@ -329,7 +394,12 @@ export class TicketsRepository {
   }
 
   /** Read receipt: monotonic (an older seq never moves it back), capped at the ticket's lastSeq. */
-  async markRead(ticketId: string, userId: string, role: 'REQUESTER' | 'AGENT', seq: number): Promise<number> {
+  async markRead(
+    ticketId: string,
+    userId: string,
+    role: 'REQUESTER' | 'AGENT',
+    seq: number,
+  ): Promise<number> {
     const [row] = await this.deps.db.$queryRaw<{ lastReadSeq: number }[]>`
       INSERT INTO "support_ticket_participants" ("ticketId", "userId", "role", "lastReadSeq")
       SELECT t."id", ${userId}::uuid, ${role}, LEAST(${seq}, t."lastSeq") FROM "support_tickets" t WHERE t."id" = ${ticketId}::uuid
@@ -339,13 +409,20 @@ export class TicketsRepository {
     return row?.lastReadSeq ?? 0;
   }
 
-  async readSeqs(ticketIds: readonly string[], userId: string): Promise<Map<string, number>> {
+  /**
+   * Unread PUBLIC messages per ticket for one reader (internal notes never count). One grouped
+   * query per page, served by unique(ticketId, seq); messages before the reader joined count.
+   */
+  async unreadCounts(ticketIds: readonly string[], userId: string): Promise<Map<string, number>> {
     if (ticketIds.length === 0) return new Map();
-    const rows = await this.deps.db.supportTicketParticipant.findMany({
-      where: { userId, ticketId: { in: [...ticketIds] } },
-      select: { ticketId: true, lastReadSeq: true },
-    });
-    return new Map(rows.map((r) => [r.ticketId, r.lastReadSeq]));
+    const rows = await this.deps.db.$queryRaw<{ ticketId: string; n: number }[]>`
+      SELECT m."ticketId", count(*)::int AS n
+        FROM "support_ticket_messages" m
+        LEFT JOIN "support_ticket_participants" p ON p."ticketId" = m."ticketId" AND p."userId" = ${userId}::uuid
+       WHERE m."ticketId" = ANY(${[...ticketIds]}::uuid[]) AND m."visibility" = 'PUBLIC'
+         AND m."seq" > COALESCE(p."lastReadSeq", 0)
+       GROUP BY m."ticketId"`;
+    return new Map(rows.map((r) => [r.ticketId, r.n]));
   }
 
   // ── History ──
@@ -360,18 +437,21 @@ export class TicketsRepository {
         to: e.to ?? null,
         actorId: e.actorId,
         reason: e.reason ?? null,
-        meta: (e.meta ?? undefined) as Prisma.InputJsonValue | undefined,
+        meta: e.meta ?? undefined,
       })),
     });
   }
 
   events(ticketId: string) {
-    return this.deps.db.supportTicketEvent.findMany({ where: { ticketId }, orderBy: { createdAt: 'asc' } });
+    return this.deps.db.supportTicketEvent.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   // ── Sweeps (set-based, exactly once, SKIP LOCKED) ──
 
-  async breachFirstResponse(tx: Tx, limit: number): Promise<SweptTicket[]> {
+  breachFirstResponse(tx: Tx, limit: number): Promise<SweptTicket[]> {
     return tx.$queryRaw<SweptTicket[]>`
       WITH due AS (
         SELECT "id" FROM "support_tickets"
@@ -384,7 +464,7 @@ export class TicketsRepository {
                 t."team"::text AS "team", t."assigneeId", t."firstResponseDueAt" AS "dueAt"`;
   }
 
-  async breachResolve(tx: Tx, limit: number): Promise<SweptTicket[]> {
+  breachResolve(tx: Tx, limit: number): Promise<SweptTicket[]> {
     return tx.$queryRaw<SweptTicket[]>`
       WITH due AS (
         SELECT "id" FROM "support_tickets"
@@ -397,11 +477,11 @@ export class TicketsRepository {
                 t."team"::text AS "team", t."assigneeId", t."resolveDueAt" AS "dueAt"`;
   }
 
-  async autoClose(tx: Tx, olderThanHours: number, limit: number): Promise<SweptTicket[]> {
+  autoClose(tx: Tx, olderThanHours: number, limit: number): Promise<SweptTicket[]> {
     return tx.$queryRaw<SweptTicket[]>`
       WITH due AS (
         SELECT "id" FROM "support_tickets"
-         WHERE "status" = 'RESOLVED' AND "resolvedAt" <= now() - make_interval(hours => ${olderThanHours})
+         WHERE "status" = 'RESOLVED' AND "resolvedAt" <= now() - make_interval(hours => ${olderThanHours}::int)
          ORDER BY "resolvedAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
       UPDATE "support_tickets" t SET "status" = 'CLOSED', "closedAt" = now(), "version" = t."version" + 1, "updatedAt" = now()
         FROM due WHERE t."id" = due."id"
@@ -412,24 +492,33 @@ export class TicketsRepository {
   // ── Account deletion (DPDP) ──
 
   async attachmentKeysOf(uploaderId: string): Promise<string[]> {
-    const rows = await this.deps.db.supportAttachment.findMany({ where: { uploaderId }, select: { mediaKey: true } });
+    const rows = await this.deps.db.supportAttachment.findMany({
+      where: { uploaderId },
+      select: { mediaKey: true },
+    });
     return rows.map((r) => r.mediaKey);
   }
 
-  async activeTicketsOf(tx: Tx, requesterId: string): Promise<{ id: string; status: TicketStatus; assigneeId: string | null }[]> {
+  activeTicketsOf(
+    tx: Tx,
+    requesterId: string,
+  ): Promise<{ id: string; status: TicketStatus; assigneeId: string | null }[]> {
     return tx.supportTicket.findMany({
-      where: { requesterId, status: { in: ['NEW', 'OPEN', 'WAITING_ON_REQUESTER'] } },
+      where: { requesterId, status: { in: ACTIVE } },
       select: { id: true, status: true, assigneeId: true },
     });
   }
 
-  /** Scrubs the requester's personal text and files; ids, SLA facts and agent messages stay. */
+  /** Scrubs the requester's personal text and files; closes their open tickets. */
   async scrubRequester(tx: Tx, requesterId: string): Promise<number> {
     await tx.supportTicketMessage.updateMany({
       where: { senderId: requesterId },
       data: { body: '[removed]', attachmentIds: [], clientMessageId: null },
     });
     await tx.supportAttachment.deleteMany({ where: { uploaderId: requesterId } });
+    await tx.$executeRaw`
+      UPDATE "support_tickets" SET "status" = 'CLOSED', "closedAt" = now(), "version" = "version" + 1
+       WHERE "requesterId" = ${requesterId}::uuid AND "status" IN ('NEW', 'OPEN', 'WAITING_ON_REQUESTER')`;
     const res = await tx.supportTicket.updateMany({
       where: { requesterId, requesterScrubbedAt: null },
       data: {
@@ -440,9 +529,6 @@ export class TicketsRepository {
         requesterScrubbedAt: new Date(),
       },
     });
-    await tx.$executeRaw`
-      UPDATE "support_tickets" SET "status" = 'CLOSED', "closedAt" = now(), "version" = "version" + 1
-       WHERE "requesterId" = ${requesterId}::uuid AND "status" IN ('NEW', 'OPEN', 'WAITING_ON_REQUESTER')`;
     return res.count;
   }
 }

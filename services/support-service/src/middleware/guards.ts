@@ -45,10 +45,13 @@ const requireStaff: preHandlerAsyncHookHandler = async function (request, reply)
 
 /** preHandler (after requireStaff): default deny. Unknown keys throw at registration. */
 export const requirePermission = (key: string): preHandlerAsyncHookHandler => {
-  if (!SUPPORT_PERMISSIONS.has(key)) throw new Error(`requirePermission: unknown permission "${key}"`);
+  if (!SUPPORT_PERMISSIONS.has(key))
+    throw new Error(`requirePermission: unknown permission "${key}"`);
   return async (request) => {
     if (request.user === null) throw new UnauthorizedError();
-    const allowed = await request.diScope.resolve('accessClient').hasPermission(request.user.id, key);
+    const allowed = await request.diScope
+      .resolve('accessClient')
+      .hasPermission(request.user.id, key);
     if (!allowed) throw new ForbiddenError();
   };
 };

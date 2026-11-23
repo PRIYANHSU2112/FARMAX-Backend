@@ -18,3 +18,12 @@ describe('auth event contracts', () => {
     }
   });
 });
+
+describe('warehouse event contracts (D-56)', () => {
+  it('uses unique <aggregate>.<event>.v<N> routing keys', async () => {
+    const { WAREHOUSE_EVENTS } = await import('../index.js');
+    const types = Object.values(WAREHOUSE_EVENTS);
+    for (const type of types) expect(type).toMatch(EVENT_TYPE_PATTERN);
+    expect(new Set(types).size).toBe(types.length);
+  });
+});

@@ -1,0 +1,49 @@
+// warehouse-service feature: stats (D-56 P3). Read models of inventory-service stock, pulled every
+// minute by one job (internal `/internal/inventory/warehouse-stats`). Screens read only these
+// local rows; `asOf` tells how fresh they are.
+
+model WmsStockCurrent {
+  warehouseId    String   @id @db.Uuid
+  onHand         Int      @default(0)
+  reserved       Int      @default(0)
+  damaged        Int      @default(0)
+  /// Sellable = Σ max(0, onHand − reserved − safetyStock).
+  available      Int      @default(0)
+  skuCount       Int      @default(0)
+  /// Σ (onHand + damaged) × weightGrams / 1000 over variants with a known weight.
+  usedKg         Decimal  @default(0) @db.Decimal(14, 2)
+  weighedUnits   Int      @default(0)
+  unweighedUnits Int      @default(0)
+  unweighedSkus  Int      @default(0)
+  weightKnownPct Decimal  @default(100) @db.Decimal(5, 1)
+  asOf           DateTime
+
+  @@map("warehouse_stock_current")
+}
+
+model WmsStockByCategory {
+  warehouseId    String @db.Uuid
+  /// Root catalog category; the nil uuid = not classified yet.
+  rootCategoryId String @db.Uuid
+  skuCount       Int    @default(0)
+  onHand         Int    @default(0)
+  reserved       Int    @default(0)
+  available      Int    @default(0)
+
+  @@id([warehouseId, rootCategoryId])
+  @@map("warehouse_stock_by_category")
+}
+
+/// One row per warehouse and local day; the last refresh of the day wins ("vs last 7 days").
+model WmsDailyStats {
+  warehouseId String   @db.Uuid
+  day         DateTime @db.Date
+  onHand      Int      @default(0)
+  available   Int      @default(0)
+  reserved    Int      @default(0)
+  openOrders  Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@id([warehouseId, day])
+  @@map("warehouse_daily_stats")
+}

@@ -3,6 +3,7 @@ import { asClass } from 'awilix';
 
 import { AvailabilityPublisher } from './stock.availability.js';
 import { StockRepository } from './stock.repository.js';
+import { stockInternalRoutes } from './stock.internal.routes.js';
 import { stockRoutes } from './stock.routes.js';
 import { StockService } from './stock.service.js';
 
@@ -25,4 +26,11 @@ export const stockModule = defineModule({
     });
   },
   routes: stockRoutes,
+});
+
+/** `/internal/inventory/warehouse-stats` for warehouse-service (D-56 P3). */
+export const stockInternalModule = defineModule({
+  name: 'stock-internal',
+  prefix: '/internal/inventory',
+  routes: stockInternalRoutes,
 });

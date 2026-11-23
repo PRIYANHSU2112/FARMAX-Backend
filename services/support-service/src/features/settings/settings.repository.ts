@@ -10,8 +10,12 @@ const toDate = (d: Date) => d.toISOString().slice(0, 10);
 export class SettingsRepository {
   constructor(private readonly deps: Pick<Cradle, 'db'>) {}
 
-  async allSettings(): Promise<{ key: string; value: unknown; updatedByUserId: string | null; updatedAt: Date }[]> {
-    return withPrismaErrors(() => this.deps.db.supportSetting.findMany({ orderBy: { key: 'asc' } }));
+  async allSettings(): Promise<
+    { key: string; value: unknown; updatedByUserId: string | null; updatedAt: Date }[]
+  > {
+    return withPrismaErrors(() =>
+      this.deps.db.supportSetting.findMany({ orderBy: { key: 'asc' } }),
+    );
   }
 
   async findSettingForUpdate(tx: Tx, key: SettingKey): Promise<unknown> {
@@ -20,11 +24,16 @@ export class SettingsRepository {
     return rows[0]?.value;
   }
 
-  async upsertSetting(tx: Tx, key: SettingKey, value: object, userId: string | null): Promise<void> {
+  async upsertSetting(
+    tx: Tx,
+    key: SettingKey,
+    value: object,
+    userId: string | null,
+  ): Promise<void> {
     await tx.supportSetting.upsert({
       where: { key },
-      create: { key, value: value as Prisma.InputJsonValue, updatedByUserId: userId },
-      update: { value: value as Prisma.InputJsonValue, updatedByUserId: userId },
+      create: { key, value: value, updatedByUserId: userId },
+      update: { value: value, updatedByUserId: userId },
     });
   }
 
@@ -86,7 +95,10 @@ export class SettingsRepository {
 
   async addHoliday(tx: Tx, calendarId: string, date: string, name: string): Promise<string> {
     const row = await withPrismaErrors(() =>
-      tx.supportHoliday.create({ data: { calendarId, date: new Date(`${date}T00:00:00Z`), name }, select: { id: true } }),
+      tx.supportHoliday.create({
+        data: { calendarId, date: new Date(`${date}T00:00:00Z`), name },
+        select: { id: true },
+      }),
     );
     return row.id;
   }

@@ -75,6 +75,31 @@ export const ACCESS_DOCS = {
     success: { status: 200, description: 'The role', data: roleSchema, example: ok(exampleRole) },
     errors: [404, 422],
   },
+  roleUsage: {
+    tag: ADMIN_ROLES_TAG,
+    summary: 'Where a role is used',
+    description:
+      'Distinct holders and the scopes (GLOBAL, each warehouse, …) where the role is granted. Roles are global templates: show this before saving a change, because the change reaches every holder in every warehouse.',
+    permission: 'roles.view',
+    success: {
+      status: 200,
+      description: 'Usage',
+      data: Joi.object({
+        roleId: Joi.string().guid(),
+        roleKey: Joi.string().example('picker'),
+        staffCount: Joi.number().integer().example(14),
+        warehouseCount: Joi.number().integer().example(5),
+        scopes: Joi.array().items(
+          Joi.object({
+            scopeType: Joi.string().example('WAREHOUSE'),
+            scopeId: Joi.string().guid().allow(null),
+            holders: Joi.number().integer().example(4),
+          }),
+        ),
+      }).meta({ className: 'RoleUsage' }),
+    },
+    errors: [404, 422],
+  },
   createRole: {
     tag: ADMIN_ROLES_TAG,
     summary: 'Create a role',

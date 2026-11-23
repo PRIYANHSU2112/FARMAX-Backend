@@ -8,6 +8,8 @@ import type { Paginated } from '@farmx/common/types';
 import type { Cradle } from '@fastify/awilix';
 
 import { type Tx, isUniqueViolation } from '@farmx/database';
+
+import { emitAuthEvent } from '../../adapters/events.js';
 import type { RoleAssignment, SetUserRolesResult } from '../access/index.js';
 import { SUPER_ADMIN_ROLE } from '../access/index.js';
 import type { AuditActor, JsonObject } from '../audit/index.js';
@@ -123,6 +125,62 @@ export class UsersService {
 
   getContact(id: string): Promise<UserContact | null> {
     return this.deps.usersRepository.findContact(id);
+  }
+
+  /** Many contacts in one query (warehouse-service team list, manager names). */
+  getContacts(ids: readonly string[]): Promise<UserContact[]> {
+    return this.deps.usersRepository.findContacts(ids);
+  }
+
+  /**
+   * A warehouse invitation for an unknown email (D-56): INTERNAL, PENDING_VERIFICATION, no
+   * password and no phone (phones are unique across ALL users; the warehouse keeps its own copy).
+   * The invitation code proves the email when the person accepts.
+   */
+  async createInvitedStaff(
+    input: { email: string; fullName: string; createdByUserId: string },
+    tx: Tx,
+  ): Promise<LoginUserRecord> {
+    const created = await this.deps.usersRepository.create(
+      {
+        userType: 'INTERNAL',
+        email: input.email,
+        phone: null,
+        username: null,
+        fullName: input.fullName,
+        displayName: null,
+        employeeCode: null,
+        status: 'PENDING_VERIFICATION',
+        statusChangedAt: new Date(),
+        mfaRequired: MFA_MANDATORY_TYPES.includes('INTERNAL'),
+        mustChangePassword: false,
+        createdByUserId: input.createdByUserId,
+        registrationSource: 'warehouse_invite',
+      },
+      tx,
+    );
+    return {
+      id: created.id,
+      userType: created.userType,
+      status: created.status,
+      deletedAt: created.deletedAt,
+      mfaRequired: created.mfaRequired,
+      mustChangePassword: created.mustChangePassword,
+      email: created.email,
+      phone: created.phone,
+      username: created.username,
+      fullName: created.fullName,
+    };
+  }
+
+  /** Invitation accepted: the email is proven and the account becomes ACTIVE. */
+  async activateInvitedStaff(userId: string, tx: Tx): Promise<void> {
+    const now = new Date();
+    await this.deps.usersRepository.update(
+      userId,
+      { status: 'ACTIVE', statusReason: null, statusChangedAt: now, emailVerifiedAt: now },
+      tx,
+    );
   }
 
   listActiveIds(userType: UserType, cursor: string | undefined, limit: number): Promise<string[]> {
@@ -453,6 +511,17 @@ export class UsersService {
         },
         tx,
       );
+      await emitAuthEvent(
+        tx,
+        'user.status_changed.v1',
+        {
+          userId: id,
+          previousStatus: current.status,
+          status: input.status,
+          changedByUserId: actor.userId,
+        },
+        id,
+      );
       return { user: updated, revokedSessions: sessions };
     });
 
@@ -490,10 +559,75 @@ export class UsersService {
         },
         tx,
       );
+      await emitAuthEvent(tx, 'user.deleted.v1', { userId: id, deletedByUserId: actor.userId }, id);
       return sessions;
     });
 
     await sessionsService.publishRevocations(revokedSessions);
+  }
+
+  // ── Self-service deletion (deletion feature; always inside the caller's transaction) ──
+
+  /** Login lookup by phone (account recovery). */
+  findByPhone(phone: string): Promise<LoginUserRecord | null> {
+    return this.deps.usersRepository.findLoginUser({ phone });
+  }
+
+  /** A live (not deleted) user, or null. */
+  async findLive(id: string, tx?: Tx): Promise<UserRecord | null> {
+    const user = await this.deps.usersRepository.findById(id, tx);
+    return user?.deletedAt === null ? user : null;
+  }
+
+  /** ACTIVE ⇄ PENDING_DELETION, with its user.status_changed.v1 event. */
+  async setDeletionStatus(
+    tx: Tx,
+    id: string,
+    from: UserRecord['status'],
+    to: 'PENDING_DELETION' | 'ACTIVE',
+    reason: string,
+  ): Promise<void> {
+    await this.deps.usersRepository.update(
+      id,
+      { status: to, statusReason: reason, statusChangedAt: new Date() },
+      tx,
+    );
+    await emitAuthEvent(
+      tx,
+      'user.status_changed.v1',
+      { userId: id, previousStatus: from, status: to, changedByUserId: id },
+      id,
+    );
+  }
+
+  /**
+   * Purge after the grace period: personal fields erased, identifiers released, account closed
+   * (DEACTIVATED + deletedAt). Emits user.deleted.v1 so every service scrubs its copies.
+   */
+  async anonymise(tx: Tx, id: string): Promise<void> {
+    const now = new Date();
+    await this.deps.usersRepository.update(
+      id,
+      {
+        // users_email_or_phone_chk needs one identifier: a unique, non-routable tombstone (RFC 2606
+        // `.invalid`) — no personal data, and the real phone / email are free to register again.
+        email: `deleted-${id}@deleted.invalid`,
+        emailVerifiedAt: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        username: null,
+        fullName: 'Deleted user',
+        displayName: null,
+        avatarUrl: null,
+        employeeCode: null,
+        status: 'DEACTIVATED',
+        statusReason: 'self-service deletion',
+        statusChangedAt: now,
+        deletedAt: now,
+      },
+      tx,
+    );
+    await emitAuthEvent(tx, 'user.deleted.v1', { userId: id, deletedByUserId: id }, id);
   }
 
   /** Ends every session of the user (refresh tokens dead, access tokens blocked at the gateway). */

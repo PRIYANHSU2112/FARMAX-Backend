@@ -1,0 +1,80 @@
+// warehouse-service feature: calendar (D-56 P2). Weekly hours, shifts, holidays and order
+// cut-off times of one warehouse (W2.09). Times are "HH:mm" in the warehouse's timezone.
+
+enum WmsHolidayMode {
+  CLOSED
+  LIMITED
+}
+
+enum WmsCutoffType {
+  SAME_DAY_STANDARD
+  SAME_DAY_COLD
+  NEXT_DAY
+}
+
+/// One row per ISO weekday (1 = Monday … 7 = Sunday).
+model WmsOperatingHours {
+  warehouseId String  @db.Uuid
+  isoDay      Int     @db.SmallInt
+  isOpen      Boolean
+  opensAt     String? @db.VarChar(5)
+  closesAt    String? @db.VarChar(5)
+
+  @@id([warehouseId, isoDay])
+  @@map("warehouse_operating_hours")
+}
+
+model WmsShift {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  warehouseId     String            @db.Uuid
+  name            String            @db.VarChar(60)
+  startsAt        String            @db.VarChar(5)
+  endsAt          String            @db.VarChar(5)
+  /// Ends the next day (e.g. 22:00 → 06:00).
+  overnight       Boolean           @default(false)
+  breakStartsAt   String?           @db.VarChar(5)
+  breakEndsAt     String?           @db.VarChar(5)
+  /// ISO weekdays the shift runs.
+  isoDays         Int[]             @db.SmallInt
+  teamName        String?           @db.VarChar(60)
+  /// Dock doors available to the shift (docks feature ids).
+  dockDoorIds     String[]          @db.Uuid
+  status          WmsResourceStatus @default(ACTIVE)
+  version         Int               @default(0)
+  createdByUserId String?           @db.Uuid
+  updatedByUserId String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([warehouseId, name])
+  @@map("warehouse_shifts")
+}
+
+model WmsHoliday {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  warehouseId     String         @db.Uuid
+  date            DateTime       @db.Date
+  name            String         @db.VarChar(80)
+  reason          String?        @db.VarChar(200)
+  mode            WmsHolidayMode
+  /// LIMITED only: the hours it still works.
+  limitedFrom     String?        @db.VarChar(5)
+  limitedTo       String?        @db.VarChar(5)
+  createdByUserId String?        @db.Uuid
+  updatedByUserId String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([warehouseId, date])
+  @@map("warehouse_holidays")
+}
+
+model WmsCutoff {
+  warehouseId String        @db.Uuid
+  type        WmsCutoffType
+  cutoffTime  String        @db.VarChar(5)
+  updatedAt   DateTime      @updatedAt
+
+  @@id([warehouseId, type])
+  @@map("warehouse_cutoffs")
+}

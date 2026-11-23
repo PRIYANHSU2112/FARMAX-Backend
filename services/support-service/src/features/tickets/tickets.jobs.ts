@@ -8,7 +8,10 @@ import { AGENTS_ROOM, ticketRoom } from './tickets.service.js';
 
 const BATCH = 500;
 
-type Deps = Pick<Cradle, 'ticketsRepository' | 'settingsService' | 'runInTransaction' | 'realtimeHub' | 'logger'>;
+type Deps = Pick<
+  Cradle,
+  'ticketsRepository' | 'settingsService' | 'runInTransaction' | 'realtimeHub' | 'logger'
+>;
 
 /**
  * Background sweeps. Each batch is ONE set-based UPDATE over a partial index, rows taken with
@@ -25,7 +28,10 @@ export class TicketsJobs {
       const batch = await this.deps.runInTransaction(async (tx) => {
         const fr = await this.deps.ticketsRepository.breachFirstResponse(tx, BATCH);
         const rs = await this.deps.ticketsRepository.breachResolve(tx, BATCH);
-        for (const [kind, rows] of [['FIRST_RESPONSE', fr], ['RESOLVE', rs]] as const) {
+        for (const [kind, rows] of [
+          ['FIRST_RESPONSE', fr],
+          ['RESOLVE', rs],
+        ] as const) {
           for (const t of rows) {
             await this.deps.ticketsRepository.addEvents(tx, t.id, [
               { type: 'SLA_BREACH', to: kind, actorId: null, meta: { dueAt: t.dueAt } },
@@ -33,7 +39,14 @@ export class TicketsJobs {
             await emitSupportEvent(
               tx,
               SUPPORT_EVENTS.slaBreached,
-              { ...ref(t), kind, priority: t.priority, team: t.team, assigneeId: t.assigneeId, dueAt: new Date(t.dueAt).toISOString() },
+              {
+                ...ref(t),
+                kind,
+                priority: t.priority,
+                team: t.team,
+                assigneeId: t.assigneeId,
+                dueAt: new Date(t.dueAt).toISOString(),
+              },
               `sla:${t.id}:${kind}`,
             );
           }
@@ -43,10 +56,22 @@ export class TicketsJobs {
       firstResponse += batch.fr.length;
       resolve += batch.rs.length;
       for (const t of [...batch.fr, ...batch.rs])
-        this.deps.realtimeHub.publish(AGENTS_ROOM, 'sla.breached', { ticketId: t.id, ticketNo: t.ticketNo, priority: t.priority, team: t.team, assigneeId: t.assigneeId }, { audience: ['agent'] });
+        this.deps.realtimeHub.publish(
+          AGENTS_ROOM,
+          'sla.breached',
+          {
+            ticketId: t.id,
+            ticketNo: t.ticketNo,
+            priority: t.priority,
+            team: t.team,
+            assigneeId: t.assigneeId,
+          },
+          { audience: ['agent'] },
+        );
       if (batch.fr.length < BATCH && batch.rs.length < BATCH) break;
     }
-    if (firstResponse + resolve > 0) this.deps.logger.info({ firstResponse, resolve }, 'support SLA breaches recorded');
+    if (firstResponse + resolve > 0)
+      this.deps.logger.info({ firstResponse, resolve }, 'support SLA breaches recorded');
     return { firstResponse, resolve };
   }
 
@@ -58,9 +83,20 @@ export class TicketsJobs {
         const done = await this.deps.ticketsRepository.autoClose(tx, autoCloseHours, BATCH);
         for (const t of done) {
           await this.deps.ticketsRepository.addEvents(tx, t.id, [
-            { type: 'STATUS', from: 'RESOLVED', to: 'CLOSED', actorId: null, reason: `no feedback for ${String(autoCloseHours)} h` },
+            {
+              type: 'STATUS',
+              from: 'RESOLVED',
+              to: 'CLOSED',
+              actorId: null,
+              reason: `no feedback for ${String(autoCloseHours)} h`,
+            },
           ]);
-          await emitSupportEvent(tx, SUPPORT_EVENTS.ticketStatusChanged, { ...ref(t), from: 'RESOLVED', to: 'CLOSED', actorId: null }, `auto-close:${t.id}`);
+          await emitSupportEvent(
+            tx,
+            SUPPORT_EVENTS.ticketStatusChanged,
+            { ...ref(t), from: 'RESOLVED', to: 'CLOSED', actorId: null },
+            `auto-close:${t.id}`,
+          );
         }
         return done;
       });
@@ -76,4 +112,9 @@ export class TicketsJobs {
   }
 }
 
-const ref = (t: SweptTicket) => ({ ticketId: t.id, ticketNo: t.ticketNo, app: t.app, requesterId: t.requesterId });
+const ref = (t: SweptTicket) => ({
+  ticketId: t.id,
+  ticketNo: t.ticketNo,
+  app: t.app,
+  requesterId: t.requesterId,
+});

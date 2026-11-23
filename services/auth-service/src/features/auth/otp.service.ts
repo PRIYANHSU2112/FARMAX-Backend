@@ -68,6 +68,7 @@ export class OtpService {
     purpose: OtpPurpose,
     destination: string,
     deliver: (code: string) => Promise<void>,
+    ttlSeconds: number = OTP_TTL_SECONDS,
   ): Promise<{ expiresIn: number; resendAfter: number }> {
     const { redis } = this.deps;
     const destHash = this.destinationHash(destination);
@@ -82,7 +83,7 @@ export class OtpService {
       .multi()
       .del(otpKey)
       .hset(otpKey, 'code', this.codeHash(purpose, destHash, code), 'attempts', '0')
-      .expire(otpKey, OTP_TTL_SECONDS)
+      .expire(otpKey, ttlSeconds)
       .exec();
 
     try {
@@ -91,7 +92,7 @@ export class OtpService {
       await redis.del(otpKey, cooldownKey);
       throw new ExternalServiceError('otp-delivery', { cause: error });
     }
-    return { expiresIn: OTP_TTL_SECONDS, resendAfter: OTP_RESEND_COOLDOWN_SECONDS };
+    return { expiresIn: ttlSeconds, resendAfter: OTP_RESEND_COOLDOWN_SECONDS };
   }
 
   async verify(purpose: OtpPurpose, destination: string, code: string): Promise<OtpVerifyResult> {

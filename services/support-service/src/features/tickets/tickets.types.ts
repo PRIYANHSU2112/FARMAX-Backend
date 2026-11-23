@@ -61,7 +61,8 @@ export interface TicketRow {
   updatedAt: Date;
 }
 
-export const policyOf = (t: Pick<TicketRow, 'slaPolicy'>): SlaPolicySnapshot => t.slaPolicy as SlaPolicySnapshot;
+export const policyOf = (t: Pick<TicketRow, 'slaPolicy'>): SlaPolicySnapshot =>
+  t.slaPolicy as SlaPolicySnapshot;
 
 export interface AttachmentView {
   id: string;
@@ -127,7 +128,8 @@ export interface QueueQuery {
   priority?: Priority[];
   app?: App;
   team?: Team;
-  assignee?: 'me' | 'unassigned' | string;
+  /** `me`, `unassigned` or an agent user id. */
+  assignee?: string;
   breached?: boolean;
   q?: string;
   sort: 'priority_sla' | 'recent' | 'oldest';

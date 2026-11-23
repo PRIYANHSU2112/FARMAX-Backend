@@ -6,46 +6,34 @@ import {
   buildTestApp,
   call,
   data,
-  errorOf,
-  randomCode,
+  deliver,
   randomPin,
   staff,
+  warehouseFacts,
 } from './harness.js';
 
-interface Warehouse {
-  id: string;
-  code: string;
-  version: number;
-  isActive: boolean;
-  priority: number;
-}
-
+/**
+ * The warehouse projection (D-56): warehouse-service owns the master data; inventory applies
+ * `warehouse.upserted.v1` / `warehouse.coverage_replaced.v1` (version-guarded, same ids).
+ */
 let app: FastifyInstance;
 const created: string[] = [];
 const configurer = staff('inventory.view', 'inventory.configure');
 const viewer = staff('inventory.view');
 
-const newWarehouse = async (overrides: object = {}) => {
-  const res = await call(app, 'POST', '/admin/inventory/warehouses', {
-    user: configurer,
-    payload: {
-      code: randomCode('it').toLowerCase(),
-      name: 'IT Warehouse',
-      type: 'DEPOT',
-      addressLine: 'Plot 1, Test Estate',
-      city: 'Tanuku',
-      stateCode: '37',
-      pinCode: '534211',
-      ...overrides,
-    },
-  });
-  expect(res.statusCode, res.body).toBe(201);
-  const w = data<Warehouse>(res);
-  created.push(w.id);
-  return w;
+const project = async (o: Record<string, unknown> = {}) => {
+  const facts = warehouseFacts(o);
+  created.push(facts.warehouseId);
+  await deliver(app, 'warehouse.upserted.v1', facts);
+  return facts;
 };
+const cover = (warehouseId: string, coverageVersion: number, entries: object[]) =>
+  deliver(app, 'warehouse.coverage_replaced.v1', { warehouseId, coverageVersion, entries });
+const row = (id: string) => app.diContainer.resolve('db').warehouse.findUnique({ where: { id } });
+const candidates = (pin: string) =>
+  app.diContainer.resolve('warehousesService').candidatesForPin(pin);
 
-describe.skipIf(DB_URL === undefined)('warehouses + settings against Postgres', () => {
+describe.skipIf(DB_URL === undefined)('warehouse projection + settings against Postgres', () => {
   beforeAll(async () => {
     app = await buildTestApp();
   });
@@ -56,98 +44,71 @@ describe.skipIf(DB_URL === undefined)('warehouses + settings against Postgres', 
     await app.close();
   });
 
-  it('creates a warehouse with an UPPERCASE code and refuses a duplicate', async () => {
-    const w = await newWarehouse();
-    expect(w.code).toBe(w.code.toUpperCase());
-    expect(w.version).toBe(0);
-    const dup = await call(app, 'POST', '/admin/inventory/warehouses', {
-      user: configurer,
-      payload: {
-        code: w.code,
-        name: 'Dup',
-        type: 'DEPOT',
-        addressLine: 'Plot 2, Test',
-        city: 'Tanuku',
-        stateCode: '37',
-        pinCode: '534211',
-      },
+  it('maps status and temperature classes onto the allocation flags', async () => {
+    const active = await project({ temperatureClasses: ['AMB', 'CC_FRZ'] });
+    expect(await row(active.warehouseId)).toMatchObject({
+      isActive: true,
+      isAllocatable: true,
+      hasColdChain: true,
     });
-    expect(dup.statusCode).toBe(409);
+    const limited = await project({ status: 'LIMITED' });
+    expect(await row(limited.warehouseId)).toMatchObject({ isActive: true, isAllocatable: false });
+    const draft = await project({ status: 'SETUP' });
+    expect(await row(draft.warehouseId)).toMatchObject({ isActive: false, isAllocatable: false });
+    const switchedOff = await project({ isAllocatable: false });
+    expect(await row(switchedOff.warehouseId)).toMatchObject({ isAllocatable: false });
   });
 
-  it('denies writes without inventory.configure and every call without a token', async () => {
-    // Body validation runs before the auth preHandler (Fastify order), so send a valid body.
-    const res = await call(app, 'POST', '/admin/inventory/warehouses', {
-      user: viewer,
-      payload: {
-        code: randomCode('it'),
-        name: 'Viewer cannot',
-        type: 'DEPOT',
-        addressLine: 'Plot 3, Test',
-        city: 'Tanuku',
-        stateCode: '37',
-        pinCode: '534211',
-      },
-    });
-    expect(res.statusCode).toBe(403);
-    expect((await call(app, 'GET', '/admin/inventory/warehouses')).statusCode).toBe(401);
+  it('applies only newer versions (duplicates and out-of-order events are no-ops)', async () => {
+    const w = await project({ version: 3, name: 'Third' });
+    await deliver(app, 'warehouse.upserted.v1', { ...w, version: 2, name: 'Second (late)' });
+    await deliver(app, 'warehouse.upserted.v1', { ...w, version: 3, name: 'Third (duplicate)' });
+    expect((await row(w.warehouseId))?.name).toBe('Third');
+    await deliver(app, 'warehouse.upserted.v1', { ...w, version: 4, name: 'Fourth' });
+    expect((await row(w.warehouseId))?.name).toBe('Fourth');
   });
 
-  it('edits with expectedVersion and rejects a stale version', async () => {
-    const w = await newWarehouse();
-    const ok = await call(app, 'PATCH', `/admin/inventory/warehouses/${w.id}`, {
-      user: configurer,
-      payload: { expectedVersion: 0, priority: 5 },
-    });
-    expect(ok.statusCode, ok.body).toBe(200);
-    expect(data<Warehouse>(ok)).toMatchObject({ priority: 5, version: 1 });
-    const stale = await call(app, 'PATCH', `/admin/inventory/warehouses/${w.id}`, {
-      user: configurer,
-      payload: { expectedVersion: 0, priority: 6 },
-    });
-    expect(stale.statusCode).toBe(409);
-    expect(errorOf(stale).details?.reason).toBe('VERSION_CONFLICT');
-  });
-
-  it('replaces coverage and serves allocation candidates in priority order', async () => {
+  it('replaces coverage by coverage version and serves candidates in priority order', async () => {
     const pin = randomPin();
-    const a = await newWarehouse({ priority: 50 });
-    const b = await newWarehouse({ priority: 10 });
-    for (const [w, priority] of [
-      [a, 10],
-      [b, 20],
-    ] as const) {
-      const res = await call(app, 'PUT', `/admin/inventory/warehouses/${w.id}/coverage`, {
-        user: configurer,
-        payload: { expectedVersion: 0, entries: [{ pinCode: pin, priority }], reason: 'IT coverage' },
-      });
-      expect(res.statusCode, res.body).toBe(200);
-      expect(data<{ version: number }>(res).version).toBe(1);
-    }
-    const svc = app.diContainer.resolve('warehousesService');
-    expect((await svc.candidatesForPin(pin)).map((c) => c.warehouseId)).toEqual([a.id, b.id]);
-
-    // Deactivating b removes it at once (coverage cache version bumped).
-    const off = await call(app, 'POST', `/admin/inventory/warehouses/${b.id}/status`, {
-      user: configurer,
-      payload: { expectedVersion: 1, isActive: false, reason: 'IT closed for audit' },
-    });
-    expect(off.statusCode, off.body).toBe(200);
-    expect((await svc.candidatesForPin(pin)).map((c) => c.warehouseId)).toEqual([a.id]);
+    const a = await project({ priority: 50 });
+    const b = await project({ priority: 10 });
+    await cover(a.warehouseId, 1, [{ pinCode: pin, priority: 1 }]);
+    await cover(b.warehouseId, 1, [{ pinCode: pin, priority: 1 }]);
+    expect((await candidates(pin)).map((c) => c.warehouseId)).toEqual([
+      b.warehouseId,
+      a.warehouseId,
+    ]);
+    // A stale coverage event changes nothing; a newer one replaces the whole list.
+    await cover(b.warehouseId, 1, []);
+    expect(await candidates(pin)).toHaveLength(2);
+    await cover(b.warehouseId, 2, [{ pinCode: randomPin(), priority: 1 }]);
+    expect((await candidates(pin)).map((c) => c.warehouseId)).toEqual([a.warehouseId]);
   });
 
-  it('rejects duplicate PINs in one coverage list', async () => {
-    const w = await newWarehouse();
+  it('a limited warehouse leaves allocation at once (cache invalidated)', async () => {
     const pin = randomPin();
-    const res = await call(app, 'PUT', `/admin/inventory/warehouses/${w.id}/coverage`, {
-      user: configurer,
-      payload: {
-        expectedVersion: 0,
-        entries: [{ pinCode: pin }, { pinCode: pin }],
-        reason: 'IT duplicate pins',
-      },
-    });
-    expect(res.statusCode).toBe(422);
+    const w = await project();
+    await cover(w.warehouseId, 1, [{ pinCode: pin, priority: 1 }]);
+    expect(await candidates(pin)).toHaveLength(1);
+    await deliver(app, 'warehouse.upserted.v1', { ...w, version: 2, status: 'LIMITED' });
+    expect(await candidates(pin)).toHaveLength(0);
+  });
+
+  it('coverage for a warehouse not projected yet fails so the consumer retries it', async () => {
+    await expect(
+      cover('0193a5f2-7c1e-7b2a-9f00-00000000dead', 1, [{ pinCode: randomPin(), priority: 1 }]),
+    ).rejects.toThrow(/not projected yet/);
+  });
+
+  it('removes a discarded draft', async () => {
+    const draft = await project({ status: 'SETUP' });
+    await deliver(app, 'warehouse.upserted.v1', { ...draft, version: 2, deleted: true });
+    expect(await row(draft.warehouseId)).toBeNull();
+  });
+
+  it('no longer exposes warehouse admin routes (warehouse-service owns them)', async () => {
+    const res = await call(app, 'GET', '/admin/inventory/warehouses', { user: configurer });
+    expect(res.statusCode).toBe(404);
   });
 
   it('reads settings and refuses an out-of-range TTL', async () => {

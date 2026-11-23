@@ -250,6 +250,38 @@ export class UsersRepository {
     };
   }
 
+  /** Contacts of many users in one query (live users only; unknown ids are simply missing). */
+  async findContacts(ids: readonly string[]): Promise<UserContact[]> {
+    if (ids.length === 0) return [];
+    const rows = await withPrismaErrors(() =>
+      this.db.user.findMany({
+        where: { id: { in: [...ids] }, deletedAt: null },
+        select: {
+          id: true,
+          userType: true,
+          status: true,
+          fullName: true,
+          email: true,
+          emailVerifiedAt: true,
+          phone: true,
+          phoneVerifiedAt: true,
+          preferredLanguage: true,
+        },
+      }),
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      userType: row.userType,
+      status: row.status,
+      fullName: row.fullName,
+      email: row.email,
+      emailVerified: row.emailVerifiedAt !== null,
+      phone: row.phone,
+      phoneVerified: row.phoneVerifiedAt !== null,
+      preferredLanguage: row.preferredLanguage,
+    }));
+  }
+
   /** ACTIVE user ids of one type, ascending (keyset page after `cursor`). */
   async listActiveIds(
     userType: UserType,

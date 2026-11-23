@@ -27,6 +27,24 @@ export const usersInternalRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  // POST (not GET): up to 100 ids do not fit a query string. warehouse-service team / manager names.
+  app.post<{ Body: { ids: string[] } }>(
+    '/contacts',
+    {
+      schema: {
+        hide: true,
+        body: Joi.object({
+          ids: Joi.array().items(ID.required()).min(1).max(100).unique().required(),
+        }),
+      },
+      onRequest: [guard],
+    },
+    async (request) => {
+      const contacts = await request.diScope.resolve('usersService').getContacts(request.body.ids);
+      return { success: true, data: { contacts } };
+    },
+  );
+
   app.get<{ Querystring: { userType: UserType; cursor?: string; limit: number } }>(
     '/ids',
     {

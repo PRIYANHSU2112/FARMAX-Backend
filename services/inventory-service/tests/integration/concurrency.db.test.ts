@@ -50,7 +50,8 @@ const orderEvent = (type: string, r: Reservation) =>
   });
 
 const statusOf = async (id: string) =>
-  (await app.diContainer.resolve('db').stockReservation.findUniqueOrThrow({ where: { id } })).status;
+  (await app.diContainer.resolve('db').stockReservation.findUniqueOrThrow({ where: { id } }))
+    .status;
 
 // Hundreds of real transactions per test (Docker Desktop Postgres has a slow fsync on Windows).
 vi.setConfig({ testTimeout: 120_000 });
@@ -119,7 +120,10 @@ describe.skipIf(DB_URL === undefined)('reservation concurrency against Postgres'
     const rs = await Promise.all(Array.from({ length: 10 }, () => reserve(pin, v, 2)));
     const reservations = rs.map((r) => data<Reservation>(r));
     await Promise.all(
-      reservations.flatMap((r) => [orderEvent('order.paid.v1', r), orderEvent('order.cancelled.v1', r)]),
+      reservations.flatMap((r) => [
+        orderEvent('order.paid.v1', r),
+        orderEvent('order.cancelled.v1', r),
+      ]),
     );
     for (const r of reservations) expect(await statusOf(r.id)).toBe('RELEASED');
     expect((await levelOf(app, w, v)).reserved).toBe(0);
@@ -162,7 +166,10 @@ describe.skipIf(DB_URL === undefined)('reservation concurrency against Postgres'
         .stockReservation.update({ where: { id: first.id }, data: { expiresAt: new Date(0) } });
       await app.diContainer.resolve('reservationsService').expireDue();
 
-      const [, second] = await Promise.all([orderEvent('order.paid.v1', first), reserve(pin, v, 5)]);
+      const [, second] = await Promise.all([
+        orderEvent('order.paid.v1', first),
+        reserve(pin, v, 5),
+      ]);
       const recovered = (await statusOf(first.id)) === 'COMMITTED';
       const newOk = second.statusCode === 201;
       expect(recovered !== newOk).toBe(true); // exactly one winner

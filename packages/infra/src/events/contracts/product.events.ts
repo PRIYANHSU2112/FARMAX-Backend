@@ -44,6 +44,19 @@ export interface VariantFactsV1 {
   /** GST: HSN code and rate (decimal string, e.g. "18.00"); null until the catalogue team sets them. */
   hsnCode: string | null;
   gstRate: string | null;
+  /**
+   * Gross weight in grams of ONE sellable pack (the unit inventory counts); null = not set.
+   * Drives warehouse capacity in kg (D-56). Absent on events published before it.
+   */
+  weightGrams?: number | null;
+  /** D-57: brand name, first image and compliance flags for the warehouse (WMS) projection. Absent on older events. */
+  brandName?: string | null;
+  primaryImageUrl?: string | null;
+  /** OTC · G · H · H1 · X (null = not a drug). */
+  drugSchedule?: string | null;
+  isAntimicrobial?: boolean;
+  isVetConsultRequired?: boolean;
+  hazardClass?: string | null;
   /** Purchase limits per order line (cart / checkout). `maxOrderQty` null = no limit. */
   minOrderQty: number;
   maxOrderQty: number | null;

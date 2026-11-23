@@ -1,15 +1,7 @@
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from '@farmx/common/errors';
+import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/errors';
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
-import {
-  INVENTORY_EVENTS,
-  type OrderPaidV1,
-  type OrderStockReleaseV1,
-} from '@farmx/infra/events';
+import { INVENTORY_EVENTS, type OrderPaidV1, type OrderStockReleaseV1 } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
 import { emitInventoryEvent } from '../../adapters/events.js';
@@ -124,7 +116,8 @@ export class ReservationsService {
           });
           if (!created.ok)
             throw created.conflict === 'IDEMPOTENCY_KEY' ? new KeyTaken() : new OrderRefTaken();
-          if (!(await this.deps.stockService.holdAllInTx(tx, plan.allocations))) throw new RaceLost();
+          if (!(await this.deps.stockService.holdAllInTx(tx, plan.allocations)))
+            throw new RaceLost();
           return created.view;
         });
         return { reservation, replayed: false, split: plan.split };
@@ -161,7 +154,7 @@ export class ReservationsService {
       emitInventoryEvent(
         tx,
         INVENTORY_EVENTS.reservationCommitted,
-        { reservationId: r.id, orderRef: r.orderRef, recovered },
+        { reservationId: r.id, orderRef: r.orderRef, recovered, lines: committedLines(r) },
         ctx.correlationId,
         ctx.causationId,
       );
@@ -213,7 +206,7 @@ export class ReservationsService {
       await emitInventoryEvent(
         tx,
         INVENTORY_EVENTS.reservationCommitted,
-        { reservationId: r.id, orderRef: r.orderRef, recovered: true },
+        { reservationId: r.id, orderRef: r.orderRef, recovered: true, lines: moves },
         ctx.correlationId,
         ctx.causationId,
       );
@@ -264,7 +257,10 @@ export class ReservationsService {
   ): Promise<void> {
     const r = await this.lockForOrder(tx, data.reservationId, data.orderId);
     if (r === null) return;
-    const emitReleased = (scope: 'FULL' | 'PARTIAL', lines: { variantId: string; qty: number }[]) =>
+    const emitReleased = (
+      scope: 'FULL' | 'PARTIAL',
+      lines: { variantId: string; qty: number; warehouseId: string }[],
+    ) =>
       emitInventoryEvent(
         tx,
         INVENTORY_EVENTS.reservationReleased,
@@ -304,7 +300,7 @@ export class ReservationsService {
         releasedByUserId: by.userId,
       });
     else await this.deps.reservationsRepository.update(tx, r.id, {});
-    await emitReleased(stillHeld <= 0 ? 'FULL' : 'PARTIAL', byVariantQty(moves));
+    await emitReleased(stillHeld <= 0 ? 'FULL' : 'PARTIAL', byWarehouseVariantQty(moves));
   }
 
   /** Admin force release (stuck order, data repair). Audited; emits reservation_released. */
@@ -382,7 +378,9 @@ export class ReservationsService {
       new Date(Date.now() - ORPHAN_AGE_MS),
       ORPHAN_BATCH,
     );
-    const statuses = await this.deps.ordersClient.statuses([...new Set(stale.map((s) => s.orderRef))]);
+    const statuses = await this.deps.ordersClient.statuses([
+      ...new Set(stale.map((s) => s.orderRef)),
+    ]);
     if (statuses === null) return { checked: 0, released: 0 };
     const terminal = new Set(
       statuses.filter((s) => RELEASABLE_ORDER_STATUSES.has(s.status)).map((s) => s.id),
@@ -490,7 +488,10 @@ export class ReservationsService {
     }
     const r = await repo.lock(tx, id);
     if (r?.orderRef !== orderId) {
-      this.deps.logger.error({ orderId, reservationId: id }, 'reservation / order mismatch; ignored');
+      this.deps.logger.error(
+        { orderId, reservationId: id },
+        'reservation / order mismatch; ignored',
+      );
       return null;
     }
     return r;
@@ -499,11 +500,28 @@ export class ReservationsService {
 
 const sumQty = (moves: readonly { qty: number }[]): number => moves.reduce((n, m) => n + m.qty, 0);
 
-const byVariantQty = (moves: readonly StockMove[]): { variantId: string; qty: number }[] => {
-  const m = new Map<string, number>();
-  for (const x of moves) m.set(x.variantId, (m.get(x.variantId) ?? 0) + x.qty);
-  return [...m].map(([variantId, qty]) => ({ variantId, qty }));
+/** Released units per (warehouse, variant): the warehouse read model needs the node (D-56). */
+const byWarehouseVariantQty = (
+  moves: readonly StockMove[],
+): { variantId: string; qty: number; warehouseId: string }[] => {
+  const m = new Map<string, { variantId: string; qty: number; warehouseId: string }>();
+  for (const x of moves) {
+    const k = `${x.warehouseId}|${x.variantId}`;
+    const cur = m.get(k);
+    m.set(k, { warehouseId: x.warehouseId, variantId: x.variantId, qty: (cur?.qty ?? 0) + x.qty });
+  }
+  return [...m.values()];
 };
+
+/** What the order holds per warehouse once committed (issued units still belong to it). */
+const committedLines = (r: ReservationView): StockMove[] =>
+  r.lines
+    .map((l) => ({
+      warehouseId: l.warehouseId,
+      variantId: l.variantId,
+      qty: l.qty - l.releasedQty,
+    }))
+    .filter((l) => l.qty > 0);
 
 const aggregate = (rows: readonly { warehouseId: string; variantId: string; held: number }[]) => {
   const m = new Map<string, StockMove>();

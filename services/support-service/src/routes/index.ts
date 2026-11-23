@@ -37,14 +37,26 @@ export const createDocsOptions = (config: SupportConfig): DocsOptions => ({
     'Help & Support for all apps: priority-driven tickets with SLA (business hours, holidays), live chat over WebSocket, FAQ with search and deflection, versioned legal pages.',
   tags: [
     { name: 'Health', description: 'Public liveness and readiness probes.' },
-    { name: HELP_TAG, description: 'Help & Support home: contacts, chat switch, topics, Common Issues.' },
+    {
+      name: HELP_TAG,
+      description: 'Help & Support home: contacts, chat switch, topics, Common Issues.',
+    },
     { name: FAQ_TAG, description: 'FAQ list, search, "These may answer it", helpful votes.' },
     { name: LEGAL_TAG, description: 'Privacy Policy, Terms and other legal pages.' },
-    { name: TICKETS_TAG, description: 'Raise and follow tickets (Open / Resolved), messages, feedback.' },
+    {
+      name: TICKETS_TAG,
+      description: 'Raise and follow tickets (Open / Resolved), messages, feedback.',
+    },
     { name: CHAT_TAG, description: 'Live chat WebSocket: connect token + protocol.' },
-    { name: ADMIN_TICKETS_TAG, description: 'Agent queue: claim, assign, escalate, priority, status, intake.' },
+    {
+      name: ADMIN_TICKETS_TAG,
+      description: 'Agent queue: claim, assign, escalate, priority, status, intake.',
+    },
     { name: ADMIN_AGENTS_TAG, description: 'Agents, availability, canned replies.' },
-    { name: ADMIN_SUPPORT_CONFIG_TAG, description: 'Settings, calendars, topics, priority rules, SLA policies.' },
+    {
+      name: ADMIN_SUPPORT_CONFIG_TAG,
+      description: 'Settings, calendars, topics, priority rules, SLA policies.',
+    },
     { name: ADMIN_FAQ_TAG, description: 'FAQ categories and items.' },
     { name: ADMIN_LEGAL_TAG, description: 'Legal document drafts and publishing.' },
   ],

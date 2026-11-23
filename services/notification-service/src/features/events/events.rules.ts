@@ -22,6 +22,7 @@ import type { OrderRef } from '../audience/index.js';
 import type { NotificationPriority } from '../../domain.js';
 import type { ContentAudienceScope } from '../../adapters/farm-directory.js';
 import type { NotificationDraft } from '../notifications/index.js';
+import { SUPPORT_RULES } from './events.support.js';
 
 /**
  * Event → notification rules (pure). Only events that are PUBLISHED today are bound
@@ -392,7 +393,7 @@ const CONTENT_RULES: Readonly<Record<string, Rule>> = {
     },
   },
 };
-export const RULES: Readonly<Record<string, Rule>> = { ...CORE_RULES, ...CONTENT_RULES };
+export const RULES: Readonly<Record<string, Rule>> = { ...CORE_RULES, ...CONTENT_RULES, ...SUPPORT_RULES };
 
 /** Routing keys the consumer queue binds. */
 export const EVENT_BINDINGS: readonly string[] = Object.keys(RULES);

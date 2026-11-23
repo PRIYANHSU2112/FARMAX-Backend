@@ -948,6 +948,7 @@ export class ProductsRepository {
           version: true,
           hsnCode: true,
           gstRate: true,
+          weightGrams: true,
           minOrderQty: true,
           maxOrderQty: true,
           product: {

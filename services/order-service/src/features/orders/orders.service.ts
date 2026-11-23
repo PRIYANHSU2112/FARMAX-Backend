@@ -248,6 +248,12 @@ export class OrdersService {
             farmId: farm.farmId,
             grandTotal: fromPaise(inv.finalPayable),
             paymentDueAt: paymentDueAt.toISOString(),
+            // Warehouse operations list (D-56): who and where, no phone or street address.
+            shipTo: {
+              name: address.contactName,
+              district: address.district,
+              pinCode: address.pinCode,
+            },
           },
           ctx.correlationId,
         );
@@ -433,7 +439,9 @@ export class OrdersService {
   }
 
   /** Internal callers (support, inventory) also get the owner ids for their own access checks. */
-  async getInternal(orderId: string): Promise<OrderDetailView & { userId: string; farmId: string }> {
+  async getInternal(
+    orderId: string,
+  ): Promise<OrderDetailView & { userId: string; farmId: string }> {
     const order = await this.mustFind(orderId);
     return { ...(await this.detail(order)), userId: order.userId, farmId: order.farmId };
   }

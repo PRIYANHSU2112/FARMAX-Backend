@@ -15,6 +15,7 @@ export interface ServiceUrls {
   CALL_SERVICE_URL: string;
   WALLET_SERVICE_URL: string;
   SUPPORT_SERVICE_URL: string;
+  WAREHOUSE_SERVICE_URL: string;
 }
 
 const url = (fallback: string) =>
@@ -36,4 +37,5 @@ export const serviceUrlsSchema = {
   CALL_SERVICE_URL: url('http://localhost:3011'),
   WALLET_SERVICE_URL: url('http://localhost:3012'),
   SUPPORT_SERVICE_URL: url('http://localhost:3013'),
+  WAREHOUSE_SERVICE_URL: url('http://localhost:3014'),
 };

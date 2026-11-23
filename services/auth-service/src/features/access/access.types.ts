@@ -23,10 +23,16 @@ export interface RoleAssignment {
   expiresAt: string | null;
 }
 
-/** What a user may do right now (GLOBAL-scope permissions; scoped checks come later). */
+/** What a user may do right now. */
 export interface UserAccess {
   roles: string[];
+  /** Granted at GLOBAL scope: valid everywhere. */
   permissions: string[];
+  /**
+   * Extra permissions granted at ONE warehouse (WAREHOUSE-scoped assignments), keyed by warehouse
+   * id. Only keys whose catalog scopes allow WAREHOUSE; keys already in `permissions` are left out.
+   */
+  warehouses: Record<string, string[]>;
   /** Any held role requires MFA. */
   mfaRequired: boolean;
   /** Shortest idle timeout across the user's roles (null = none set). */
@@ -110,4 +116,31 @@ export interface PermissionGroupView {
     assignable: boolean;
     scopes: string[];
   }[];
+}
+
+/** An active member of one scope (e.g. the staff of a warehouse) and the roles held there. */
+export interface ScopeMember {
+  userId: string;
+  roles: { roleId: string; roleKey: string; roleName: string; assignedAt: string }[];
+}
+
+/** Where a role is in use: shown before a (global) role-template edit. */
+export interface RoleUsage {
+  roleId: string;
+  roleKey: string;
+  /** Distinct users holding the role at any scope. */
+  staffCount: number;
+  /** Distinct warehouses where it is granted (WAREHOUSE scope). */
+  warehouseCount: number;
+  scopes: { scopeType: ScopeType; scopeId: string | null; holders: number }[];
+}
+
+/** Grantable at one warehouse: INTERNAL, not system, every permission WAREHOUSE-scopable. */
+export interface WarehouseRoleTemplate {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  permissions: string[];
+  usage: { staffCount: number; warehouseCount: number };
 }

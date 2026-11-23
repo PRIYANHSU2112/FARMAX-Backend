@@ -136,6 +136,7 @@ export const deliver = async (app: FastifyInstance, type: string, data: object):
   const handlers = {
     ...app.diContainer.resolve('projectionEventHandlers'),
     ...app.diContainer.resolve('reservationEventHandlers'),
+    ...app.diContainer.resolve('warehouseEventHandlers'),
   };
   const handler = handlers[type];
   if (handler === undefined) throw new Error(`no handler for ${type}`);
@@ -161,39 +162,51 @@ export const newVariant = async (
   return variantId;
 };
 
-/** Creates a warehouse serving `pin` (coverage priority = `priority`). Returns its id. */
+/** A warehouse-service snapshot (warehouse.upserted.v1) with sensible defaults. */
+export const warehouseFacts = (o: Record<string, unknown> = {}) => ({
+  warehouseId: randomUUID(),
+  version: 1,
+  code: randomCode('IT'),
+  name: 'IT Warehouse',
+  type: 'DEPOT',
+  status: 'ACTIVE',
+  parentWarehouseId: null,
+  addressLine: 'Plot 1, Test Estate',
+  city: 'Tanuku',
+  district: 'West Godavari',
+  stateCode: '37',
+  pinCode: '534211',
+  latitude: null,
+  longitude: null,
+  temperatureClasses: ['AMB'],
+  isAllocatable: true,
+  priority: 100,
+  deleted: false,
+  ...o,
+});
+
+/**
+ * Projects an ACTIVE warehouse serving `pin` (coverage priority = `priority`) the way
+ * warehouse-service does it since D-56: warehouse.upserted.v1 + warehouse.coverage_replaced.v1.
+ * `_user` is kept for call-site compatibility (no admin API is involved any more).
+ */
 export const newWarehouse = async (
   app: FastifyInstance,
-  user: string,
+  _user: string,
   pin: string,
   o: { priority?: number; hasColdChain?: boolean; isAllocatable?: boolean } = {},
 ): Promise<string> => {
-  const res = await call(app, 'POST', '/admin/inventory/warehouses', {
-    user,
-    payload: {
-      code: randomCode('it'),
-      name: 'IT Warehouse',
-      type: 'DEPOT',
-      addressLine: 'Plot 1, Test Estate',
-      city: 'Tanuku',
-      stateCode: '37',
-      pinCode: '534211',
-      hasColdChain: o.hasColdChain ?? false,
-      isAllocatable: o.isAllocatable ?? true,
-    },
+  const facts = warehouseFacts({
+    temperatureClasses: o.hasColdChain === true ? ['AMB', 'CC_REF'] : ['AMB'],
+    isAllocatable: o.isAllocatable ?? true,
   });
-  if (res.statusCode !== 201) throw new Error(res.body);
-  const id = data<{ id: string }>(res).id;
-  const cov = await call(app, 'PUT', `/admin/inventory/warehouses/${id}/coverage`, {
-    user,
-    payload: {
-      expectedVersion: 0,
-      entries: [{ pinCode: pin, priority: o.priority ?? 100 }],
-      reason: 'IT coverage setup',
-    },
+  await deliver(app, 'warehouse.upserted.v1', facts);
+  await deliver(app, 'warehouse.coverage_replaced.v1', {
+    warehouseId: facts.warehouseId,
+    coverageVersion: 1,
+    entries: [{ pinCode: pin, priority: o.priority ?? 100 }],
   });
-  if (cov.statusCode !== 200) throw new Error(cov.body);
-  return id;
+  return facts.warehouseId;
 };
 
 export const receive = async (

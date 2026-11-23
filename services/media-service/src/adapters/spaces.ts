@@ -1,4 +1,9 @@
-import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import type { MediaConfig } from '../config/index.js';
@@ -94,9 +99,13 @@ export class SpacesStorage implements ObjectStorage {
   }
 
   signedGetUrl(key: string, expiresInSeconds: number): Promise<string> {
-    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.config.AWS_BUCKET_NAME, Key: key }), {
-      expiresIn: expiresInSeconds,
-    });
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.config.AWS_BUCKET_NAME, Key: key }),
+      {
+        expiresIn: expiresInSeconds,
+      },
+    );
   }
 
   async deleteObjects(keys: readonly string[]): Promise<void> {

@@ -203,7 +203,9 @@ describe.skipIf(DB_URL === undefined)('stock operations against Postgres', () =>
     });
     expect(thresholds.statusCode).toBe(200);
     for (let i = 0; i < 20 && (await publisher.publishDirty()).variants > 0; i += 1);
-    expect(await outboxEvents(app, 'inventory.availability_changed.v1', v)).toHaveLength(avail.length);
+    expect(await outboxEvents(app, 'inventory.availability_changed.v1', v)).toHaveLength(
+      avail.length,
+    );
     expect(await outboxEvents(app, 'inventory.low_stock.v1', v)).toHaveLength(1);
 
     // Back above the threshold (silent reset), then down again → a second alert.

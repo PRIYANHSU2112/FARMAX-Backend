@@ -7,6 +7,7 @@ import {
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
+import { type WarehouseStats, aggregateStats } from './stock.stats.js';
 
 import { one, requestHash } from '../../middleware/http.js';
 import type { Actor } from '../audit/index.js';
@@ -70,6 +71,13 @@ const byVariant = <T extends { variantId: string }>(lines: readonly T[]): T[] =>
  */
 export class StockService {
   constructor(private readonly deps: Deps) {}
+
+  /** Per-warehouse totals, weight-based capacity and stock by root category (D-56 P3). */
+  async warehouseStats(): Promise<WarehouseStats[]> {
+    const levels = await this.deps.stockRepository.statsLevels();
+    const facts = await this.deps.projectionsService.byIds(levels.map((l) => l.variantId));
+    return aggregateStats(levels, facts);
+  }
 
   // ── Operations ──
 
@@ -155,7 +163,9 @@ export class StockService {
     return this.deps.runInTransaction(async (tx) => {
       const op = await this.pendingAdjustment(tx, id);
       if (op.requestedBy === userId)
-        throw new ForbiddenError('An adjustment must be approved by someone other than its requester');
+        throw new ForbiddenError(
+          'An adjustment must be approved by someone other than its requester',
+        );
       await this.deps.warehousesService.requireActive(tx, op.warehouseId);
       const { defaultReorderLevel } = await this.deps.settingsService.current();
       const ledger: NewLedgerRow[] = [];
@@ -188,7 +198,10 @@ export class StockService {
         input.reason,
       );
       await this.deps.stockRepository.insertLedger(tx, ledger);
-      await this.deps.stockRepository.markDirty(tx, op.lines.map((l) => l.variantId));
+      await this.deps.stockRepository.markDirty(
+        tx,
+        op.lines.map((l) => l.variantId),
+      );
       await this.deps.auditService.record(tx, actor, {
         action: 'adjustment.approve',
         targetType: 'operation',
@@ -305,7 +318,10 @@ export class StockService {
       if (!(await this.deps.stockRepository.hold(tx, m.warehouseId, m.variantId, m.qty)))
         return false;
     }
-    await this.deps.stockRepository.markDirty(tx, moves.map((m) => m.variantId));
+    await this.deps.stockRepository.markDirty(
+      tx,
+      moves.map((m) => m.variantId),
+    );
     return true;
   }
 
@@ -318,11 +334,15 @@ export class StockService {
           `reserved < ${String(m.qty)} for ${m.warehouseId}/${m.variantId}: counters out of sync`,
         );
     }
-    await this.deps.stockRepository.markDirty(tx, moves.map((m) => m.variantId));
+    await this.deps.stockRepository.markDirty(
+      tx,
+      moves.map((m) => m.variantId),
+    );
   }
 
-  markWarehouseDirty(warehouseId: string): Promise<void> {
-    return this.deps.stockRepository.markWarehouseDirty(warehouseId);
+  /** `tx`: mark inside the caller's transaction (commits with the change that caused it). */
+  markWarehouseDirty(warehouseId: string, tx?: Tx): Promise<void> {
+    return this.deps.stockRepository.markWarehouseDirty(warehouseId, tx);
   }
 
   // ── Helpers ──
@@ -371,7 +391,10 @@ export class StockService {
         const result = await apply(tx, op);
         await this.deps.stockRepository.insertLedger(tx, result.ledger);
         if (result.ledger.length > 0)
-          await this.deps.stockRepository.markDirty(tx, input.lines.map((l) => l.variantId));
+          await this.deps.stockRepository.markDirty(
+            tx,
+            input.lines.map((l) => l.variantId),
+          );
         await this.deps.auditService.record(tx, actor, {
           action: result.action,
           targetType: 'operation',

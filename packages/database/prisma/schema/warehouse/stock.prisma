@@ -1,0 +1,543 @@
+// warehouse-service feature: stock (D-57a). Batch-level physical stock owned by the WMS:
+// batches, positions (warehouse × batch × bin × owner, one quantity column per status), the
+// append-only movement ledger, unit QR (serialized batches only), receipts (CN), adjustments,
+// the status lifecycle, thresholds, vendors and restock / transfers. inventory-service keeps the
+// warehouse × SKU totals and is fed by `warehouse.stock_changed.v1` (single writer).
+
+/// One shared stock status (PDF rule). Columns exist for the at-rest ones; the others are moves
+/// in or out of the warehouse (RECEIVED, IN_TRANSIT, DISPATCHED, DELIVERED, WRITTEN_OFF).
+enum WmsStockStatus {
+  RECEIVED
+  QC_HOLD
+  AVAILABLE
+  RESERVED
+  PICKED
+  PACKED
+  DISPATCHED
+  DELIVERED
+  QUARANTINED
+  DAMAGED
+  EXPIRED
+  IN_TRANSIT
+  RETURNED
+  WRITTEN_OFF
+}
+
+/// Vendor-owned sale-or-return · FarmX-owned · vendor-title just-in-time.
+enum WmsOwnerType {
+  SOR
+  FARMX
+  JIT
+}
+
+enum WmsMovementType {
+  RECEIPT
+  OPENING
+  QC_RELEASE
+  QC_HOLD
+  ALLOCATE
+  DEALLOCATE
+  PICK
+  PACK
+  ISSUE
+  TRANSFER_OUT
+  TRANSFER_IN
+  RETURN
+  RESTOCK
+  ADJUSTMENT
+  DAMAGE
+  QUARANTINE
+  EXPIRE
+  WRITE_OFF
+  BIN_MOVE
+  OWNER_FIX
+  RELABEL
+  ROLLBACK_REPLAY
+  STATUS_CHANGE
+}
+
+enum WmsCertificateStatus {
+  NONE
+  SAMPLE_REFERENCE
+  VALID
+  EXPIRED
+  REJECTED
+}
+
+enum WmsReceiptSource {
+  VENDOR
+  TRANSFER
+  RETURN
+  OPENING
+}
+
+enum WmsApprovalStatus {
+  PENDING_APPROVAL
+  APPLIED
+  REJECTED
+}
+
+enum WmsProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WmsRestockType {
+  PROCUREMENT
+  TRANSFER
+}
+
+enum WmsRestockStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+  IN_TRANSIT
+  PARTIALLY_RECEIVED
+  RECEIVED
+}
+
+enum WmsTransferStatus {
+  IN_TRANSIT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+/// product-service variant facts (event-fed, version-guarded). Names, brand, category, weight,
+/// compliance flags for every stock screen without a cross-service call.
+model WmsVariantProjection {
+  variantId              String   @id @db.Uuid
+  productId              String   @db.Uuid
+  sku                    String   @db.VarChar(40)
+  name                   String   @db.VarChar(250)
+  variantName            String   @db.VarChar(250)
+  brandId                String   @db.Uuid
+  brandName              String?  @db.VarChar(80)
+  categoryId             String   @db.Uuid
+  /// Category ids root → self.
+  categoryPath           String[] @db.Uuid
+  rootCategoryId         String?  @db.Uuid
+  /// e.g. "50 kg Bag".
+  packLabel              String   @db.VarChar(60)
+  weightGrams            Int?
+  temperatureClass       String   @default("AMB") @db.VarChar(10)
+  shelfLifeMonths        Int?
+  imageUrl               String?  @db.VarChar(500)
+  isPrescriptionRequired Boolean  @default(false)
+  drugSchedule           String?  @db.VarChar(4)
+  isAntimicrobial        Boolean  @default(false)
+  hazardClass            String?  @db.VarChar(40)
+  isActive               Boolean  @default(true)
+  version                BigInt   @default(-1)
+  /// Lower-cased sku + name + variant + brand (trigram search).
+  searchText             String   @default("")
+  updatedAt              DateTime @updatedAt
+
+  @@index([rootCategoryId])
+  @@index([brandId])
+  @@index([sku])
+  @@map("warehouse_variant_projection")
+}
+
+/// Minimal vendor master until W22 (supplier of a SKU, default ownership model).
+model WmsVendor {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  code             String            @unique @db.VarChar(20)
+  name             String            @db.VarChar(120)
+  gstin            String?           @db.VarChar(15)
+  phone            String?           @db.VarChar(16)
+  email            String?           @db.VarChar(254)
+  defaultOwnership WmsOwnerType      @default(FARMX)
+  status           WmsResourceStatus @default(ACTIVE)
+  version          Int               @default(0)
+  createdByUserId  String?           @db.Uuid
+  updatedByUserId  String?           @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  variants WmsVendorVariant[]
+
+  @@index([name])
+  @@map("warehouse_vendors")
+}
+
+/// Which vendor supplies which SKU, under which ownership model.
+model WmsVendorVariant {
+  vendorId       String       @db.Uuid
+  variantId      String       @db.Uuid
+  ownershipModel WmsOwnerType
+  leadTimeDays   Int          @default(7) @db.SmallInt
+  moq            Int          @default(1)
+  isPreferred    Boolean      @default(false)
+  /// Units of this SKU get a unit QR (serialized batches).
+  requiresUnitQr Boolean      @default(false)
+  updatedAt      DateTime     @updatedAt
+
+  vendor WmsVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@id([vendorId, variantId])
+  @@index([variantId])
+  @@map("warehouse_vendor_variants")
+}
+
+/// A manufacturer batch of one SKU (global: the same batch can sit in several warehouses).
+model WmsBatch {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  variantId         String               @db.Uuid
+  batchNo           String               @db.VarChar(40)
+  mfgDate           DateTime?            @db.Date
+  /// null = unknown (opening balances): FEFO sorts it last, never "recommended".
+  expiryDate        DateTime?            @db.Date
+  vendorId          String?              @db.Uuid
+  coaRef            String?              @db.VarChar(60)
+  coaMediaKey       String?              @db.VarChar(300)
+  certificateStatus WmsCertificateStatus @default(NONE)
+  qualityNote       String?              @db.VarChar(500)
+  isOpening         Boolean              @default(false)
+  /// Unit QR rows exist for this batch.
+  serialized        Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([variantId, batchNo])
+  @@index([expiryDate])
+  @@index([batchNo])
+  @@map("warehouse_batches")
+}
+
+/// Physical stock at (warehouse, batch, bin, owner, vendor). One column per at-rest status;
+/// physical on-hand = their sum. Unique NULLS NOT DISTINCT on the dimensions (migration SQL).
+model WmsStockPosition {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  warehouseId String       @db.Uuid
+  variantId   String       @db.Uuid
+  batchId     String       @db.Uuid
+  /// null = not in a bin yet (opening balance): not allocatable.
+  binId       String?      @db.Uuid
+  ownerType   WmsOwnerType
+  vendorId    String?      @db.Uuid
+  qcHold      Int          @default(0)
+  available   Int          @default(0)
+  reserved    Int          @default(0)
+  picked      Int          @default(0)
+  packed      Int          @default(0)
+  quarantined Int          @default(0)
+  damaged     Int          @default(0)
+  expired     Int          @default(0)
+  returned    Int          @default(0)
+  /// Copied from the batch (FEFO / expiry filters without a join).
+  expiryDate  DateTime?    @db.Date
+  receivedAt  DateTime     @default(now())
+  /// Imported data still to confirm (ownerType, bin, batch).
+  reviewFields String[]    @default([])
+  version     Int          @default(0)
+  updatedAt   DateTime     @updatedAt
+
+  @@index([warehouseId, variantId])
+  @@index([batchId])
+  @@index([binId])
+  @@index([warehouseId, expiryDate, id])
+  @@index([expiryDate, id])
+  @@map("warehouse_stock_positions")
+}
+
+/// Totals per warehouse × SKU, kept in the same transaction as the positions.
+model WmsStockSummary {
+  warehouseId    String    @db.Uuid
+  variantId      String    @db.Uuid
+  qcHold         Int       @default(0)
+  available      Int       @default(0)
+  reserved       Int       @default(0)
+  picked         Int       @default(0)
+  packed         Int       @default(0)
+  quarantined    Int       @default(0)
+  damaged        Int       @default(0)
+  expired        Int       @default(0)
+  returned       Int       @default(0)
+  /// Available units expiring within the near-expiry window (expiry job).
+  nearExpiry     Int       @default(0)
+  /// Units with no expiry date (opening balances).
+  expiryUnknown  Int       @default(0)
+  lastMovementAt DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@id([warehouseId, variantId])
+  @@index([warehouseId, available])
+  @@index([variantId])
+  @@map("warehouse_stock_summary")
+}
+
+/// Append-only stock ledger. `sellableDelta` / `damagedDelta` are what inventory receives.
+model WmsStockMovement {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  warehouseId   String          @db.Uuid
+  variantId     String          @db.Uuid
+  batchId       String          @db.Uuid
+  binId         String?         @db.Uuid
+  ownerType     WmsOwnerType
+  type          WmsMovementType
+  fromStatus    WmsStockStatus?
+  toStatus      WmsStockStatus?
+  qty           Int
+  sellableDelta Int             @default(0)
+  damagedDelta  Int             @default(0)
+  refType       String          @db.VarChar(20)
+  refId         String?         @db.Uuid
+  /// Human reference shown in the ledger (CN-…, ADJ-…, TR-…, order no).
+  refNo         String?         @db.VarChar(40)
+  reason        String?         @db.VarChar(500)
+  actorUserId   String?         @db.Uuid
+  requestId     String?         @db.VarChar(64)
+  createdAt     DateTime        @default(now())
+
+  @@index([warehouseId, createdAt(sort: Desc), id])
+  @@index([variantId, createdAt(sort: Desc)])
+  @@index([batchId, createdAt(sort: Desc)])
+  @@index([refType, refId])
+  @@index([type, createdAt])
+  @@map("warehouse_stock_movements")
+}
+
+/// One unit of a serialized batch (unit QR). Unit counts by status = the position columns.
+model WmsStockUnit {
+  qrCode      String         @id @db.VarChar(64)
+  batchId     String         @db.Uuid
+  variantId   String         @db.Uuid
+  warehouseId String?        @db.Uuid
+  binId       String?        @db.Uuid
+  status      WmsStockStatus
+  seq         Int
+  ownerType   WmsOwnerType
+  shipmentId  String?        @db.Uuid
+  generatedAt DateTime       @default(now())
+  lastEventAt DateTime       @default(now())
+
+  @@unique([batchId, seq])
+  @@index([batchId, warehouseId, status, seq])
+  @@index([shipmentId])
+  @@map("warehouse_stock_units")
+}
+
+/// Goods receipt (CN). Interim inbound API until W5/W6 screens.
+model WmsReceipt {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  cnNo             String           @unique @db.VarChar(20)
+  warehouseId      String           @db.Uuid
+  sourceType       WmsReceiptSource
+  vendorId         String?          @db.Uuid
+  restockRequestId String?          @db.Uuid
+  transferId       String?          @db.Uuid
+  notes            String?          @db.VarChar(500)
+  idempotencyKey   String           @unique @db.VarChar(64)
+  receivedAt       DateTime         @default(now())
+  receivedBy       String?          @db.Uuid
+
+  lines WmsReceiptLine[]
+
+  @@index([warehouseId, receivedAt(sort: Desc)])
+  @@map("warehouse_receipts")
+}
+
+model WmsReceiptLine {
+  receiptId     String         @db.Uuid
+  lineNo        Int
+  variantId     String         @db.Uuid
+  batchId       String         @db.Uuid
+  binId         String?        @db.Uuid
+  qty           Int
+  ownerType     WmsOwnerType
+  vendorId      String?        @db.Uuid
+  initialStatus WmsStockStatus
+
+  receipt WmsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@id([receiptId, lineNo])
+  @@index([batchId])
+  @@map("warehouse_receipt_lines")
+}
+
+/// Quantity adjustment (count correction). Above the threshold it waits for a second person.
+model WmsStockAdjustment {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  adjNo          String            @unique @db.VarChar(20)
+  warehouseId    String            @db.Uuid
+  /// [{ positionId, delta }]
+  lines          Json
+  totalUnits     Int
+  reasonCode     String            @db.VarChar(40)
+  note           String?           @db.VarChar(500)
+  status         WmsApprovalStatus
+  idempotencyKey String            @unique @db.VarChar(64)
+  requestedBy    String            @db.Uuid
+  decidedBy      String?           @db.Uuid
+  decidedAt      DateTime?
+  decisionNote   String?           @db.VarChar(500)
+  version        Int               @default(0)
+  createdAt      DateTime          @default(now())
+
+  @@index([warehouseId, status, createdAt(sort: Desc)])
+  @@map("warehouse_stock_adjustments")
+}
+
+/// Allowed status changes (W4.11). Every stock operation checks this table.
+model WmsStatusTransition {
+  fromStatus    WmsStockStatus
+  toStatus      WmsStockStatus
+  requiredEvent String         @db.VarChar(120)
+  roleLabel     String         @db.VarChar(80)
+  /// Permission that allows a person to make the move; null = system only.
+  permissionKey String?        @db.VarChar(60)
+  systemOnly    Boolean        @default(false)
+  isActive      Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  version       Int            @default(0)
+  updatedAt     DateTime       @updatedAt
+
+  @@id([fromStatus, toStatus])
+  @@map("warehouse_status_transitions")
+}
+
+/// Proposed lifecycle change; approved by someone else in Admin & Governance.
+model WmsTransitionProposal {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  fromStatus    WmsStockStatus
+  toStatus      WmsStockStatus
+  /// ADD (allow the move) or REMOVE (stop allowing it).
+  action        String            @default("ADD") @db.VarChar(8)
+  reasonEvent   String            @db.VarChar(500)
+  roleLabel     String?           @db.VarChar(80)
+  status        WmsProposalStatus @default(PENDING)
+  proposedBy    String            @db.Uuid
+  decidedBy     String?           @db.Uuid
+  decidedAt     DateTime?
+  decisionNote  String?           @db.VarChar(500)
+  createdAt     DateTime          @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("warehouse_transition_proposals")
+}
+
+/// Thresholds per warehouse × SKU. Owned by the WMS; published one way to inventory.
+model WmsStockThreshold {
+  warehouseId     String   @db.Uuid
+  variantId       String   @db.Uuid
+  safetyStock     Int      @default(0)
+  reorderLevel    Int      @default(0)
+  targetStock     Int      @default(0)
+  updatedByUserId String?  @db.Uuid
+  version         Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@id([warehouseId, variantId])
+  @@map("warehouse_stock_thresholds")
+}
+
+/// Settings: GLOBAL row plus optional per-warehouse override (scope = warehouse id).
+model WmsSetting {
+  key             String   @db.VarChar(60)
+  scope           String   @default("GLOBAL") @db.VarChar(40)
+  value           Json
+  version         Int      @default(0)
+  updatedByUserId String?  @db.Uuid
+  updatedAt       DateTime @updatedAt
+
+  @@id([key, scope])
+  @@map("warehouse_settings")
+}
+
+/// Document numbers: CN / ADJ / RST / TR per YYMM.
+model WmsSequence {
+  kind   String @db.VarChar(8)
+  period Int
+  last   Int    @default(0)
+
+  @@id([kind, period])
+  @@map("warehouse_sequences")
+}
+
+/// Restock request (W4.07 / W4.08): procurement from a vendor or a warehouse transfer.
+model WmsRestockRequest {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  requestNo         String           @unique @db.VarChar(20)
+  type              WmsRestockType
+  destWarehouseId   String           @db.Uuid
+  sourceWarehouseId String?          @db.Uuid
+  vendorId          String?          @db.Uuid
+  requiredBy        DateTime         @db.Date
+  /// First day of the plan month.
+  periodMonth       DateTime         @db.Date
+  notes             String?          @db.VarChar(500)
+  status            WmsRestockStatus @default(DRAFT)
+  createdBy         String           @db.Uuid
+  submittedAt       DateTime?
+  submittedBy       String?          @db.Uuid
+  decidedAt         DateTime?
+  decidedBy         String?          @db.Uuid
+  decisionNote      String?          @db.VarChar(500)
+  version           Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  lines WmsRestockLine[]
+
+  @@index([destWarehouseId, periodMonth, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("warehouse_restock_requests")
+}
+
+model WmsRestockLine {
+  requestId          String @db.Uuid
+  variantId          String @db.Uuid
+  availableAtRequest Int    @default(0)
+  suggestedQty       Int    @default(0)
+  requestedQty       Int
+  approvedQty        Int?
+  dispatchedQty      Int    @default(0)
+  receivedQty        Int    @default(0)
+
+  request WmsRestockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, variantId])
+  @@map("warehouse_restock_lines")
+}
+
+/// Stock moving between warehouses (IN_TRANSIT lives here, not in positions).
+model WmsTransfer {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  trNo              String            @unique @db.VarChar(20)
+  restockRequestId  String?           @db.Uuid
+  sourceWarehouseId String            @db.Uuid
+  destWarehouseId   String            @db.Uuid
+  status            WmsTransferStatus @default(IN_TRANSIT)
+  dispatchedAt      DateTime          @default(now())
+  dispatchedBy      String?           @db.Uuid
+  etaAt             DateTime?
+  receivedAt        DateTime?
+  receivedBy        String?           @db.Uuid
+  version           Int               @default(0)
+
+  lines WmsTransferLine[]
+
+  @@index([destWarehouseId, status, etaAt])
+  @@index([sourceWarehouseId, status])
+  @@map("warehouse_transfers")
+}
+
+model WmsTransferLine {
+  transferId  String       @db.Uuid
+  lineNo      Int
+  variantId   String       @db.Uuid
+  batchId     String       @db.Uuid
+  ownerType   WmsOwnerType
+  vendorId    String?      @db.Uuid
+  qty         Int
+  receivedQty Int          @default(0)
+
+  transfer WmsTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@id([transferId, lineNo])
+  @@map("warehouse_transfer_lines")
+}

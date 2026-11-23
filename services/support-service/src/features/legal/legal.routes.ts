@@ -12,7 +12,12 @@ import { LEGAL_KINDS, type LegalDraftInput, type LegalKind } from './legal.types
 const APP = Joi.string().valid(...APPS);
 const KIND = Joi.string().valid(...LEGAL_KINDS);
 const SECTIONS = Joi.array()
-  .items(Joi.object({ heading: Joi.string().trim().min(2).max(120).required(), body: Joi.string().trim().min(1).max(10_000).required() }))
+  .items(
+    Joi.object({
+      heading: Joi.string().trim().min(2).max(120).required(),
+      body: Joi.string().trim().min(1).max(10_000).required(),
+    }),
+  )
   .min(1)
   .max(40);
 const draftFields = {
@@ -48,29 +53,50 @@ export const legalRoutes: FastifyPluginAsync = async (app) => {
   // ── Admin (/legal/admin/*) ──
   app.get<{ Querystring: { kind?: LegalKind; app?: App } }>(
     '/admin/documents',
-    { schema: { querystring: Joi.object({ kind: KIND, app: APP }), ...routeDocs(LEGAL_DOCS.list) }, preHandler: admin('legal.manage') },
+    {
+      schema: { querystring: Joi.object({ kind: KIND, app: APP }), ...routeDocs(LEGAL_DOCS.list) },
+      preHandler: admin('legal.manage'),
+    },
     async (req) => ok(await svc(req).list(req.query.kind, req.query.app)),
   );
   app.post<{ Body: LegalDraftInput }>(
     '/admin/documents',
     {
       schema: {
-        body: Joi.object({ kind: KIND.required(), app: APP.allow(null), ...draftFields, title: draftFields.title.required(), sections: SECTIONS.required() }),
+        body: Joi.object({
+          kind: KIND.required(),
+          app: APP.allow(null),
+          ...draftFields,
+          title: draftFields.title.required(),
+          sections: SECTIONS.required(),
+        }),
         ...routeDocs(LEGAL_DOCS.createDraft),
       },
       preHandler: adminWrite('legal.manage'),
     },
-    async (req, reply) => reply.status(201).send(ok(await svc(req).createDraft(actorOf(req), req.body))),
+    async (req, reply) =>
+      reply.status(201).send(ok(await svc(req).createDraft(actorOf(req), req.body))),
   );
   app.patch<{ Params: { id: string }; Body: Partial<LegalDraftInput> }>(
     '/admin/documents/:id',
-    { schema: { ...idParams, body: Joi.object(draftFields).min(1), ...routeDocs(LEGAL_DOCS.updateDraft) }, preHandler: adminWrite('legal.manage') },
+    {
+      schema: {
+        ...idParams,
+        body: Joi.object(draftFields).min(1),
+        ...routeDocs(LEGAL_DOCS.updateDraft),
+      },
+      preHandler: adminWrite('legal.manage'),
+    },
     async (req) => ok(await svc(req).updateDraft(actorOf(req), req.params.id, req.body)),
   );
   app.post<{ Params: { id: string }; Body: { reason: string } }>(
     '/admin/documents/:id/publish',
     {
-      schema: { ...idParams, body: Joi.object({ reason: REASON.required() }), ...routeDocs(LEGAL_DOCS.publish) },
+      schema: {
+        ...idParams,
+        body: Joi.object({ reason: REASON.required() }),
+        ...routeDocs(LEGAL_DOCS.publish),
+      },
       preHandler: adminWrite('legal.manage'),
     },
     async (req) => ok(await svc(req).publish(actorOf(req), req.params.id, req.body.reason)),

@@ -4,20 +4,38 @@ import type { Cradle } from '@fastify/awilix';
 import Joi from 'joi';
 
 import { ID } from '../../middleware/http.js';
-import { AGENTS_ROOM, CLIENT_MESSAGE_ID, RECEIPTS, type TicketActor, ticketRoom } from '../tickets/index.js';
+import {
+  AGENTS_ROOM,
+  CLIENT_MESSAGE_ID,
+  RECEIPTS,
+  type TicketActor,
+  ticketRoom,
+} from '../tickets/index.js';
 
 /** Joi → frame parser: 422-style issues come back as an `error` frame. */
 const parser =
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T = the handler's payload type (from context)
   <T>(schema: Joi.Schema) =>
-  (data: unknown): T => {
-    const { error, value } = schema.validate(data ?? {}, { abortEarly: false, stripUnknown: true });
-    if (error !== undefined)
-      throw new ValidationError(error.details.map((d) => ({ path: `data.${d.path.join('.')}`, message: d.message })));
-    return value as T;
-  };
+    (data: unknown): T => {
+      const { error, value } = schema.validate(data ?? {}, {
+        abortEarly: false,
+        stripUnknown: true,
+      }) as {
+        error?: Joi.ValidationError;
+        value: unknown;
+      };
+      if (error !== undefined)
+        throw new ValidationError(
+          error.details.map((d) => ({ path: `data.${d.path.join('.')}`, message: d.message })),
+        );
+      return value as T;
+    };
 
 const isAgent = (conn: RealtimeConnection) => conn.hasTag('agent');
-const viewerOf = (conn: RealtimeConnection) => ({ userId: conn.principal.userId, agent: isAgent(conn) });
+const viewerOf = (conn: RealtimeConnection) => ({
+  userId: conn.principal.userId,
+  agent: isAgent(conn),
+});
 
 type Deps = Pick<Cradle, 'ticketsService' | 'realtimeHub'>;
 
@@ -38,9 +56,14 @@ export function createChatHandlers(deps: Deps): FrameHandlers {
     handle: async (conn, { ticketId, afterSeq }) => {
       const viewer = viewerOf(conn);
       const ticket = await deps.ticketsService.accessible(viewer, ticketId);
-      if (!conn.join(ticketRoom(ticketId))) throw new ValidationError([{ path: 'data.ticketId', message: 'too many open tickets on this socket' }]);
+      if (!conn.join(ticketRoom(ticketId)))
+        throw new ValidationError([
+          { path: 'data.ticketId', message: 'too many open tickets on this socket' },
+        ]);
       const messages =
-        afterSeq === undefined ? [] : await deps.ticketsService.messages(viewer, ticketId, { afterSeq, limit: 100 });
+        afterSeq === undefined
+          ? []
+          : await deps.ticketsService.messages(viewer, ticketId, { afterSeq, limit: 100 });
       return { ticketId, status: ticket.status, version: ticket.version, messages };
     },
   };
@@ -61,16 +84,23 @@ export function createChatHandlers(deps: Deps): FrameHandlers {
     },
   };
 
-  const send: FrameHandler<{ ticketId: string; clientMessageId: string; body: string; attachments?: string[] }> = {
+  const send: FrameHandler<{
+    ticketId: string;
+    clientMessageId: string;
+    body: string;
+    attachments?: string[];
+  }> = {
     parse: parser(
       Joi.object({
         ticketId: ID.required(),
         clientMessageId: CLIENT_MESSAGE_ID.required(),
         body: Joi.string().trim().max(4000).allow('').default(''),
         attachments: RECEIPTS,
-      }).custom((v: { body: string; attachments?: string[] }, h) =>
-        v.body === '' && (v.attachments?.length ?? 0) === 0 ? h.error('any.invalid') : v,
-      ).messages({ 'any.invalid': 'a message needs text or at least one file' }),
+      })
+        .custom((v: { body: string; attachments?: string[] }, h) =>
+          v.body === '' && (v.attachments?.length ?? 0) === 0 ? h.error('any.invalid') : v,
+        )
+        .messages({ 'any.invalid': 'a message needs text or at least one file' }),
     ),
     handle: async (conn, input) => {
       if (isAgent(conn) && !conn.hasTag('agent:manage')) throw new ForbiddenError();
@@ -95,14 +125,22 @@ export function createChatHandlers(deps: Deps): FrameHandlers {
     handle: (conn, { ticketId }) => {
       const room = ticketRoom(ticketId);
       if (!conn.rooms.has(room)) throw new ForbiddenError('Subscribe to the ticket first');
-      deps.realtimeHub.publish(room, 'typing', { ticketId, role: isAgent(conn) ? 'AGENT' : 'REQUESTER' }, { except: conn.id });
+      deps.realtimeHub.publish(
+        room,
+        'typing',
+        { ticketId, role: isAgent(conn) ? 'AGENT' : 'REQUESTER' },
+        { except: conn.id },
+      );
       return null;
     },
   };
 
   const read: FrameHandler<{ ticketId: string; seq: number }> = {
-    parse: parser(Joi.object({ ticketId: ID.required(), seq: Joi.number().integer().min(0).required() })),
-    handle: (conn, { ticketId, seq }) => deps.ticketsService.markRead(viewerOf(conn), ticketId, seq),
+    parse: parser(
+      Joi.object({ ticketId: ID.required(), seq: Joi.number().integer().min(0).required() }),
+    ),
+    handle: (conn, { ticketId, seq }) =>
+      deps.ticketsService.markRead(viewerOf(conn), ticketId, seq),
   };
 
   return {

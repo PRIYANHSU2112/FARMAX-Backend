@@ -9,8 +9,8 @@ import {
   reservationsModule,
 } from '../features/reservations/index.js';
 import { ADMIN_SETTINGS_TAG, settingsModule } from '../features/settings/index.js';
-import { ADMIN_STOCK_TAG, stockModule } from '../features/stock/index.js';
-import { ADMIN_WAREHOUSES_TAG, warehousesModule } from '../features/warehouses/index.js';
+import { ADMIN_STOCK_TAG, stockInternalModule, stockModule } from '../features/stock/index.js';
+import { warehousesModule } from '../features/warehouses/index.js';
 
 /**
  * inventory-service (D-33): central stock across warehouses. The gateway maps
@@ -23,6 +23,7 @@ export const features: readonly ServiceModule[] = [
   projectionsModule,
   warehousesModule,
   stockModule,
+  stockInternalModule,
   reservationsModule,
   reservationsInternalModule,
 ];
@@ -32,13 +33,9 @@ export const createDocsOptions = (config: InventoryConfig): DocsOptions => ({
   title: 'FarmX Inventory Service API',
   version: config.SERVICE_VERSION,
   description:
-    'Central inventory across warehouses: warehouses and PIN coverage, warehouse × variant stock (on hand, reserved, damaged, safety stock), receipts, damage, write-offs, approved adjustments, an append-only stock ledger and atomic reservations for checkout. Not a WMS (no bins, picking or dispatch).',
+    'Central inventory across warehouses (the warehouse list and PIN coverage are a read-only copy of warehouse-service, D-56): warehouse × variant stock (on hand, reserved, damaged, safety stock), receipts, damage, write-offs, approved adjustments, an append-only stock ledger and atomic reservations for checkout. Not a WMS (no bins, picking or dispatch).',
   tags: [
     { name: 'Health', description: 'Public liveness and readiness probes.' },
-    {
-      name: ADMIN_WAREHOUSES_TAG,
-      description: 'Warehouses (mother warehouse, C&F depots) and the PIN codes each serves.',
-    },
     {
       name: ADMIN_STOCK_TAG,
       description:

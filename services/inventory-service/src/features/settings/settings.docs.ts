@@ -45,7 +45,10 @@ export const SETTINGS_DOCS = {
     auth: AUTH_ADMIN,
     permission: 'inventory.configure',
     rateLimit: '60 writes per user per minute',
-    requestExample: { reservationTtlSeconds: 900, reason: 'Festival rush: slower UPI confirmations' },
+    requestExample: {
+      reservationTtlSeconds: 900,
+      reason: 'Festival rush: slower UPI confirmations',
+    },
     success: {
       status: 200,
       description: 'Updated settings',

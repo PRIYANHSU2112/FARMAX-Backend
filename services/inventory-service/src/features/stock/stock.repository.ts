@@ -2,6 +2,7 @@ import type { Paginated } from '@farmx/common/types';
 import { type Tx, cursorArgs, isUniqueViolation, toPage, withPrismaErrors } from '@farmx/database';
 import { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
+import type { StatsLevel } from './stock.stats.js';
 
 import { uuidv7 } from '../../adapters/uuid.js';
 import { one } from '../../middleware/http.js';
@@ -160,9 +161,10 @@ export class StockRepository {
   }
 
   /** Every variant stocked in a warehouse (after its active / allocatable flags changed). */
-  async markWarehouseDirty(warehouseId: string): Promise<void> {
+  /** Every variant stocked at the warehouse needs its network availability recomputed. */
+  async markWarehouseDirty(warehouseId: string, tx?: Tx): Promise<void> {
     await withPrismaErrors(
-      () => this.db.$executeRaw`
+      () => (tx ?? this.db).$executeRaw`
         INSERT INTO "inventory_availability_dirty" ("variantId")
         SELECT "variantId" FROM "inventory_stock_levels" WHERE "warehouseId" = ${warehouseId}::uuid
         ON CONFLICT ("variantId") DO NOTHING`,
@@ -170,6 +172,16 @@ export class StockRepository {
   }
 
   // ── Levels ──
+
+  /** Every level with something in it (warehouse stats, D-56 P3). One sequential scan. */
+  statsLevels(): Promise<StatsLevel[]> {
+    return withPrismaErrors(
+      () => this.db.$queryRaw<StatsLevel[]>`
+        SELECT "warehouseId", "variantId", "onHand", "reserved", "damaged", "safetyStock"
+        FROM "inventory_stock_levels"
+        WHERE "onHand" > 0 OR "reserved" > 0 OR "damaged" > 0`,
+    );
+  }
 
   async findLevel(warehouseId: string, variantId: string): Promise<LevelRow | null> {
     const rows = await withPrismaErrors(

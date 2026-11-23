@@ -38,13 +38,29 @@ export interface AuthConfig extends BaseConfig {
   OTP_DEV_CODE?: string;
   /** Shared service-to-service token for `/internal/*` (≥ 32 chars). Unset = internal routes off. */
   INTERNAL_SERVICE_TOKEN?: string;
+  /** RabbitMQ for the outbox relay (user.status_changed.v1, user.deleted.v1). */
+  RABBITMQ_URL: string;
+  /** Outbox relay on (off in tests). */
+  EVENTS_ENABLED: boolean;
+  /** Background jobs on (account purge; off in tests). */
+  JOBS_ENABLED: boolean;
+  /** Self-service account deletion: days before personal data is erased (cancel window). */
+  ACCOUNT_DELETION_GRACE_DAYS: number;
 }
 
 /** Secrets are mandatory on shared environments; local and test runs may use ephemeral ones. */
 const requiredOutsideLocal = (schema: Joi.Schema) =>
   schema.when('APP_ENV', { is: Joi.valid('dev', 'prod'), then: Joi.required() });
 
+const offInTests = (parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test';
+
 const schema = Joi.object<AuthConfig>({
+  RABBITMQ_URL: Joi.string()
+    .uri({ scheme: ['amqp', 'amqps'] })
+    .default('amqp://farmx:farmx@localhost:5672'),
+  EVENTS_ENABLED: Joi.boolean().truthy('1').falsy('0').default(offInTests),
+  JOBS_ENABLED: Joi.boolean().truthy('1').falsy('0').default(offInTests),
+  ACCOUNT_DELETION_GRACE_DAYS: Joi.number().integer().min(1).max(90).default(30),
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),

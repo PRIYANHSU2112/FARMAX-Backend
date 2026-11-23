@@ -31,7 +31,9 @@ export const ticketsModule = defineModule({
       ticketsService: asClass(TicketsService).singleton(),
       ticketsAdminService: asClass(TicketsAdminService).singleton(),
       ticketsJobs: asClass(TicketsJobs).singleton(),
-      ticketEventHandlers: asFunction((cradle: Cradle) => createTicketEventHandlers(cradle)).singleton(),
+      ticketEventHandlers: asFunction((cradle: Cradle) =>
+        createTicketEventHandlers(cradle),
+      ).singleton(),
     });
   },
   routes: async (app) => {

@@ -9,6 +9,8 @@ export const USER_STATUSES = [
   'LOCKED',
   'SUSPENDED',
   'DEACTIVATED',
+  /** Self-requested deletion in its grace period (set only by the deletion feature). */
+  'PENDING_DELETION',
 ] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

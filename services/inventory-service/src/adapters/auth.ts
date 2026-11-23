@@ -45,7 +45,9 @@ interface CachedAccess {
  * Any failure denies.
  */
 export class AccessClient {
-  constructor(private readonly deps: { config: InventoryConfig; logger: Logger; redis: () => Redis }) {}
+  constructor(
+    private readonly deps: { config: InventoryConfig; logger: Logger; redis: () => Redis },
+  ) {}
 
   async hasPermission(userId: string, key: string): Promise<boolean> {
     return (await this.permissions(userId)).includes(key);
