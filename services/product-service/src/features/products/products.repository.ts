@@ -960,6 +960,8 @@ export class ProductsRepository {
               isPrescriptionRequired: true,
               temperatureClass: true,
               shelfLifeMonths: true,
+              hsnCode: true,
+              gstRate: true,
             },
           },
         },

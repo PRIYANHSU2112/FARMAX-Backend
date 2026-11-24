@@ -15,7 +15,8 @@
     "./types": "./src/types/index.ts",
     "./middleware": "./src/middleware/index.ts",
     "./server": "./src/server/index.ts",
-    "./auth": "./src/auth/index.ts"
+    "./auth": "./src/auth/index.ts",
+    "./gst": "./src/gst/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

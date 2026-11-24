@@ -814,8 +814,9 @@ export class ProductsService {
       categoryId: v.product.categoryId,
       categoryPath: paths.get(v.product.categoryId) ?? [v.product.categoryId],
       brandId: v.product.brandId,
-      hsnCode: v.hsnCode,
-      gstRate: v.gstRate === null ? null : v.gstRate.toFixed(2),
+      // The variant's HSN / GST are optional overrides of the product's (required) values.
+      hsnCode: v.hsnCode ?? v.product.hsnCode,
+      gstRate: Number(v.gstRate ?? v.product.gstRate).toFixed(2),
       // Gross grams of one sellable pack: warehouse capacity in kg (D-56).
       weightGrams: v.weightGrams,
       minOrderQty: v.minOrderQty,
@@ -1105,8 +1106,9 @@ export class ProductsService {
       categoryId: product.categoryId,
       categoryPath,
       brandId: product.brandId,
-      hsnCode: v.hsnCode,
-      gstRate: v.gstRate === null ? null : v.gstRate.toFixed(2),
+      // The variant's HSN / GST are optional overrides of the product's (required) values.
+      hsnCode: v.hsnCode ?? product.hsnCode,
+      gstRate: Number(v.gstRate ?? product.gstRate).toFixed(2),
       weightGrams: v.weightGrams,
       minOrderQty: v.minOrderQty,
       maxOrderQty: v.maxOrderQty,
@@ -1114,9 +1116,10 @@ export class ProductsService {
       // D-57: warehouse (WMS) projection fields (additive).
       brandName: product.brandName,
       primaryImageUrl:
-        product.media.find((m) => m.kind === 'IMAGE' && (m.variantId === null || m.variantId === v.id))
-          ?.url ?? null,
-      drugSchedule: product.drugSchedule ?? null,
+        product.media.find(
+          (m) => m.kind === 'IMAGE' && (m.variantId === null || m.variantId === v.id),
+        )?.url ?? null,
+      drugSchedule: product.drugSchedule,
       isAntimicrobial: product.isAntimicrobial,
       isVetConsultRequired: product.isVetConsultRequired,
       hazardClass: product.hazardClass ?? null,

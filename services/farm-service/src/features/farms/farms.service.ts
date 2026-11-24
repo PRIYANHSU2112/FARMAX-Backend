@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/errors';
+import { toGstStateCode } from '@farmx/common/gst';
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
 import { FARM_EVENTS, type FarmFactsV1 } from '@farmx/infra/events';
@@ -483,7 +484,8 @@ export class FarmsService {
   async territoryStateCode(territoryCode: string | null): Promise<string | null> {
     if (territoryCode === null) return null;
     const territories = await this.deps.geoService.listTerritories();
-    return territories.find((t) => t.code === territoryCode)?.stateCode ?? null;
+    // Territories store the 2-letter state ("AP"); GSTINs and order pricing use the GST code ("37").
+    return toGstStateCode(territories.find((t) => t.code === territoryCode)?.stateCode);
   }
 
   /** Internal patch from another feature (version re-read in the tx, so a stale view is safe). */

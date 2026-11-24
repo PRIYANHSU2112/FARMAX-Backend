@@ -4,6 +4,7 @@ import {
   ServiceUnavailableError,
   ValidationError,
 } from '@farmx/common/errors';
+import { toGstStateCode } from '@farmx/common/gst';
 import type { AuthUser, Paginated } from '@farmx/common/types';
 import { type Tx, isUniqueViolation } from '@farmx/database';
 import { ORDER_EVENTS } from '@farmx/infra/events';
@@ -176,7 +177,8 @@ export class OrdersService {
               name: farm.name,
               gstin: gstBilled ? farm.gstin : null,
               itcEligible: gstBilled,
-              placeOfSupply: address.stateCode,
+              // Addresses carry the 2-letter state ("AP"); tax documents need the GST code ("37").
+              placeOfSupply: toGstStateCode(address.stateCode) ?? address.stateCode,
               interState: inv.interState,
             },
             deliveryAddress: { ...address },
