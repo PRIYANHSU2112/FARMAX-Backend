@@ -18,9 +18,22 @@ export const ORDER_EVENTS = {
   reviewOverdue: 'order.review_overdue.v1',
   /** Defined ahead of its producer (F1 shipments / POD); product-service consumes it today. */
   delivered: 'order.delivered.v1',
+  /** D-57b W3.15: delivery address / contact / promise changed before picking. */
+  deliveryUpdated: 'order.delivery_updated.v1',
 } as const;
 
 export type OrderEventType = (typeof ORDER_EVENTS)[keyof typeof ORDER_EVENTS];
+
+/** Delivery details changed before picking (W3.15). No PII: consumers pull the facts again. */
+export interface OrderDeliveryUpdatedV1 {
+  orderId: string;
+  orderNo: string;
+  /** Changed fields (contactName, contactPhone, line1, …, pinCode, deliveryPromise). */
+  changes: string[];
+  pinCode: string;
+  district: string | null;
+  deliveryPromise: string | null;
+}
 
 /** Placed (PENDING_ADMIN_CONFIRMATION, unpaid). Notifications / analytics. No PII. */
 export interface OrderPlacedV1 {
@@ -116,6 +129,7 @@ export interface OrderDeliveredV1 {
 
 export interface OrderEventMap {
   'order.placed.v1': OrderPlacedV1;
+  'order.delivery_updated.v1': OrderDeliveryUpdatedV1;
   'order.paid.v1': OrderPaidV1;
   'order.rejected.v1': OrderRejectedV1;
   'order.cancelled.v1': OrderCancelledV1;

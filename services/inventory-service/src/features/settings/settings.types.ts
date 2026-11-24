@@ -8,6 +8,8 @@ export interface InventorySettings {
   maxReservationLines: number;
   /** Allow one order to be served from several warehouses (and one variant to be split). */
   allowSplitAllocation: boolean;
+  /** D-57b W3.13: hide a node's stock at or below reorderLevel × pct / 100 on the storefront (0 = off). */
+  bufferFloorPct: number;
 }
 
 export type SettingKey = keyof InventorySettings;

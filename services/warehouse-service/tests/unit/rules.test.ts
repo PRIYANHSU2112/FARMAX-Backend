@@ -25,6 +25,7 @@ const ready: WarehouseRecord = {
   pinCode: '411001',
   latitude: null,
   longitude: null,
+  tagline: null,
   totalAreaSqft: null,
   capacityKg: '100000.00',
   temperatureClasses: ['AMB'],

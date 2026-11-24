@@ -9,11 +9,12 @@ import { ledgerDocs, mismatchDocs } from './orders.ledger.docs.js';
 import { admin, rateLimit } from '../../middleware/guards.js';
 import { actorOf } from '../audit/index.js';
 import { SETTING_RULES, type SettingsPatch } from '../settings/index.js';
-import type { AdminOrderQuery, CancelInput, ExceptionType } from './orders.types.js';
+import type { AdminOrderQuery, CancelInput, DeliveryInput, ExceptionType } from './orders.types.js';
 import {
   REJECT_REASONS,
   STAFF_CANCEL_REASONS,
   adminCancelSchema,
+  deliverySchema,
   adminListSchema,
   bulkConfirmSchema,
   confirmSchema,
@@ -38,6 +39,14 @@ const doc = (d: Omit<RouteDocs, 'tag' | 'auth'> & { permission: string }): Route
 });
 
 const DOCS = {
+  delivery: doc({
+    summary: 'Change delivery details (W3.15)',
+    description:
+      'Contact, address lines, district, PIN, coordinates and the promised date — until picking starts (409 NOT_EDITABLE_AFTER_PICK). The state never changes (GST). Reason required; audited; emits `order.delivery_updated.v1`. A PIN change is checked against the warehouse coverage by the warehouse portal (W3.15 amendments).',
+    permission: 'orders.update',
+    success: { status: 200, description: 'The order' },
+    errors: [404, 409, 422],
+  }),
   list: doc({
     summary: 'Search orders',
     description:
@@ -302,6 +311,15 @@ export const ordersAdminRoutes: FastifyPluginAsync = async (app) => {
       preHandler: write('orders.cancel'),
     },
     async (req) => ok(await svc(req).cancel(actorOf(req), req.params.id, req.body, ctx(req))),
+  );
+  app.patch<{ Params: IdParams; Body: DeliveryInput & { expectedVersion: number } }>(
+    '/:id/delivery',
+    {
+      schema: { ...deliverySchema, ...routeDocs(DOCS.delivery) },
+      preHandler: write('orders.update'),
+    },
+    async (req) =>
+      ok(await svc(req).updateDelivery(actorOf(req), req.params.id, req.body, ctx(req))),
   );
   app.get<{ Params: IdParams }>(
     '/:id/notes',

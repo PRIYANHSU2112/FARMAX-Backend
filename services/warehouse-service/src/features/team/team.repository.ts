@@ -9,6 +9,7 @@ const PROFILE = {
   userId: true,
   phone: true,
   workAreas: true,
+  jobTitle: true,
   shiftId: true,
   status: true,
 } as const satisfies Prisma.WmsStaffProfileSelect;
@@ -55,6 +56,7 @@ export class TeamRepository {
       phone?: string | null;
       workAreas?: WorkArea[];
       shiftId?: string | null;
+      jobTitle?: string | null;
       status?: 'ACTIVE' | 'INACTIVE';
       byUserId: string;
     },
@@ -68,6 +70,7 @@ export class TeamRepository {
           phone: fields.phone ?? null,
           workAreas: fields.workAreas ?? [],
           shiftId: fields.shiftId ?? null,
+          jobTitle: fields.jobTitle ?? null,
           status: fields.status ?? 'ACTIVE',
           createdByUserId: byUserId,
           updatedByUserId: byUserId,

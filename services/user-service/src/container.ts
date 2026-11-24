@@ -7,6 +7,9 @@ import type { Cradle } from '@fastify/awilix';
 import { type AwilixContainer, asFunction, asValue, createContainer } from 'awilix';
 
 import { AccessClient, buildTokenVerifier } from './adapters/auth.js';
+import { CatalogClient } from './adapters/catalog-client.js';
+import { FarmClient } from './adapters/farm-client.js';
+import { OrderClient } from './adapters/order-client.js';
 import { ProductClient } from './adapters/product-client.js';
 import type { UserConfig } from './config/index.js';
 
@@ -23,8 +26,14 @@ declare module '@fastify/awilix' {
     cache: Cache;
     accessClient: AccessClient;
     tokenVerifier: TokenVerifier;
-    /** product-service internal API (wishlist product cards), Redis-cached. */
+    /** product-service internal API (wishlist product cards), Redis-cached; public list for home. */
     productClient: ProductClient;
+    /** catalog-service public API (home: banners, categories, brand ref check). */
+    catalogClient: CatalogClient;
+    /** farm-service customer API with the caller's token (home: farm context, news feed). */
+    farmClient: FarmClient;
+    /** order-service customer API with the caller's token (home: ORDER_LIVE feed). */
+    orderClient: OrderClient;
   }
 }
 
@@ -73,6 +82,15 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
           logger: cradle.logger,
           redis: () => cradle.redis,
         }),
+    ).singleton(),
+    catalogClient: asFunction(
+      (cradle: Cradle) => new CatalogClient({ config: cradle.config }),
+    ).singleton(),
+    farmClient: asFunction(
+      (cradle: Cradle) => new FarmClient({ config: cradle.config }),
+    ).singleton(),
+    orderClient: asFunction(
+      (cradle: Cradle) => new OrderClient({ config: cradle.config }),
     ).singleton(),
   });
 

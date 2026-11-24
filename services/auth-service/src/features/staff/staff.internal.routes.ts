@@ -77,4 +77,34 @@ export const staffInternalRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => ({ success: true, data: await svc().revoke(request.body) }),
   );
+
+  // D-57b W3.16: step-up TOTP for sensitive warehouse decisions (compliance waiver). The code is
+  // single-use (replay-protected); at most 5 wrong codes per user per 15 minutes.
+  app.post<{ Body: { userId: string; code: string } }>(
+    '/mfa/verify',
+    {
+      schema: {
+        hide: true,
+        body: Joi.object({
+          userId: ID.required(),
+          code: Joi.string()
+            .pattern(/^\d{6}$/)
+            .required(),
+        }),
+      },
+      onRequest: [guard],
+    },
+    async (request) => {
+      const { redis, mfaService } = app.diContainer.cradle;
+      const key = `auth:stepup:fail:${request.body.userId}`;
+      const fails = Number((await redis.get(key)) ?? 0);
+      if (fails >= 5) return { success: true, data: { valid: false, locked: true } };
+      const valid = await mfaService.verify(request.body.userId, { code: request.body.code });
+      if (!valid) {
+        await redis.incr(key);
+        await redis.expire(key, 900);
+      }
+      return { success: true, data: { valid, locked: false } };
+    },
+  );
 };

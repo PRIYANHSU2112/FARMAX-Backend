@@ -207,6 +207,38 @@ export const userKeys = {
     userKeyspace.key('rl', action, dimension, value),
   /** Stored response of an idempotent POST, per user + Idempotency-Key. TTL 24 h. */
   idempotency: (userId: string, key: string) => userKeyspace.key('idem', userId, key),
+  /** Home SDUI: live layout snapshot of one page (sections + items). TTL 30 s; deleted on publish. */
+  homeLayout: (page: string) => userKeyspace.key('home', 'layout', page),
+  /**
+   * Home SDUI: one page of a product section. TTL 60 s (`stale` copy 10 min). `cursor` must be
+   * key-safe (the caller hashes product-service's opaque cursor).
+   */
+  homeSection: (
+    page: string,
+    publishRev: number,
+    sectionKey: string,
+    nodeId: string,
+    cursor: string,
+    limit: number,
+    stale = false,
+  ) =>
+    userKeyspace.key(
+      'home',
+      stale ? 'sec-stale' : 'sec',
+      page,
+      String(publishRev),
+      sectionKey,
+      nodeId,
+      cursor,
+      String(limit),
+    ),
+  /** Home SDUI: farmer context (farm → territory, depot, farm type). TTL 10 min. */
+  homeContext: (userId: string, farmId: string) => userKeyspace.key('home', 'ctx', userId, farmId),
+  /** Home SDUI: catalog data (a banner placement, root categories). TTL 60 s (`stale` 10 min). */
+  homeCatalog: (kind: 'banner' | 'categories', id: string, stale = false) =>
+    userKeyspace.key('home', stale ? 'cat-stale' : 'cat', kind, id),
+  /** Home SDUI: one allowlisted feed (per user, or `shared`). Short TTL. */
+  homeFeed: (feedKey: string, scope: string) => userKeyspace.key('home', 'feed', feedKey, scope),
 };
 
 const orderKeyspace = createKeyspace({ service: 'order', version: CACHE_VERSIONS.order });

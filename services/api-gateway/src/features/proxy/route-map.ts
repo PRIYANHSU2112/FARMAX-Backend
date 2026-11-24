@@ -69,11 +69,14 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     rewritePrefix: '/health',
   },
   // user-service: narrow prefixes only (`/v1/auth/me` stays with auth-service).
-  ...(['/me/addresses', '/me/wishlist', '/admin/customers'] as const).map((path) => ({
-    prefix: '/v1' + path,
-    upstream: config.USER_SERVICE_URL,
-    rewritePrefix: path,
-  })),
+  // `/home` + `/admin/home`: server-driven Home / All Categories layout (D-59).
+  ...(['/me/addresses', '/me/wishlist', '/admin/customers', '/home', '/admin/home'] as const).map(
+    (path) => ({
+      prefix: '/v1' + path,
+      upstream: config.USER_SERVICE_URL,
+      rewritePrefix: path,
+    }),
+  ),
   {
     prefix: '/v1/user-service/health',
     upstream: config.USER_SERVICE_URL,
@@ -152,7 +155,7 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     rewritePrefix: '/support/chat',
     websocket: true,
   },
-  ...(['/support', '/faqs', '/legal'] as const).map((path) => ({
+  ...(['/support', '/faqs', '/legal', '/admin/support'] as const).map((path) => ({
     prefix: '/v1' + path,
     upstream: config.SUPPORT_SERVICE_URL,
     rewritePrefix: path,
@@ -163,11 +166,15 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     rewritePrefix: '/health',
   },
   // warehouse-service (D-56): staff only. The warehouse master moved here from inventory-service.
-  ...(['/admin/warehouses', '/admin/wms'] as const).map((path) => ({
-    prefix: '/v1' + path,
-    upstream: config.WAREHOUSE_SERVICE_URL,
-    rewritePrefix: path,
-  })),
+  // D-57: /wms = warehouse panel (scoped), /admin/wms = admin panel (GLOBAL), /shipments =
+  // customer shipment tracking + delivery OTP, /driver = 3PL trip links (token in the path).
+  ...(['/admin/warehouses', '/admin/wms', '/wms', '/shipments', '/driver'] as const).map(
+    (path) => ({
+      prefix: '/v1' + path,
+      upstream: config.WAREHOUSE_SERVICE_URL,
+      rewritePrefix: path,
+    }),
+  ),
   {
     prefix: '/v1/warehouse-service/health',
     upstream: config.WAREHOUSE_SERVICE_URL,

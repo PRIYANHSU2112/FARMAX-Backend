@@ -1114,9 +1114,10 @@ export class ProductsService {
       // D-57: warehouse (WMS) projection fields (additive).
       brandName: product.brandName,
       primaryImageUrl:
-        product.media.find((m) => m.kind === 'IMAGE' && (m.variantId === null || m.variantId === v.id))
-          ?.url ?? null,
-      drugSchedule: product.drugSchedule ?? null,
+        product.media.find(
+          (m) => m.kind === 'IMAGE' && (m.variantId === null || m.variantId === v.id),
+        )?.url ?? null,
+      drugSchedule: product.drugSchedule,
       isAntimicrobial: product.isAntimicrobial,
       isVetConsultRequired: product.isVetConsultRequired,
       hazardClass: product.hazardClass ?? null,

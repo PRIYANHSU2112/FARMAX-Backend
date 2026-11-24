@@ -11,6 +11,7 @@ export const SUPPORT_EVENTS = {
   ticketStatusChanged: 'support.ticket_status_changed.v1',
   ticketEscalated: 'support.ticket_escalated.v1',
   slaBreached: 'support.sla_breached.v1',
+  applicationStatusChanged: 'support.application_status_changed.v1',
 } as const;
 
 export type SupportEventType = (typeof SUPPORT_EVENTS)[keyof typeof SUPPORT_EVENTS];
@@ -61,10 +62,23 @@ export interface SupportSlaBreachedV1 extends TicketRef {
   dueAt: string;
 }
 
+/** Staff approved or rejected a dealer / partner application (no business name, no notes). */
+export interface SupportApplicationStatusChangedV1 {
+  applicationId: string;
+  /** DEALER · DISTRIBUTOR · PARTNER */
+  applicationType: string;
+  applicantUserId: string;
+  from: string;
+  /** APPROVED · REJECTED */
+  to: string;
+  actorId: string;
+}
+
 export interface SupportEventMap {
   'support.ticket_created.v1': SupportTicketCreatedV1;
   'support.ticket_replied.v1': SupportTicketRepliedV1;
   'support.ticket_status_changed.v1': SupportTicketStatusChangedV1;
   'support.ticket_escalated.v1': SupportTicketEscalatedV1;
   'support.sla_breached.v1': SupportSlaBreachedV1;
+  'support.application_status_changed.v1': SupportApplicationStatusChangedV1;
 }

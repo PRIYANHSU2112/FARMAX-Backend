@@ -288,6 +288,10 @@ export class StockRepository {
     });
   }
 
+  /**
+   * Summary deltas: create the empty row first (ON CONFLICT DO NOTHING), then increment, so the
+   * CHECK (≥ 0) never sees a negative INSERT candidate and concurrent first writes cannot clash.
+   */
   async applySummary(
     tx: Tx,
     warehouseId: string,
@@ -295,21 +299,16 @@ export class StockRepository {
     delta: Partial<Record<Column, number>>,
     expiryUnknownDelta: number,
   ): Promise<void> {
-    const create: Record<string, unknown> = { warehouseId, variantId, lastMovementAt: new Date() };
-    const update: Record<string, unknown> = { lastMovementAt: new Date() };
-    for (const [col, n] of Object.entries(delta)) {
-      if (n === 0) continue;
-      create[col] = n;
-      update[col] = { increment: n };
-    }
-    if (expiryUnknownDelta !== 0) {
-      create.expiryUnknown = expiryUnknownDelta;
-      update.expiryUnknown = { increment: expiryUnknownDelta };
-    }
-    await tx.wmsStockSummary.upsert({
+    await tx.$executeRaw`
+      INSERT INTO "warehouse_stock_summary" ("warehouseId", "variantId", "updatedAt")
+      VALUES (${warehouseId}::uuid, ${variantId}::uuid, now())
+      ON CONFLICT ("warehouseId", "variantId") DO NOTHING`;
+    const data: Record<string, unknown> = { lastMovementAt: new Date() };
+    for (const [col, n] of Object.entries(delta)) if (n !== 0) data[col] = { increment: n };
+    if (expiryUnknownDelta !== 0) data.expiryUnknown = { increment: expiryUnknownDelta };
+    await tx.wmsStockSummary.update({
       where: { warehouseId_variantId: { warehouseId, variantId } },
-      create: create as Prisma.WmsStockSummaryUncheckedCreateInput,
-      update,
+      data,
       select: { warehouseId: true },
     });
   }
@@ -320,6 +319,12 @@ export class StockRepository {
   }
 
   // ── unit QR (serialized batches) ──
+
+  /** Another SKU already uses this batch number (QR codes then carry the SKU). */
+  async batchNoShared(tx: Tx, batchNo: string, variantId: string): Promise<boolean> {
+    const n = await tx.wmsBatch.count({ where: { batchNo, variantId: { not: variantId } } });
+    return n > 0;
+  }
 
   async maxUnitSeq(tx: Tx, batchId: string): Promise<number> {
     const rows = await tx.$queryRaw<{ max: number | null }[]>`
@@ -351,7 +356,7 @@ export class StockRepository {
       INSERT INTO "warehouse_stock_units"
         ("qrCode", "batchId", "variantId", "warehouseId", "binId", "status", "seq", "ownerType",
          "generatedAt", "lastEventAt")
-      SELECT ${u.prefix} || CASE WHEN g < 10000 THEN lpad(g::text, 4, '0') ELSE g::text END,
+      SELECT ${u.prefix} || lpad(g::text, GREATEST(4, length(g::text)), '0'),
         ${u.batchId}::uuid, ${u.variantId}::uuid, ${u.warehouseId}::uuid, ${u.binId}::uuid,
         ${u.status}::"WmsStockStatus", g, ${u.ownerType}::"WmsOwnerType", now(), now()
       FROM generate_series(${u.from}::int, ${u.from + u.qty - 1}::int) AS g`;
@@ -396,6 +401,76 @@ export class StockRepository {
           PositionRow[]
         >,
     );
+  }
+
+  /** Positions of a SKU with AVAILABLE stock at a warehouse, locked in id order (no deadlocks). */
+  lockAvailable(tx: Tx, warehouseId: string, variantId: string): Promise<PositionRow[]> {
+    return tx.$queryRaw<PositionRow[]>(
+      Prisma.sql`SELECT ${Prisma.raw(POSITION_COLS)} FROM "warehouse_stock_positions"
+        WHERE "warehouseId" = ${warehouseId}::uuid AND "variantId" = ${variantId}::uuid AND "available" > 0
+        ORDER BY "id" FOR UPDATE`,
+    );
+  }
+
+  /** Lots with AVAILABLE stock of some SKUs at a warehouse, FEFO order (W3.05 lot table). */
+  lots(warehouseId: string, variantIds: readonly string[]) {
+    if (variantIds.length === 0) return Promise.resolve([]);
+    return this.db.$queryRaw<
+      {
+        positionId: string;
+        variantId: string;
+        batchId: string;
+        binId: string | null;
+        ownerType: OwnerType;
+        vendorId: string | null;
+        available: number;
+        expiryDate: Date | null;
+        receivedAt: Date;
+        batchNo: string;
+        mfgDate: Date | null;
+        certificateStatus: string;
+        isOpening: boolean;
+        reviewFields: string[];
+      }[]
+    >`
+      SELECT p."id" AS "positionId", p."variantId", p."batchId", p."binId", p."ownerType", p."vendorId",
+        p."available", p."expiryDate", p."receivedAt", b."batchNo", b."mfgDate",
+        b."certificateStatus"::text AS "certificateStatus", b."isOpening", p."reviewFields"
+      FROM "warehouse_stock_positions" p JOIN "warehouse_batches" b ON b."id" = p."batchId"
+      WHERE p."warehouseId" = ${warehouseId}::uuid AND p."variantId" = ANY(${[...new Set(variantIds)]}::uuid[])
+        AND p."available" > 0
+      ORDER BY p."variantId", p."expiryDate" NULLS LAST, p."receivedAt", p."id"
+      LIMIT 2000`;
+  }
+
+  /** Available, thresholds and open inbound of some SKUs at one warehouse (restock prefill). */
+  levels(warehouseId: string, variantIds: readonly string[]) {
+    if (variantIds.length === 0) return Promise.resolve([]);
+    return this.db.$queryRaw<
+      {
+        variantId: string;
+        sku: string;
+        name: string;
+        available: number;
+        reorderLevel: number;
+        targetStock: number;
+        safetyStock: number;
+        inbound: number;
+      }[]
+    >`
+      SELECT v."variantId", v."sku", v."name", COALESCE(s."available", 0)::int AS available,
+        COALESCE(t."reorderLevel", 0) AS "reorderLevel", COALESCE(t."targetStock", 0) AS "targetStock",
+        COALESCE(t."safetyStock", 0) AS "safetyStock", COALESCE(ib.qty, 0)::int AS inbound
+      FROM "warehouse_variant_projection" v
+      LEFT JOIN "warehouse_stock_summary" s ON s."variantId" = v."variantId" AND s."warehouseId" = ${warehouseId}::uuid
+      LEFT JOIN "warehouse_stock_thresholds" t ON t."variantId" = v."variantId" AND t."warehouseId" = ${warehouseId}::uuid
+      LEFT JOIN LATERAL (
+        SELECT sum(GREATEST(COALESCE(l."approvedQty", l."requestedQty") - l."receivedQty", 0))::int AS qty
+        FROM "warehouse_restock_lines" l JOIN "warehouse_restock_requests" r ON r."id" = l."requestId"
+        WHERE r."destWarehouseId" = ${warehouseId}::uuid AND l."variantId" = v."variantId"
+          AND r."status" IN ('APPROVED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED')
+      ) ib ON true
+      WHERE v."variantId" = ANY(${[...new Set(variantIds)]}::uuid[])`;
   }
 
   /** Vendor ↔ SKU supply rows for some SKUs (ownership model, unit QR flag). */
@@ -635,6 +710,188 @@ export class StockRepository {
         version: { increment: 1 },
       },
     });
+  }
+
+  // ── cutover helpers ──
+
+  async hasSummary(tx: Tx, warehouseId: string, variantId: string): Promise<boolean> {
+    const r = await tx.wmsStockSummary.findUnique({
+      where: { warehouseId_variantId: { warehouseId, variantId } },
+      select: { warehouseId: true },
+    });
+    return r !== null;
+  }
+
+  /** Threshold row only when none exists (cutover copy never overwrites WMS edits). */
+  async seedThreshold(
+    tx: Tx,
+    warehouseId: string,
+    variantId: string,
+    t: { safetyStock: number; reorderLevel: number; targetStock: number },
+  ): Promise<void> {
+    await tx.wmsStockThreshold.upsert({
+      where: { warehouseId_variantId: { warehouseId, variantId } },
+      create: { warehouseId, variantId, ...t, version: 1 },
+      update: {},
+      select: { warehouseId: true },
+    });
+  }
+
+  async lockVariantPositions(
+    tx: Tx,
+    warehouseId: string,
+    variantId: string,
+  ): Promise<PositionRow[]> {
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "warehouse_stock_positions"
+      WHERE "warehouseId" = ${warehouseId}::uuid AND "variantId" = ${variantId}::uuid`;
+    return this.lockPositions(
+      tx,
+      rows.map((r) => r.id),
+    );
+  }
+
+  /** Sellable (available + reserved + picked + packed) and damaged per warehouse × SKU. */
+  summaryTotals(warehouseId?: string) {
+    return this.db.$queryRaw<
+      { warehouseId: string; variantId: string; sellable: number; damaged: number }[]
+    >(
+      Prisma.sql`SELECT "warehouseId", "variantId",
+          ("available" + "reserved" + "picked" + "packed")::int AS "sellable", "damaged"
+        FROM "warehouse_stock_summary"
+        ${warehouseId === undefined ? Prisma.empty : Prisma.sql`WHERE "warehouseId" = ${warehouseId}::uuid`}`,
+    );
+  }
+
+  // ── vendors ──
+
+  vendors(q: { q?: string; variantId?: string; status?: string; cursor?: string; limit: number }) {
+    return withPrismaErrors(() =>
+      this.db.wmsVendor.findMany({
+        where: {
+          ...(q.q === undefined
+            ? {}
+            : {
+                OR: [
+                  { name: { contains: q.q, mode: 'insensitive' } },
+                  { code: { contains: q.q.toUpperCase() } },
+                ],
+              }),
+          ...(q.variantId === undefined ? {} : { variants: { some: { variantId: q.variantId } } }),
+          ...(q.status === undefined ? {} : { status: q.status as 'ACTIVE' | 'INACTIVE' }),
+          ...(q.cursor === undefined ? {} : { id: { gt: q.cursor } }),
+        },
+        orderBy: { id: 'asc' },
+        take: q.limit + 1,
+      }),
+    );
+  }
+
+  vendor(id: string, tx?: Tx) {
+    return withPrismaErrors(() =>
+      (tx ?? this.db).wmsVendor.findUnique({ where: { id }, include: { variants: true } }),
+    );
+  }
+
+  vendorsByIds(ids: readonly string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    return withPrismaErrors(() =>
+      this.db.wmsVendor.findMany({
+        where: { id: { in: [...new Set(ids)] } },
+        select: { id: true, code: true, name: true, defaultOwnership: true },
+      }),
+    );
+  }
+
+  createVendor(tx: Tx, data: Prisma.WmsVendorUncheckedCreateInput) {
+    return tx.wmsVendor.create({ data });
+  }
+
+  async updateVendor(
+    tx: Tx,
+    id: string,
+    version: number,
+    data: Prisma.WmsVendorUncheckedUpdateManyInput,
+  ): Promise<boolean> {
+    const r = await tx.wmsVendor.updateMany({
+      where: { id, version },
+      data: { ...data, version: { increment: 1 } },
+    });
+    return r.count === 1;
+  }
+
+  async replaceVendorVariants(
+    tx: Tx,
+    vendorId: string,
+    rows: Omit<Prisma.WmsVendorVariantCreateManyInput, 'vendorId'>[],
+  ): Promise<void> {
+    await tx.wmsVendorVariant.deleteMany({ where: { vendorId } });
+    // A SKU has one preferred vendor: clear it elsewhere first.
+    const preferred = rows.filter((r) => r.isPreferred === true).map((r) => r.variantId);
+    if (preferred.length > 0)
+      await tx.wmsVendorVariant.updateMany({
+        where: { variantId: { in: preferred }, isPreferred: true },
+        data: { isPreferred: false },
+      });
+    if (rows.length > 0)
+      await tx.wmsVendorVariant.createMany({ data: rows.map((r) => ({ ...r, vendorId })) });
+  }
+
+  // ── jobs ──
+
+  /** Positions with available units whose expiry is before `today`. */
+  async expiredAvailable(today: Date, limit: number): Promise<string[]> {
+    const rows = await this.db.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "warehouse_stock_positions"
+      WHERE "available" > 0 AND "expiryDate" < ${today}::date
+      ORDER BY "expiryDate", "id" LIMIT ${limit}`;
+    return rows.map((r) => r.id);
+  }
+
+  /** summary.nearExpiry = available units expiring within `days` (one statement). */
+  async refreshNearExpiry(today: Date, days: number): Promise<void> {
+    await this.db.$executeRaw`
+      UPDATE "warehouse_stock_summary" s SET "nearExpiry" = COALESCE(x."units", 0), "updatedAt" = now()
+      FROM (
+        SELECT sm."warehouseId", sm."variantId", (
+          SELECT COALESCE(sum(p."available"), 0)::int FROM "warehouse_stock_positions" p
+          WHERE p."warehouseId" = sm."warehouseId" AND p."variantId" = sm."variantId"
+            AND p."expiryDate" IS NOT NULL
+            AND p."expiryDate" < (${today}::date + ${days}::int)
+        ) AS "units"
+        FROM "warehouse_stock_summary" sm
+      ) x
+      WHERE s."warehouseId" = x."warehouseId" AND s."variantId" = x."variantId"
+        AND s."nearExpiry" IS DISTINCT FROM COALESCE(x."units", 0)`;
+  }
+
+  /** Serialized batches whose unit QR count per status differs from the position columns. */
+  unitMismatches(limit: number) {
+    return this.db.$queryRaw<
+      { batchId: string; warehouseId: string; status: string; units: number; column: number }[]
+    >`
+      WITH cols AS (
+        SELECT p."batchId", p."warehouseId", c.status, sum(c.qty)::int AS qty
+        FROM "warehouse_stock_positions" p
+        JOIN "warehouse_batches" b ON b."id" = p."batchId" AND b."serialized"
+        CROSS JOIN LATERAL (VALUES
+          ('QC_HOLD', p."qcHold"), ('AVAILABLE', p."available"), ('RESERVED', p."reserved"),
+          ('PICKED', p."picked"), ('PACKED', p."packed"), ('QUARANTINED', p."quarantined"),
+          ('DAMAGED', p."damaged"), ('EXPIRED', p."expired"), ('RETURNED', p."returned")
+        ) AS c(status, qty)
+        GROUP BY 1, 2, 3
+      ), units AS (
+        SELECT u."batchId", u."warehouseId", u."status"::text AS status, count(*)::int AS qty
+        FROM "warehouse_stock_units" u
+        WHERE u."warehouseId" IS NOT NULL AND u."status"::text IN
+          ('QC_HOLD','AVAILABLE','RESERVED','PICKED','PACKED','QUARANTINED','DAMAGED','EXPIRED','RETURNED')
+        GROUP BY 1, 2, 3
+      )
+      SELECT COALESCE(c."batchId", u."batchId") AS "batchId", COALESCE(c."warehouseId", u."warehouseId") AS "warehouseId",
+        COALESCE(c.status, u.status) AS status, COALESCE(u.qty, 0) AS units, COALESCE(c.qty, 0) AS "column"
+      FROM cols c FULL JOIN units u ON u."batchId" = c."batchId" AND u."warehouseId" = c."warehouseId" AND u.status = c.status
+      WHERE COALESCE(u.qty, 0) <> COALESCE(c.qty, 0)
+      LIMIT ${limit}`;
   }
 
   // ── lifecycle ──

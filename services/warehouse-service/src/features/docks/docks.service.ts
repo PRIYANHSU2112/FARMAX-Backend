@@ -77,6 +77,7 @@ const doorView = (d: DoorRow, inUse?: BookingRow): DoorView => ({
   type: d.type,
   vehicleClass: d.vehicleClass,
   capacityPerDay: num(d.capacityPerDay).toFixed(2),
+  equipment: d.equipment,
   capacityUnit: d.capacityUnit,
   opensAt: d.opensAt,
   closesAt: d.closesAt,
@@ -211,6 +212,31 @@ export class DocksService {
     const w = await this.visible(caller, warehouseId, 'warehouse.view');
     const { from, to } = dayBounds(date ?? localDate(new Date(), w.timezone), w.timezone);
     return (await this.repo.bookingsBetween(warehouseId, from, to)).map(bookingView);
+  }
+
+  /** Door id → code (dispatch views; no caller). */
+  async doorCodes(ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await this.repo.doorsByIds(ids);
+    return rows.map((d) => ({ id: d.id, code: d.code }));
+  }
+
+  /** Doors of a warehouse with equipment (W3.19 bays; caller checked by the dispatch module). */
+  async doorsFacts(warehouseId: string) {
+    const rows = await this.repo.doors(warehouseId);
+    return rows.map((d) => ({
+      id: d.id,
+      code: d.code,
+      name: d.name,
+      equipment: d.equipment,
+      vehicleClass: d.vehicleClass,
+      status: d.status,
+    }));
+  }
+
+  /** Staging capacity and docks in use (fulfilment dashboards; no caller, scope given). */
+  floorFacts(warehouseIds: readonly string[] | 'ALL') {
+    return this.repo.floorFacts(warehouseIds);
   }
 
   async staging(caller: Caller, warehouseId: string): Promise<StagingRow[]> {

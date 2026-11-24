@@ -23,27 +23,35 @@ enum StockLedgerType {
   DAMAGE
   WRITE_OFF
   SALE
+  /// D-57a: WMS quality release / hold (QC hold, quarantine, expiry), transfers, returns.
+  QUALITY_RELEASE
+  QUALITY_HOLD
+  TRANSFER_IN
+  TRANSFER_OUT
+  RETURN
 }
 
 model StockLevel {
-  id              String   @id @default(uuid(7)) @db.Uuid
-  warehouseId     String   @db.Uuid
-  variantId       String   @db.Uuid
+  id               String   @id @default(uuid(7)) @db.Uuid
+  warehouseId      String   @db.Uuid
+  variantId        String   @db.Uuid
   /// Physical sellable-condition units in the warehouse (includes reserved and safety stock).
-  onHand          Int      @default(0)
+  onHand           Int      @default(0)
   /// Held by ACTIVE reservations.
-  reserved        Int      @default(0)
+  reserved         Int      @default(0)
   /// Damaged units, out of onHand, waiting for write-off.
-  damaged         Int      @default(0)
+  damaged          Int      @default(0)
   /// Protected units that are never sold.
-  safetyStock     Int      @default(0)
+  safetyStock      Int      @default(0)
   /// Alert threshold only (0 = no alerts).
-  reorderLevel    Int      @default(0)
+  reorderLevel     Int      @default(0)
+  /// D-57a: version of the WMS thresholds copy (`warehouse.thresholds_changed.v1`, older ignored).
+  thresholdVersion Int      @default(0)
   /// A low_stock event was sent and sellable has not risen above reorderLevel since (dedup).
-  lowStockAlerted Boolean  @default(false)
-  version         Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
+  lowStockAlerted  Boolean  @default(false)
+  version          Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 
   @@unique([warehouseId, variantId])
   @@index([variantId])

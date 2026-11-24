@@ -158,6 +158,23 @@ export class FarmsController {
     return ok(await this.farmsService.stats());
   }
 
+  async adminInvoiceName(
+    decision: 'approve' | 'reject',
+    request: Req<{ Params: IdParams; Body: { reason: string } }>,
+    reply: FastifyReply,
+  ) {
+    return this.withEtag(
+      reply,
+      await this.farmsService.decideInvoiceName(
+        actorOf(request),
+        request.params.id,
+        decision,
+        request.body.reason,
+        ifMatch(request),
+      ),
+    );
+  }
+
   async adminGet(request: Req<{ Params: IdParams }>, reply: FastifyReply) {
     return this.withEtag(reply, await this.farmsService.adminGet(request.params.id));
   }

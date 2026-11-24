@@ -132,6 +132,35 @@ export class ServiceAreasService {
   }
 
   /** Who serves a PIN, in allocation order (only warehouses the caller may see). */
+  /**
+   * D-57b W3.12 routing: every non-draft warehouse serving a PIN (network-wide, no caller scope;
+   * routing is a GLOBAL configuration evaluated for every order).
+   */
+  async networkCoverage(pinCode: string): Promise<CoverageCandidate[]> {
+    const rows = await this.repo.candidates(pinCode);
+    const byId = new Map(
+      (await this.warehouses.warehousesService.findMany(rows.map((r) => r.warehouseId))).map(
+        (w) => [w.id, w] as const,
+      ),
+    );
+    return rows.flatMap((r) => {
+      const w = byId.get(r.warehouseId);
+      if (w === undefined || w.status === 'SETUP') return [];
+      return [
+        {
+          warehouseId: w.id,
+          code: w.code,
+          name: w.name,
+          type: w.type,
+          status: w.status,
+          priorityRank: r.priorityRank,
+          warehousePriority: w.priority,
+          routable: w.status === 'ACTIVE' && w.isAllocatable,
+        },
+      ];
+    });
+  }
+
   async coverage(caller: Caller, pinCode: string): Promise<CoverageCandidate[]> {
     const rows = await this.repo.candidates(pinCode);
     const scope = caller.access.scope('warehouse.view');

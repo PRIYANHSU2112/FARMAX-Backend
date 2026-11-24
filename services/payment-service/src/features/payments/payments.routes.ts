@@ -1,4 +1,4 @@
-import { UnauthorizedError } from '@farmx/common/errors';
+import { UnauthorizedError, ValidationError } from '@farmx/common/errors';
 import { ok, paginated } from '@farmx/common/response';
 import { routeDocs } from '@farmx/common/server';
 import type { AuthUser } from '@farmx/common/types';
@@ -136,6 +136,25 @@ export const paymentsInternalRoutes: FastifyPluginAsync = async (app) => {
     '/topups',
     { schema: { hide: true, ...createTopupPaymentSchema }, onRequest: [guard] },
     async (req) => ok(await svc(req).createForTopup(req.body)),
+  );
+  // D-57b W3.18 (warehouse-service payments view): capture clearance SLA for a period.
+  app.get<{ Querystring: { from?: string; to?: string } }>(
+    '/stats',
+    { schema: { hide: true }, onRequest: [guard] },
+    async (req) => {
+      const to = req.query.to === undefined ? new Date() : new Date(req.query.to);
+      const from =
+        req.query.from === undefined
+          ? new Date(to.getTime() - 30 * 86_400_000)
+          : new Date(req.query.from);
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to)
+        throw new ValidationError([{ path: 'querystring.from', message: 'must be before `to`' }]);
+      return ok({
+        from,
+        to,
+        ...(await req.diScope.resolve('paymentsRepository').stats(from, to)),
+      });
+    },
   );
   app.get<{ Params: IdParams }>(
     '/:id',

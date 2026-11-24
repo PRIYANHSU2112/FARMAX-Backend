@@ -24,7 +24,25 @@ export type AuditTarget =
   | 'stock_cutover'
   | 'vendor'
   | 'restock_request'
-  | 'transfer';
+  | 'transfer'
+  // D-57b fulfilment
+  | 'order'
+  | 'hold'
+  | 'shipment'
+  | 'task'
+  | 'exception'
+  | 'reallocation'
+  | 'shelf_life_rule'
+  | 'fulfilment_settings'
+  | 'compliance_case'
+  // D-57b dispatch
+  | 'trip'
+  // D-57b routing / planning
+  | 'routing_rule'
+  | 'routing_settings'
+  | 'routing_throttle'
+  | 'backorder'
+  | 'atp_settings';
 
 export interface AuditEntry {
   action: string;

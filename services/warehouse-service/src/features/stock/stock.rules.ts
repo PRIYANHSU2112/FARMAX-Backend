@@ -123,14 +123,30 @@ export const periodOf = (d: Date): number => {
 };
 
 /** CN-2611-0001, ADJ-2611-0007, RST-2611-0003, TR-2611-0041. */
-export const docNo = (kind: 'CN' | 'ADJ' | 'RST' | 'TR', period: number, n: number): string =>
+/** Document kinds: receipt CN, customer return RT, adjustment ADJ, restock RST, transfer TR. */
+export type DocKind =
+  'CN' | 'RT' | 'ADJ' | 'RST' | 'TR' | 'SHP' | 'BLK' | 'TSK' | 'EX' | 'B' | 'CMP' | 'RLC' | 'TRP';
+export const docNo = (kind: DocKind, period: number, n: number): string =>
   `${kind}-${String(period).padStart(4, '0')}-${String(n).padStart(4, '0')}`;
 
-/** Unit QR code: FX-<SKU>-<batch>-<seq>. Only [A-Z0-9-] kept. */
-export const qrCode = (sku: string, batchNo: string, seq: number): string => {
-  const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, '');
-  return `FX-${clean(sku)}-${clean(batchNo)}-${String(seq).padStart(4, '0')}`.slice(0, 64);
-};
+/** Upper-case, keep A–Z 0–9 and single hyphens ("lf/2608" → "LF-2608"). */
+const qrPart = (s: string): string =>
+  s
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+/**
+ * Unit QR prefix (Figma "FX-LF-2608-0001"): `FX-<batchNo>-`. The SKU is inserted
+ * (`FX-<SKU>-<batchNo>-`) only when another SKU already uses that batch number, because the
+ * code is globally unique.
+ */
+export const qrPrefix = (batchNo: string, sku: string, batchNoShared: boolean): string =>
+  (batchNoShared ? `FX-${qrPart(sku)}-${qrPart(batchNo)}-` : `FX-${qrPart(batchNo)}-`).slice(0, 59);
+
+/** Full unit code: prefix + 4-digit sequence (longer when needed). */
+export const qrCode = (prefix: string, seq: number): string =>
+  `${prefix}${String(seq).padStart(4, '0')}`;
 
 export type WritesMode = 'INVENTORY' | 'FROZEN' | 'WMS';
 

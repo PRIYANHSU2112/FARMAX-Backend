@@ -13,6 +13,8 @@ export interface ReceiptLineInput {
 
 export interface ReceiptInput {
   warehouseId: string;
+  /** VENDOR (default, CN-…) or RETURN (customer return, RT-…, lands in RETURNED). */
+  sourceType?: 'VENDOR' | 'RETURN';
   vendorId?: string | null;
   restockRequestId?: string | null;
   notes?: string | null;

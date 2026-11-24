@@ -89,6 +89,22 @@ export class StockRepository {
     return rows[0] ?? null;
   }
 
+  /** D-57b issue at dispatch: the reserved units leave (onHand −q and reserved −q together). */
+  async issue(tx: Tx, w: string, v: string, q: number): Promise<Qty | null> {
+    const rows = await tx.$queryRaw<Qty[]>`
+      UPDATE "inventory_stock_levels"
+      SET "onHand" = "onHand" - ${q}, "reserved" = "reserved" - ${q}, "version" = "version" + 1, "updatedAt" = now()
+      WHERE "warehouseId" = ${w}::uuid AND "variantId" = ${v}::uuid AND "reserved" >= ${q} AND "onHand" >= ${q}
+      RETURNING "onHand", "damaged"`;
+    return rows[0] ?? null;
+  }
+
+  /** A ledger row already exists for this reference (dispatch issue idempotency). */
+  async ledgerHas(tx: Tx, refType: string, refId: string): Promise<boolean> {
+    const n = await tx.stockLedgerEntry.count({ where: { refType, refId } });
+    return n > 0;
+  }
+
   /** onHand → damaged; only stock that is not reserved (may eat into safety stock). */
   async moveToDamaged(tx: Tx, w: string, v: string, q: number): Promise<Qty | null> {
     const rows = await tx.$queryRaw<Qty[]>`
@@ -144,6 +160,112 @@ export class StockRepository {
     );
   }
 
+  // ── D-57a: fed by warehouse-service ──
+
+  /** Apply WMS sellable / damaged deltas. A negative result means drift → throw (event retried, then DLQ). */
+  async applyWmsDelta(
+    tx: Tx,
+    w: string,
+    v: string,
+    sellable: number,
+    damaged: number,
+    defaultReorder: number,
+  ): Promise<Qty> {
+    await tx.$executeRaw`
+      INSERT INTO "inventory_stock_levels" ("id", "warehouseId", "variantId", "reorderLevel", "updatedAt")
+      VALUES (${uuidv7()}::uuid, ${w}::uuid, ${v}::uuid, ${defaultReorder}, now())
+      ON CONFLICT ("warehouseId", "variantId") DO NOTHING`;
+    const rows = await tx.$queryRaw<Qty[]>`
+      UPDATE "inventory_stock_levels"
+      SET "onHand" = "onHand" + ${sellable}, "damaged" = "damaged" + ${damaged},
+          "version" = "version" + 1, "updatedAt" = now()
+      WHERE "warehouseId" = ${w}::uuid AND "variantId" = ${v}::uuid
+        AND "onHand" + ${sellable} >= 0 AND "damaged" + ${damaged} >= 0
+      RETURNING "onHand", "damaged"`;
+    const after = rows[0];
+    if (after === undefined)
+      throw new Error(
+        `WMS delta drives ${w}/${v} negative (sellable ${String(sellable)}, damaged ${String(damaged)})`,
+      );
+    return after;
+  }
+
+  /** WMS thresholds copy (version-guarded: older events are ignored). */
+  async applyWmsThresholds(
+    tx: Tx,
+    t: {
+      warehouseId: string;
+      variantId: string;
+      safetyStock: number;
+      reorderLevel: number;
+      version: number;
+    },
+  ): Promise<boolean> {
+    const n = await tx.$executeRaw`
+      INSERT INTO "inventory_stock_levels" ("id", "warehouseId", "variantId", "safetyStock", "reorderLevel", "thresholdVersion", "updatedAt")
+      VALUES (${uuidv7()}::uuid, ${t.warehouseId}::uuid, ${t.variantId}::uuid, ${t.safetyStock}, ${t.reorderLevel}, ${t.version}, now())
+      ON CONFLICT ("warehouseId", "variantId") DO UPDATE SET
+        "safetyStock" = EXCLUDED."safetyStock", "reorderLevel" = EXCLUDED."reorderLevel",
+        "thresholdVersion" = EXCLUDED."thresholdVersion", "lowStockAlerted" = false,
+        "version" = "inventory_stock_levels"."version" + 1, "updatedAt" = now()
+      WHERE "inventory_stock_levels"."thresholdVersion" < EXCLUDED."thresholdVersion"`;
+    return n > 0;
+  }
+
+  /** Cutover snapshot page (every stock level, id order). */
+  levelsPage(cursor: string | undefined, limit: number) {
+    return withPrismaErrors(() =>
+      this.db.stockLevel.findMany({
+        where: cursor === undefined ? {} : { id: { gt: cursor } },
+        select: {
+          id: true,
+          warehouseId: true,
+          variantId: true,
+          onHand: true,
+          reserved: true,
+          damaged: true,
+          safetyStock: true,
+          reorderLevel: true,
+        },
+        orderBy: { id: 'asc' },
+        take: limit,
+      }),
+    );
+  }
+
+  pendingOperations() {
+    return withPrismaErrors(() =>
+      this.db.stockOperation.findMany({
+        where: { status: 'PENDING' },
+        select: { id: true, type: true, warehouseId: true, requestedBy: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+    );
+  }
+
+  async rejectPending(tx: Tx, reason: string): Promise<string[]> {
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE "inventory_stock_operations" SET "status" = 'REJECTED', "decidedAt" = now(),
+        "decisionReason" = ${reason}
+      WHERE "status" = 'PENDING' RETURNING "id"`;
+    return rows.map((r) => r.id);
+  }
+
+  /** Ledger rows NOT written from WMS events since a time (re-cutover replay). */
+  ledgerSince(since: Date, cursor: string | undefined, limit: number) {
+    return withPrismaErrors(() =>
+      this.db.stockLedgerEntry.findMany({
+        where: {
+          createdAt: { gte: since },
+          refType: { not: 'wms_movement' },
+          ...(cursor === undefined ? {} : { id: { gt: cursor } }),
+        },
+        orderBy: { id: 'asc' },
+        take: limit,
+      }),
+    );
+  }
+
   // ── Ledger + dirty marks ──
 
   async insertLedger(tx: Tx, rows: readonly NewLedgerRow[]): Promise<void> {
@@ -152,6 +274,23 @@ export class StockRepository {
   }
 
   /** Variants whose network availability must be recomputed by the publisher job. */
+  /**
+   * D-57b W3.13 resync: every variant (of one warehouse) is marked dirty and its last published
+   * state is invalidated, so the publisher re-sends it once. Returns the number of variants.
+   */
+  async markAllDirty(tx: Tx, warehouseId: string | null, invalidate: boolean): Promise<number> {
+    const rows = await tx.$queryRaw<{ variantId: string }[]>`
+      INSERT INTO "inventory_availability_dirty" ("variantId")
+      SELECT DISTINCT "variantId" FROM "inventory_stock_levels"
+      WHERE ${warehouseId}::uuid IS NULL OR "warehouseId" = ${warehouseId}::uuid
+      ON CONFLICT ("variantId") DO UPDATE SET "variantId" = EXCLUDED."variantId"
+      RETURNING "variantId"`;
+    if (invalidate && rows.length > 0)
+      await tx.$executeRaw`UPDATE "inventory_availability_state" SET "nodeStockKey" = 'RESYNC'
+        WHERE "variantId" = ANY(${rows.map((r) => r.variantId)}::uuid[])`;
+    return rows.length;
+  }
+
   async markDirty(tx: Tx, variantIds: readonly string[]): Promise<void> {
     if (variantIds.length === 0) return;
     await tx.$executeRaw`

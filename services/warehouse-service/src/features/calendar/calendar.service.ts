@@ -140,6 +140,34 @@ export class CalendarService {
     };
   }
 
+  /**
+   * System view for SLA / dispatch planning (D-57b): weekly hours, the same-day standard cut-off
+   * and fully closed days of the next 30 days. No caller (event handlers and jobs use it).
+   */
+  async slaCalendar(warehouseId: string) {
+    const [hours, cutoffs, holidays] = await Promise.all([
+      this.repo.hours(warehouseId),
+      this.repo.cutoffs(warehouseId),
+      this.repo.holidays(warehouseId, new Date(Date.now() - 86_400_000)),
+    ]);
+    const until = Date.now() + 30 * 86_400_000;
+    return {
+      hours: hours.map((h) => ({
+        isoDay: h.isoDay,
+        isOpen: h.isOpen,
+        opensAt: h.opensAt,
+        closesAt: h.closesAt,
+      })),
+      cutoff: cutoffs.find((c) => c.type === 'SAME_DAY_STANDARD')?.cutoffTime ?? null,
+      cutoffs,
+      closed: new Set(
+        holidays
+          .filter((h) => h.mode === 'CLOSED' && h.date.getTime() <= until)
+          .map((h) => h.date.toISOString().slice(0, 10)),
+      ),
+    };
+  }
+
   /** Weekdays marked open, per warehouse (setup checklist). */
   openDayCounts(warehouseIds: readonly string[], tx?: Tx): Promise<Map<string, number>> {
     return this.repo.openDayCounts(warehouseIds, tx);

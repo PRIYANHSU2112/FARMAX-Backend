@@ -317,4 +317,143 @@ describe.skipIf(DB_URL === undefined)('reservations against Postgres', () => {
     expect(data(res)).toMatchObject({ fulfillable: true, split: true });
     expect((await levelOf(app, a, v)).reserved).toBe(0);
   });
+
+  it('D-57b: reallocates held lines between warehouses (idempotent) and lists open lines', async () => {
+    const r = data<Reservation>(
+      await reserve({ orderRef: randomUUID(), pinCode: pin, lines: [{ variantId: v, qty: 3 }] }),
+    );
+    await paid(r);
+    expect(r.lines).toEqual([expect.objectContaining({ warehouseId: a, qty: 3 })]);
+    const key = `realloc-${randomUUID()}`;
+    const body = { key, moves: [{ variantId: v, fromWarehouseId: a, toWarehouseId: b, qty: 2 }] };
+    const url = `/internal/inventory/reservations/${r.id}/reallocate`;
+    const res = await call(app, 'POST', url, { internal: true, payload: body });
+    expect(res.statusCode, res.body).toBe(200);
+    expect((await levelOf(app, a, v)).reserved).toBe(1);
+    expect((await levelOf(app, b, v)).reserved).toBe(2);
+    const again = await call(app, 'POST', url, { internal: true, payload: body });
+    expect(data<{ replayed: boolean }>(again).replayed).toBe(true);
+    expect((await levelOf(app, b, v)).reserved).toBe(2);
+    const lines = (await get(r.id)).lines.map((l) => [l.warehouseId === a ? 'A' : 'B', l.heldQty]);
+    expect(lines.sort()).toEqual([
+      ['A', 1],
+      ['B', 2],
+    ]);
+    const tooMuch = await call(app, 'POST', url, {
+      internal: true,
+      payload: {
+        key: `realloc-${randomUUID()}`,
+        moves: [{ variantId: v, fromWarehouseId: a, toWarehouseId: b, qty: 5 }],
+      },
+    });
+    expect(tooMuch.statusCode).toBe(409);
+    expect(errorOf(tooMuch).details?.reason).toBe('NOT_HELD');
+    const open = await call(
+      app,
+      'GET',
+      `/internal/inventory/reservations-open-lines?warehouseId=${b}`,
+      {
+        internal: true,
+      },
+    );
+    expect(open.statusCode, open.body).toBe(200);
+    expect(data<{ orderRef: string; heldQty: number }[]>(open)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ orderRef: r.orderRef, heldQty: 2 })]),
+    );
+    await released('order.cancelled.v1', r);
+    expect((await levelOf(app, b, v)).reserved).toBe(0);
+  });
+
+  it('D-57b: issues at dispatch exactly once per dispatchId; refuses an over-issue', async () => {
+    const r = data<Reservation>(
+      await reserve({ orderRef: randomUUID(), pinCode: pin, lines: [{ variantId: v, qty: 2 }] }),
+    );
+    await paid(r);
+    const before = await levelOf(app, a, v);
+    const dispatch = {
+      dispatchId: randomUUID(),
+      shipmentId: randomUUID(),
+      orderId: r.orderRef,
+      warehouseId: a,
+      lines: [{ variantId: v, qty: 2 }],
+    };
+    await deliver(app, 'shipment.dispatched.v1', dispatch);
+    const after = await levelOf(app, a, v);
+    expect(after.onHand).toBe(before.onHand - 2);
+    expect(after.reserved).toBe(before.reserved - 2);
+    expect((await get(r.id)).status).toBe('ISSUED');
+    await deliver(app, 'shipment.dispatched.v1', dispatch); // republished: same dispatchId
+    expect((await levelOf(app, a, v)).onHand).toBe(after.onHand);
+    await deliver(app, 'shipment.dispatched.v1', { ...dispatch, dispatchId: randomUUID() });
+    expect((await levelOf(app, a, v)).onHand).toBe(after.onHand);
+    expect(
+      await outboxEvents(app, 'inventory.issue_rejected.v1', dispatch.shipmentId),
+    ).toHaveLength(1);
+  });
+  it('D-57b W3.12: checkout follows the published routing rule (and its throttles)', async () => {
+    const version = Date.now();
+    const rule = {
+      id: randomUUID(),
+      name: 'Cold depot first',
+      priority: 1,
+      conditions: [{ type: 'PIN_LIST', pins: [pin] }],
+      primaryWarehouseId: b,
+      fallbackWarehouseIds: [],
+      rankBy: 'PRIORITY',
+      gates: {},
+      isEnabled: true,
+    };
+    const fallback = { strategy: 'NEXT_NEAREST', nodeIds: [], centralWarehouseId: null };
+    const snapshot = (v: number, rules: object[], throttles: object[] = []) =>
+      deliver(app, 'warehouse.routing_rules_replaced.v1', {
+        version: v,
+        rules,
+        fallback,
+        throttles,
+      });
+    const check = async () => {
+      const res = await call(app, 'POST', '/internal/inventory/availability', {
+        internal: true,
+        payload: { pinCode: pin, lines: [{ variantId: v, qty: 3 }] },
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      return data<{
+        allocations: { warehouseId: string }[];
+        routing: { ruleId: string | null; fallbackUsed: boolean } | null;
+      }>(res);
+    };
+    // Without rules the coverage order wins (a has priority 10).
+    expect((await check()).allocations[0]?.warehouseId).toBe(a);
+
+    await snapshot(version, [rule]);
+    const ruled = await check();
+    expect(ruled.allocations[0]?.warehouseId).toBe(b);
+    expect(ruled.routing).toMatchObject({ ruleId: rule.id, fallbackUsed: false });
+    // An older / duplicate snapshot is ignored.
+    await snapshot(version - 1, []);
+    expect((await check()).routing?.ruleId).toBe(rule.id);
+
+    const res = await reserve({
+      orderRef: randomUUID(),
+      pinCode: pin,
+      lines: [{ variantId: v, qty: 2 }],
+      routing: { orderValue: 900, district: null, stateCode: '37', lat: null, lng: null },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const held = data<Reservation>(res);
+    expect(held.lines.map((l) => l.warehouseId)).toEqual([b]);
+    await released('order.failed.v1', held);
+
+    // A paused node (or one over its daily cap) is skipped → fallback order.
+    await snapshot(
+      version + 1,
+      [rule],
+      [{ warehouseId: b, paused: false, maxOrdersPerDay: 10, capReached: true }],
+    );
+    const capped = await check();
+    expect(capped.routing?.fallbackUsed).toBe(true);
+    expect(capped.allocations[0]?.warehouseId).toBe(a);
+
+    await snapshot(version + 2, []);
+  });
 });

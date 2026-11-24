@@ -137,6 +137,7 @@ export const deliver = async (app: FastifyInstance, type: string, data: object):
     ...app.diContainer.resolve('projectionEventHandlers'),
     ...app.diContainer.resolve('reservationEventHandlers'),
     ...app.diContainer.resolve('warehouseEventHandlers'),
+    ...app.diContainer.resolve('wmsStockEventHandlers'),
   };
   const handler = handlers[type];
   if (handler === undefined) throw new Error(`no handler for ${type}`);

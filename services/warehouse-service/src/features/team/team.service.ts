@@ -45,6 +45,7 @@ export function memberView(
     })),
     workAreas: profile?.workAreas ?? [],
     shiftId: profile?.shiftId ?? null,
+    jobTitle: profile?.jobTitle ?? null,
     documentStatus: REQUIRED_DOCS.every((d) => have.has(d)) ? 'COMPLETE' : 'PENDING',
     documents: docs.map((d) => ({ docType: d.docType, uploadedAt: d.uploadedAt.toISOString() })),
     status: member === undefined ? 'INACTIVE' : 'ACTIVE',
@@ -155,6 +156,7 @@ export class TeamService {
           phone: toE164(input.phone) ?? null,
           workAreas: [...new Set(input.workAreas ?? [])],
           shiftId: input.shiftId ?? null,
+          jobTitle: input.jobTitle === '' ? null : (input.jobTitle ?? null),
           status: 'ACTIVE',
           byUserId: caller.userId,
         },
@@ -214,6 +216,9 @@ export class TeamService {
           ...(input.phone === undefined ? {} : { phone: toE164(input.phone) }),
           ...(input.workAreas === undefined ? {} : { workAreas: [...new Set(input.workAreas)] }),
           ...(input.shiftId === undefined ? {} : { shiftId: input.shiftId }),
+          ...(input.jobTitle === undefined
+            ? {}
+            : { jobTitle: input.jobTitle === '' ? null : input.jobTitle }),
           byUserId: caller.userId,
         },
       );

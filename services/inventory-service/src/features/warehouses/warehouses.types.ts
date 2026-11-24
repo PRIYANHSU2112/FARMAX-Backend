@@ -28,6 +28,10 @@ export interface AllocationCandidate {
   coveragePriority: number;
   warehousePriority: number;
   hasColdChain: boolean;
+  /** D-57b routing. */
+  type: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 /** What the projection stores from warehouse.upserted.v1. */
@@ -45,4 +49,6 @@ export interface ProjectedWarehouse {
   isAllocatable: boolean;
   hasColdChain: boolean;
   priority: number;
+  latitude: string | null;
+  longitude: string | null;
 }

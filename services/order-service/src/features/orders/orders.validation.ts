@@ -11,6 +11,12 @@ export const checkoutSchema = {
     billToGst: Joi.boolean().default(false),
     /** WALLET = pay the whole order from the FarmX wallet (no split with the gateway). */
     paymentMethod: Joi.string().valid('ONLINE', 'WALLET').default('ONLINE'),
+    /** Buyer's own purchase-order reference (B2B, optional; D-57 §6a). */
+    customerPoRef: Joi.string()
+      .trim()
+      .max(40)
+      .pattern(/^[A-Za-z0-9][A-Za-z0-9/_. -]*$/)
+      .allow(null, ''),
   }),
 };
 
@@ -88,6 +94,10 @@ export const buyerCancelSchema = {
 const STATUS = [
   'PENDING_ADMIN_CONFIRMATION',
   'CONFIRMED',
+  'IN_FULFILMENT',
+  'PARTIALLY_DELIVERED',
+  'DELIVERED',
+  'COMPLETED',
   'REJECTED',
   'CANCELLED',
   'FAILED',
@@ -184,4 +194,77 @@ export const refundOfflineSchema = {
     reason: STAFF_REASON.required(),
     bankReference: Joi.string().trim().min(4).max(80).required(),
   }),
+};
+
+/** Internal (warehouse W3.10 prepaid settlement): refund of units not delivered. */
+export const shortageRefundSchema = {
+  ...idParams,
+  body: Joi.object({
+    shipmentId: ID.required(),
+    lines: Joi.array()
+      .items(
+        Joi.object({
+          lineNo: Joi.number().integer().min(1).required(),
+          qty: Joi.number().integer().min(1).required(),
+        }),
+      )
+      .min(1)
+      .max(200)
+      .required(),
+  }),
+};
+
+/** Internal (warehouse compliance, D-57 §2a.7). */
+export const complianceRejectSchema = {
+  ...idParams,
+  body: Joi.object({ reason: Joi.string().trim().min(5).max(500).required() }),
+};
+
+/** D-57b W3.14 partial ship: the warehouse cancels short units (refund + reservation release). */
+export const cancelLinesSchema = {
+  ...idParams,
+  body: Joi.object({
+    lines: CANCEL_LINES.min(1).required(),
+    reasonCode: Joi.string()
+      .valid(...STAFF_CANCEL_REASONS)
+      .default('OTHER'),
+    note: STAFF_REASON.required(),
+    by: ID.allow(null),
+  }),
+};
+
+/** D-57b W3.15: delivery details before picking (same state; GST does not change). */
+const DELIVERY_FIELDS = {
+  contactName: Joi.string().trim().min(2).max(120),
+  contactPhone: Joi.string()
+    .trim()
+    .pattern(/^\+?[0-9]{10,13}$/),
+  line1: Joi.string().trim().min(2).max(200),
+  line2: Joi.string().trim().max(200).allow(null, ''),
+  landmark: Joi.string().trim().max(120).allow(null, ''),
+  village: Joi.string().trim().max(80).allow(null, ''),
+  mandal: Joi.string().trim().max(80).allow(null, ''),
+  district: Joi.string().trim().min(2).max(80),
+  pinCode: Joi.string().pattern(/^[1-9][0-9]{5}$/),
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
+  deliveryPromise: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .allow(null),
+};
+export const deliverySchema = {
+  ...idParams,
+  body: Joi.object({
+    ...DELIVERY_FIELDS,
+    reason: STAFF_REASON.required(),
+    expectedVersion: VERSION.required(),
+  }).or(...Object.keys(DELIVERY_FIELDS)),
+};
+export const internalDeliverySchema = {
+  ...idParams,
+  body: Joi.object({
+    ...DELIVERY_FIELDS,
+    reason: STAFF_REASON.required(),
+    by: ID.required(),
+  }).or(...Object.keys(DELIVERY_FIELDS)),
 };

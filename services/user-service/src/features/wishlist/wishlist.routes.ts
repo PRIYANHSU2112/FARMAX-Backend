@@ -25,7 +25,11 @@ export const wishlistRoutes: FastifyPluginAsync = async (app) => {
     { schema: { ...listSchema, ...routeDocs(D.list) }, preHandler: read },
     (req) => c(req).list(req),
   );
-  app.get('/ids', { schema: routeDocs(D.ids), preHandler: read }, (req) => c(req).ids(req));
+  app.get(
+    '/ids',
+    { schema: routeDocs(D.ids), preHandler: [...customer, rateLimit('wishlist-ids', 30, 60)] },
+    (req) => c(req).ids(req),
+  );
   app.post<{ Body: AddWishlistInput }>(
     '/',
     { schema: { ...addSchema, ...routeDocs(D.add) }, preHandler: write },

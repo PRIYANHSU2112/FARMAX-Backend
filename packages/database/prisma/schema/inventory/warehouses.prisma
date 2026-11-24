@@ -23,6 +23,9 @@ model Warehouse {
   isAllocatable   Boolean       @default(true)
   /// Can store and ship 2–8 °C / frozen stock (cold-chain lines are allocated only here).
   hasColdChain    Boolean       @default(false)
+  /// D-57b routing (NEAREST rules, distance gates).
+  latitude        Decimal?      @db.Decimal(9, 6)
+  longitude       Decimal?      @db.Decimal(9, 6)
   /// Lower = preferred when two warehouses cover a PIN with the same coverage priority.
   priority        Int           @default(100)
   statusReason    String?       @db.VarChar(500)

@@ -144,3 +144,28 @@ export const reasonSchema = {
   params: idParams,
   body: Joi.object({ reason: reason.required() }),
 };
+
+// ── Self-service (`/me`, CUSTOMER) ──
+
+const otpCode = Joi.string()
+  .pattern(/^\d{4,8}$/)
+  .messages({ 'string.pattern.base': '{{#label}} must be the digits of the code' });
+
+/** Contact screen + profile photo. A new email is stored unverified. */
+export const updateMeSchema = {
+  body: Joi.object({
+    fullName,
+    email,
+    avatarUrl: Joi.string()
+      .uri({ scheme: ['https'] })
+      .max(2048)
+      .allow(null)
+      .description('HTTPS URL from media-service (null removes the photo)'),
+  }).min(1),
+};
+
+export const phoneOtpSchema = { body: Joi.object({ phone: phone.required() }) };
+
+export const phoneVerifySchema = {
+  body: Joi.object({ phone: phone.required(), otp: otpCode.required() }),
+};

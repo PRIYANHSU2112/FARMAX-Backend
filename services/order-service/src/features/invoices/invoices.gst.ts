@@ -23,7 +23,13 @@ import type {
  * Freight is billed in full on the first invoice of the order.
  */
 
-const INVOICEABLE = new Set(['CONFIRMED']);
+const INVOICEABLE = new Set([
+  'CONFIRMED',
+  'IN_FULFILMENT',
+  'PARTIALLY_DELIVERED',
+  'DELIVERED',
+  'COMPLETED',
+]);
 
 /** round_half_up(amount × n / d) in exact integer arithmetic (amount ≥ 0, 0 ≤ n ≤ d, d > 0). */
 export const cumulative = (amount: bigint, n: number, d: number): bigint =>

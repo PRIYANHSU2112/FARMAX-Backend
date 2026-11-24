@@ -24,6 +24,12 @@ export const INVENTORY_BINDINGS = [
   'order.failed.v1',
   'warehouse.upserted.v1',
   'warehouse.coverage_replaced.v1',
+  // D-57a: WMS stock deltas + thresholds copy.
+  'warehouse.stock_changed.v1',
+  'warehouse.thresholds_changed.v1',
+  // D-57b: issue at dispatch.
+  'shipment.dispatched.v1',
+  'warehouse.routing_rules_replaced.v1',
 ];
 
 export type EventHandlerMap = Partial<
@@ -80,6 +86,7 @@ export class EventsRuntime {
         ...this.cradle.projectionEventHandlers,
         ...this.cradle.reservationEventHandlers,
         ...this.cradle.warehouseEventHandlers,
+        ...this.cradle.wmsStockEventHandlers,
       },
     });
     this.consumer = new RabbitConsumer({

@@ -6,6 +6,14 @@
 enum OrderStatus {
   PENDING_ADMIN_CONFIRMATION
   CONFIRMED
+  /// F1 (D-57b): a shipment is being picked / packed / dispatched (derived from shipment events).
+  IN_FULFILMENT
+  /// F1: some shipments delivered, others still on the way.
+  PARTIALLY_DELIVERED
+  /// F1: every shipment delivered (order.delivered.v1 sent).
+  DELIVERED
+  /// F1: closed after delivery (auto-complete window passed).
+  COMPLETED
   REJECTED
   CANCELLED
   /// The system could not complete it (see failureCode).
@@ -95,6 +103,15 @@ model Order {
   /// user-service address snapshot (never re-read).
   deliveryAddress  Json
   deliveryPromise  String?            @db.VarChar(40)
+  /// Buyer's own purchase-order reference (B2B, optional at checkout; D-57 §6a).
+  customerPoRef    String?            @db.VarChar(40)
+  /// Most advanced active shipment status (F1); drives who may still cancel.
+  fulfilmentStage  String?            @db.VarChar(30)
+  /// Latest known state per shipment {shipmentId: {status, version, deliveredLines}}; the highest
+  /// shipment version wins, so late or out-of-order shipment events never move it back (F1).
+  shipmentStates   Json?
+  deliveredAt      DateTime?
+  completedAt      DateTime?
   couponCode       String?            @db.VarChar(40)
   cartVersion      Int
   reservationId    String?            @db.Uuid

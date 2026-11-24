@@ -6,6 +6,8 @@ import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 
 import type { Grants } from '../../src/adapters/auth.js';
 import type { StaffContact } from '../../src/adapters/auth-client.js';
+import { combineHandlers } from '../../src/adapters/events.js';
+import type { FulfilmentFacts } from '../../src/adapters/order-client.js';
 import { buildApp } from '../../src/app.js';
 
 /**
@@ -32,6 +34,24 @@ export const staff = (permissions: string[], warehouses: Record<string, string[]
       expiresAt: 0,
     } as unknown as AuthUser,
     grants: { permissions, warehouses },
+  });
+  return id;
+};
+
+/** A signed-in CUSTOMER (customer app routes, D-57b). Returns the user id = token. */
+export const customer = (): string => {
+  const id = randomUUID();
+  users.set(id, {
+    user: {
+      id,
+      sessionId: 's',
+      jti: 'j',
+      userType: 'CUSTOMER',
+      roles: [],
+      scope: 'full',
+      expiresAt: 0,
+    } as unknown as AuthUser,
+    grants: { permissions: [], warehouses: {} },
   });
   return id;
 };
@@ -135,9 +155,71 @@ export const INTERNAL_TOKEN = 'it-internal-token-0123456789abcdef0123456789';
 /** What the inventory stub answers to the stats job (null = inventory down). Tests set `rows`. */
 export const inventoryStats: { rows: unknown[] | null } = { rows: [] };
 
+/**
+ * D-57a inventory cutover stub: writes mode, pending operations, a stock-level snapshot and ledger
+ * rows for the re-cutover replay. Tests set `levels` / `ledger` before running the cutover.
+ */
+export const inventoryCutover = {
+  mode: 'INVENTORY' as 'INVENTORY' | 'FROZEN' | 'WMS',
+  pending: [] as { id: string }[],
+  levels: [] as Record<string, unknown>[],
+  ledger: [] as Record<string, unknown>[],
+  calls: [] as string[],
+};
+
+/** order-service stub (D-57b): facts per order, compliance rejections, counts. */
+export const orderService = {
+  facts: new Map<string, FulfilmentFacts>(),
+  rejected: [] as { orderId: string; reason: string }[],
+  cancelled: [] as { orderId: string; lines: { variantId: string; qty: number }[] }[],
+  deliveryUpdates: [] as { orderId: string; body: Record<string, unknown> }[],
+  refunds: [] as {
+    orderId: string;
+    shipmentId: string;
+    lines: { lineNo: number; qty: number }[];
+  }[],
+};
+
+/** inventory reservation stub (D-57b): reallocate answers + held lines per warehouse. */
+export const inventoryReservations = {
+  reallocate: [] as { reservationId: string; key: string; moves: unknown[] }[],
+  answer: { ok: true, replayed: false } as
+    | { ok: true; replayed: boolean }
+    | { ok: false; definitive: boolean; reason: string; message: string },
+  openLines: new Map<
+    string,
+    {
+      reservationId: string;
+      orderRef: string;
+      variantId: string;
+      heldQty: number;
+      issuedQty: number;
+    }[]
+  >(),
+};
+
+/** inventory availability stub (D-57b W3.13 ATP): buffer floor, lease, resync calls. */
+export const inventoryAvailability = {
+  settings: {
+    bufferFloorPct: 0,
+    reservationTtlSeconds: 600,
+    allowSplitAllocation: true,
+    updatedAt: null as string | null,
+  },
+  resyncs: [] as (string | null)[],
+};
+
+/** product-service facts stub: tests register variants here (lazy projection fill). */
+export const productFacts = new Map<string, Record<string, unknown>>();
+
 /** Deliver one event to the warehouse-service inbox handlers (inside a transaction). */
 export const deliver = async (app: FastifyInstance, type: string, data: object): Promise<void> => {
-  const handler = app.diContainer.resolve('orderEventHandlers')[type];
+  const handler = combineHandlers(
+    app.diContainer.resolve('orderEventHandlers'),
+    app.diContainer.resolve('stockEventHandlers'),
+    app.diContainer.resolve('fulfilmentEventHandlers'),
+    app.diContainer.resolve('atpEventHandlers'),
+  )[type];
   if (handler === undefined) throw new Error(`no handler for ${type}`);
   await app.diContainer.resolve('runInTransaction')((tx) =>
     handler(
@@ -158,7 +240,7 @@ export const deliver = async (app: FastifyInstance, type: string, data: object):
 export const buildTestApp = async (): Promise<FastifyInstance> => {
   const app = await buildApp({
     NODE_ENV: 'test',
-    LOG_LEVEL: 'silent',
+    LOG_LEVEL: process.env.IT_LOG_LEVEL ?? 'silent',
     DATABASE_URL: DB_URL,
     DB_POOL_SIZE: '10',
     INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN,
@@ -172,12 +254,82 @@ export const buildTestApp = async (): Promise<FastifyInstance> => {
     authClient: asValue({
       contacts: (ids: string[]) => Promise.resolve(new Map(ids.map((id) => [id, contactOf(id)]))),
       requireStaffUser: (id: string) => Promise.resolve(contactOf(id)),
+      verifyStepUp: (_userId: string, code: string) =>
+        Promise.resolve({ valid: code === '123456', locked: false }),
       ...teamStub,
     } as never),
     // Category checks are skipped when the catalog cannot be read (null).
     catalogClient: asValue({ categories: () => Promise.resolve(null) } as never),
+    orderClient: asValue({
+      fulfilmentFacts: (id: string) => Promise.resolve(orderService.facts.get(id) ?? null),
+      counts: () => Promise.resolve({}),
+      shortageRefund: (
+        orderId: string,
+        body: { shipmentId: string; lines: { lineNo: number; qty: number }[] },
+      ) => {
+        orderService.refunds.push({ orderId, ...body });
+        return Promise.resolve({ sourceRef: 'shortage:' + body.shipmentId, amount: '50.00' });
+      },
+      updateDelivery: (orderId: string, body: Record<string, unknown>) => {
+        orderService.deliveryUpdates.push({ orderId, body });
+        return Promise.resolve({ id: orderId, version: 2 });
+      },
+      cancelLines: (orderId: string, body: { lines: { variantId: string; qty: number }[] }) => {
+        orderService.cancelled.push({ orderId, lines: body.lines });
+        return Promise.resolve({ orderId, status: 'CONFIRMED' });
+      },
+      complianceReject: (orderId: string, reason: string) => {
+        orderService.rejected.push({ orderId, reason });
+        return Promise.resolve({ status: 'REJECTED' });
+      },
+    } as never),
     inventoryClient: asValue({
+      reallocate: (reservationId: string, key: string, moves: unknown[]) => {
+        inventoryReservations.reallocate.push({ reservationId, key, moves });
+        return Promise.resolve(inventoryReservations.answer);
+      },
+      openLines: (warehouseId: string) =>
+        Promise.resolve({
+          items: inventoryReservations.openLines.get(warehouseId) ?? [],
+          nextCursor: null,
+        }),
       warehouseStats: () => Promise.resolve(inventoryStats.rows),
+      availabilitySettings: () => Promise.resolve({ ...inventoryAvailability.settings }),
+      setAvailabilitySettings: (b: { bufferFloorPct?: number; reservationTtlSeconds?: number }) => {
+        if (b.bufferFloorPct !== undefined)
+          inventoryAvailability.settings.bufferFloorPct = b.bufferFloorPct;
+        if (b.reservationTtlSeconds !== undefined)
+          inventoryAvailability.settings.reservationTtlSeconds = b.reservationTtlSeconds;
+        return Promise.resolve({ ...inventoryAvailability.settings });
+      },
+      resyncAvailability: (warehouseId: string | null) => {
+        inventoryAvailability.resyncs.push(warehouseId);
+        return Promise.resolve({ variants: 3 });
+      },
+      cutoverState: () =>
+        Promise.resolve({
+          mode: inventoryCutover.mode,
+          pendingOperations: inventoryCutover.pending,
+        }),
+      cutoverStep: (step: string) => {
+        inventoryCutover.calls.push(step);
+        inventoryCutover.mode =
+          step === 'freeze' ? 'FROZEN' : step === 'activate' ? 'WMS' : 'INVENTORY';
+        return Promise.resolve({ mode: inventoryCutover.mode });
+      },
+      rejectPending: () => {
+        const ids = inventoryCutover.pending.map((p) => p.id);
+        inventoryCutover.pending = [];
+        return Promise.resolve(ids);
+      },
+      snapshot: (cursor?: string) =>
+        Promise.resolve(cursor === undefined ? inventoryCutover.levels : []),
+      ledgerSince: (_since: Date, cursor?: string) =>
+        Promise.resolve(cursor === undefined ? inventoryCutover.ledger : []),
+    } as never),
+    productClient: asValue({
+      variantFacts: (ids: string[]) =>
+        Promise.resolve(ids.flatMap((id) => (productFacts.has(id) ? [productFacts.get(id)] : []))),
     } as never),
     tokenVerifier: asValue((token: string) => {
       const u = users.get(token);
@@ -194,11 +346,12 @@ export const call = (
   url: string,
   user?: string,
   payload?: object,
+  headers: Record<string, string> = {},
 ) =>
   app.inject({
     method,
     url,
-    headers: user === undefined ? {} : { authorization: `Bearer ${user}` },
+    headers: { ...headers, ...(user === undefined ? {} : { authorization: `Bearer ${user}` }) },
     ...(payload === undefined ? {} : { payload }),
   });
 

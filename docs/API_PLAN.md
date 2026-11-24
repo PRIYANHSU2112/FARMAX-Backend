@@ -268,6 +268,34 @@ scope → 404. Screen → API map for the frontend: `docs/warehouse/README.md`.
 reservation events into the order read model. **Jobs:** BullMQ `refresh-stats` pulls inventory
 `GET /internal/inventory/warehouse-stats` every minute.
 
+## 8c. Warehouse portal W3 + W4 (warehouse-service) — ✅ built (D-57, 2026-11-24)
+
+Same handlers on two audiences: `/v1/wms/*` (warehouse panel, the caller's warehouses; out of scope
+→ 404) and `/v1/admin/wms/*` (admin panel, GLOBAL grants). Admin-only writes: routing rules /
+fallback / throttles, lifecycle and restock approvals, compliance registry / inspectors, ATP
+settings, cutover, ops. Customer `/v1/shipments/*` (own orders), 3PL `/v1/driver/trips/:token/*`.
+Lists: `cursor` or `page` (offset ≤ 2,000; `meta.total` exact to 10,000); KPI widgets cached 20 s
+(`fresh=true`). Full screen → API map: `docs/warehouse/README.md` (D-57 section).
+
+| Area (Swagger tag "WMS Panel · …" / "WMS Admin · …") | Prefix                                   | Screens                     |
+| ---------------------------------------------------- | ---------------------------------------- | --------------------------- |
+| Stock, Lifecycle, Vendors, Cutover, Ops              | `/stock/*`, `/vendors/*`, `/ops/*`       | W4.00–W4.11, interim inbound |
+| Restock + transfers                                  | `/stock/restock-*`, `/stock/transfers/*` | W4.07, W4.08                |
+| Fulfilment, Floor, Exceptions, Delivery              | `/fulfilment/*`, `/sync-status`, `/exports/*` | W3.01–W3.11            |
+| Routing rules                                        | `/routing/*`                             | W3.12                       |
+| Available-to-promise                                 | `/atp/*`                                 | W3.13                       |
+| Split, partial & backorder                           | `/fulfilment/orders/:id/split*`, `/fulfilment/backorders/*`, `/fulfilment/dispatch-slots` | W3.14 |
+| Order hold & edit                                    | `/fulfilment/orders/:id/hold*`, `/amendments*`, `/fulfilment/shipments/:id/manifest` | W3.15 |
+| Compliance check                                     | `/compliance/*`                          | W3.16                       |
+| Payments (prepaid)                                   | `/payments-view/*`                       | W3.18                       |
+| Dispatch + Bulk                                      | `/dispatch/*`, `/bulk/*`                 | W3.08, W3.19                |
+
+Other services (D-57): order-service `PATCH /v1/admin/orders/:id/delivery` and internal
+`/internal/orders/:id/{fulfilment-facts, compliance-reject, shortage-refund, cancel-lines, delivery}`,
+`/internal/orders/counts`; inventory internal `/internal/reservations/:id/reallocate`,
+`/reservations-open-lines`, `/internal/inventory/{availability-settings, availability/resync, cutover/*}`;
+payment-service internal `GET /internal/payments/stats`; auth internal `POST /internal/mfa/verify`.
+
 ## 9. DB models and relations
 
 - **✅ Built (`packages/database/prisma/schema/auth/`):**

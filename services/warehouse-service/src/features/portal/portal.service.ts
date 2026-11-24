@@ -24,17 +24,21 @@ export const MODULES = {
 const PIN = /^[1-9]\d{5}$/;
 
 export interface SearchResult {
-  type: 'warehouse' | 'pin';
+  type: 'warehouse' | 'pin' | 'bin' | 'sku' | 'batch' | 'unit' | 'receipt' | 'restock' | 'transfer';
   id: string;
   title: string;
   subtitle: string;
-  warehouseId: string;
+  /** null for a SKU (stocked in several warehouses). */
+  warehouseId: string | null;
 }
 
 /** The portal shell (D-56): who am I, which warehouses, header search. */
 export class PortalService {
   constructor(
-    private readonly deps: Pick<Cradle, 'warehousesService' | 'serviceAreasService' | 'authClient'>,
+    private readonly deps: Pick<
+      Cradle,
+      'warehousesService' | 'serviceAreasService' | 'authClient' | 'stockQueries' | 'storageService'
+    >,
   ) {}
 
   /**
@@ -86,15 +90,18 @@ export class PortalService {
   }
 
   /**
-   * Header search ("Search batch, bin, order or vehicle"): warehouses by code, name or city, and
-   * a 6-digit query also lists who serves that PIN. More entity types join as their modules ship.
+   * Header search ("Search SKU, batch or product"): warehouses by code, name or city; a 6-digit
+   * query also lists who serves that PIN; bins by code; stock hits (SKU, batch, unit QR, CN / RT,
+   * restock RST, transfer TR). Orders, shipments, vehicles and trips join with D-57b.
    */
   async search(caller: Caller, q: string): Promise<SearchResult[]> {
-    const { warehousesService, serviceAreasService } = this.deps;
+    const { warehousesService, serviceAreasService, stockQueries, storageService } = this.deps;
     const scope = caller.access.scope('warehouse.view');
-    const [warehouses, coverage] = await Promise.all([
+    const [warehouses, coverage, bins, stock] = await Promise.all([
       warehousesService.search(q, scope, 10),
       PIN.test(q) ? serviceAreasService.coverage(caller, q) : Promise.resolve([]),
+      q.length >= 2 ? storageService.binsByCode(scope, q, 5) : Promise.resolve([]),
+      q.length >= 2 ? stockQueries.search(caller, q) : Promise.resolve([]),
     ]);
     return [
       ...warehouses.map((w) => ({
@@ -111,6 +118,14 @@ export class PortalService {
         subtitle: `Rank ${String(c.priorityRank)}${c.routable ? '' : ' · not routable now'}`,
         warehouseId: c.warehouseId,
       })),
+      ...bins.map((b) => ({
+        type: 'bin' as const,
+        id: b.id,
+        title: `Bin ${b.code}`,
+        subtitle: warehouses.find((w) => w.id === b.warehouseId)?.code ?? 'Bin',
+        warehouseId: b.warehouseId,
+      })),
+      ...stock.map((h) => ({ ...h, type: h.type as SearchResult['type'] })),
     ];
   }
 }

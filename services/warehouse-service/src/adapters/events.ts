@@ -16,13 +16,21 @@ import { uuidv7 } from './uuid.js';
 export const WAREHOUSE_QUEUE = 'warehouse-service.events';
 export const WAREHOUSE_BINDINGS = [
   'order.placed.v1',
+  // D-57b: payment status on the fulfilment order.
+  'order.paid.v1',
   'order.confirmed.v1',
   'order.delivered.v1',
   'order.rejected.v1',
   'order.cancelled.v1',
   'order.failed.v1',
+  // D-57b W3.15: delivery details changed before picking.
+  'order.delivery_updated.v1',
   'inventory.reservation_committed.v1',
   'inventory.reservation_released.v1',
+  // D-57b: inventory refused an over-issue at dispatch.
+  'inventory.issue_rejected.v1',
+  // D-57b W3.13: what the storefront shows (ATP storefront sync).
+  'inventory.availability_changed.v1',
   // D-57a: variant facts for the stock projection.
   'product.variant_created.v1',
   'product.variant_updated.v1',
@@ -32,6 +40,24 @@ export const WAREHOUSE_BINDINGS = [
 export type EventHandlerMap = Partial<
   Record<string, (event: EventEnvelope, tx: Tx) => Promise<void>>
 >;
+
+/** Several features consume the same event: their handlers run in turn, in the same tx. */
+export const combineHandlers = (...maps: EventHandlerMap[]): EventHandlerMap => {
+  const out: EventHandlerMap = {};
+  for (const m of maps)
+    for (const [type, h] of Object.entries(m)) {
+      if (h === undefined) continue;
+      const prev = out[type];
+      out[type] =
+        prev === undefined
+          ? h
+          : async (e, tx) => {
+              await prev(e, tx);
+              await h(e, tx);
+            };
+    }
+  return out;
+};
 
 /** Transactional outbox write of a warehouse event (commits with the change it describes). */
 export const emitWarehouseEvent = async <T extends WarehouseEventType>(
@@ -77,7 +103,12 @@ export class EventsRuntime {
       consumer: WAREHOUSE_QUEUE,
       runInTransaction,
       claim: claimInboxEvent,
-      handlers: { ...this.cradle.orderEventHandlers, ...this.cradle.stockEventHandlers },
+      handlers: combineHandlers(
+        this.cradle.orderEventHandlers,
+        this.cradle.stockEventHandlers,
+        this.cradle.fulfilmentEventHandlers,
+        this.cradle.atpEventHandlers,
+      ),
     });
     this.consumer = new RabbitConsumer({
       url: config.RABBITMQ_URL,

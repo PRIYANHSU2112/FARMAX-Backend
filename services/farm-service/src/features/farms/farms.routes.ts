@@ -4,7 +4,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import { admin, customer, rateLimit } from '../../middleware/guards.js';
 import type { IdParams } from './farms.controller.js';
-import { FARMS_DOCS, adminActionDocs } from './farms.docs.js';
+import { FARMS_DOCS, adminActionDocs, invoiceNameDocs } from './farms.docs.js';
 import type {
   AdminAction,
   AdminFarmListQuery,
@@ -27,6 +27,7 @@ import {
   idParams,
   internalBatchSchema,
   internalByCodeSchema,
+  invoiceNameDecisionSchema,
   listFarmsSchema,
   locationSchema,
   ownerPrefsSchema,
@@ -174,6 +175,16 @@ export const farmsAdminRoutes: FastifyPluginAsync = async (app) => {
     },
     (req, reply) => req.diScope.resolve('farmsController').adminUpdate(req, reply),
   );
+  for (const decision of ['approve', 'reject'] as const) {
+    app.post<{ Params: IdParams; Body: { reason: string } }>(
+      `/:id/invoice-name/${decision}`,
+      {
+        schema: { ...invoiceNameDecisionSchema, ...routeDocs(invoiceNameDocs(decision)) },
+        preHandler: admin('customers.verify'),
+      },
+      (req, reply) => req.diScope.resolve('farmsController').adminInvoiceName(decision, req, reply),
+    );
+  }
   for (const action of Object.keys(ACTION_PERMISSION) as AdminAction[]) {
     const permission = ACTION_PERMISSION[action];
     app.post<{

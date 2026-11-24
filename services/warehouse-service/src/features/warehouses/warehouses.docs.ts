@@ -41,6 +41,7 @@ const warehouse = Joi.object({
   pinCode: Joi.string().example('411001'),
   latitude: Joi.string().allow(null),
   longitude: Joi.string().allow(null),
+  tagline: Joi.string().allow(null).example('Primary Mother Hub'),
   totalAreaSqft: Joi.number().integer().allow(null),
   capacityKg: Joi.string().allow(null).example('100000.00'),
   temperatureClasses: Joi.array().items(Joi.string().valid(...TEMP_CLASSES)),

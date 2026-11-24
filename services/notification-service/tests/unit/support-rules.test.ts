@@ -108,4 +108,25 @@ describe('support notification rules', () => {
     })[0];
     expect(desk?.audience).toEqual({ kind: 'permission', permission: 'support.manage' });
   });
+
+  it('application approved / rejected → push to the applicant with the matching template', () => {
+    const data = {
+      applicationId: 'ap1',
+      applicationType: 'DEALER',
+      applicantUserId: 'u9',
+      from: 'SUBMITTED',
+      actorId: 's1',
+    };
+    expect(EVENT_BINDINGS).toContain('support.application_status_changed.v1');
+    const [approved] = build('support.application_status_changed.v1', { ...data, to: 'APPROVED' });
+    expect(approved).toMatchObject({
+      app: 'CUSTOMER',
+      audience: { kind: 'users', userIds: ['u9'] },
+      templateKey: 'support.application_approved',
+      vars: { type: 'dealer' },
+      entityId: 'ap1',
+    });
+    const [rejected] = build('support.application_status_changed.v1', { ...data, to: 'REJECTED' });
+    expect(rejected?.templateKey).toBe('support.application_rejected');
+  });
 });

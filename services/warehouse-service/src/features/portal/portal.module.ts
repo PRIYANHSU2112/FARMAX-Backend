@@ -10,12 +10,19 @@ declare module '@fastify/awilix' {
   }
 }
 
-/** Warehouse portal shell (D-56): `/admin/wms/me`, `/admin/wms/search`. */
+/** Warehouse portal shell (D-56): `/admin/wms/me`, `/admin/wms/search` (admin panel). */
 export const portalModule = defineModule({
   name: 'portal',
   prefix: '/admin/wms',
   register: (container) => {
     container.register({ portalService: asClass(PortalService).singleton() });
   },
+  routes: portalRoutes,
+});
+
+/** Same shell on the warehouse panel (D-57 §5): `/wms/me`, `/wms/search`. */
+export const portalPanelModule = defineModule({
+  name: 'portal-panel',
+  prefix: '/wms',
   routes: portalRoutes,
 });

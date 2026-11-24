@@ -45,15 +45,26 @@ export interface NetworkLevel extends LevelQty {
 }
 
 /** Network availability of one variant over the allocatable warehouses. */
+/**
+ * D-57b W3.13 buffer floor: what the storefront may show of one row. Stock at or below
+ * reorderLevel × floorPct / 100 is hidden ("Throttled"); 0 % = everything sellable is shown.
+ */
+export const visibleOf = (l: NetworkLevel, floorPct = 0): number => {
+  const sellable = sellableOf(l);
+  const floor = Math.ceil((l.reorderLevel * floorPct) / 100);
+  return sellable <= floor ? 0 : sellable;
+};
+
 export const networkAvailability = (
   levels: readonly NetworkLevel[],
   allocatable: ReadonlySet<string>,
+  floorPct = 0,
 ): { availableQty: number; inStock: boolean; lowStock: boolean } => {
   let availableQty = 0;
   let threshold = 0;
   for (const l of levels) {
     if (!allocatable.has(l.warehouseId)) continue;
-    availableQty += sellableOf(l);
+    availableQty += visibleOf(l, floorPct);
     threshold += l.reorderLevel;
   }
   return {
@@ -77,11 +88,12 @@ export interface NodeAvailability {
 export const nodeAvailability = (
   levels: readonly NetworkLevel[],
   allocatable: ReadonlySet<string>,
+  floorPct = 0,
 ): { byNode: NodeAvailability[]; key: string } => {
   const qty = new Map<string, number>();
   for (const l of levels) {
     if (!allocatable.has(l.warehouseId)) continue;
-    qty.set(l.warehouseId, (qty.get(l.warehouseId) ?? 0) + sellableOf(l));
+    qty.set(l.warehouseId, (qty.get(l.warehouseId) ?? 0) + visibleOf(l, floorPct));
   }
   const byNode = [...qty.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))

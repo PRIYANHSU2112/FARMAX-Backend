@@ -1,6 +1,19 @@
 import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/errors';
 import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
+export interface BinLocation {
+  binId: string;
+  binCode: string;
+  warehouseId: string;
+  zoneId: string;
+  rackCode: string;
+  zoneCode: string;
+  zoneName: string;
+  temperatureClass: string;
+  isFoodGrade: boolean;
+  /** Secure / vault zone (restricted SKUs). */
+  isSecure: boolean;
+}
 
 import type { Caller } from '../../middleware/guards.js';
 import { num } from '../../middleware/http.js';
@@ -72,6 +85,7 @@ const zoneView = (z: ZoneRow, counts?: { racks: number; bins: number }): ZoneVie
   temperatureClass: z.temperatureClass,
   minTempC: z.minTempC?.toFixed(1) ?? null,
   maxTempC: z.maxTempC?.toFixed(1) ?? null,
+  isSecure: z.isSecure,
   isFoodGrade: z.isFoodGrade,
   productCategoryIds: z.productCategoryIds,
   status: z.status,
@@ -194,6 +208,33 @@ export class StorageService {
     return new Map((await this.repo.binFacts(ids, tx)).map((b) => [b.id, b]));
   }
 
+  /** Bin labels for stock screens: bin code, rack code, zone code / name / temperature class. */
+  async binLocations(ids: readonly string[]): Promise<Map<string, BinLocation>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.repo.binLocations(ids);
+    return new Map(
+      rows.map((b) => [
+        b.id,
+        {
+          binId: b.id,
+          binCode: b.code,
+          warehouseId: b.warehouseId,
+          zoneId: b.zoneId,
+          rackCode: b.rack.code,
+          zoneCode: b.rack.zone.code,
+          zoneName: b.rack.zone.name,
+          temperatureClass: b.rack.zone.temperatureClass,
+          isFoodGrade: b.rack.zone.isFoodGrade,
+          isSecure: b.rack.zone.isSecure,
+        },
+      ]),
+    );
+  }
+
+  binsByCode(warehouseIds: readonly string[] | 'ALL', q: string, limit: number) {
+    return this.repo.binsByCode(warehouseIds, q, limit);
+  }
+
   /** Bin id by code in one warehouse (filters). */
   async binByCode(warehouseId: string, code: string): Promise<string | null> {
     return (await this.repo.binIdByCode(warehouseId, code))?.id ?? null;
@@ -228,6 +269,7 @@ export class StorageService {
         temperatureClass: input.temperatureClass,
         minTempC: input.minTempC ?? null,
         maxTempC: input.maxTempC ?? null,
+        isSecure: input.isSecure ?? false,
         isFoodGrade: input.isFoodGrade ?? false,
         productCategoryIds: [...new Set(input.productCategoryIds ?? [])],
         status: input.status ?? 'ACTIVE',

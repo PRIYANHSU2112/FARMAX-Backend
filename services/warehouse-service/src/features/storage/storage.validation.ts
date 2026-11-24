@@ -18,6 +18,7 @@ const zoneFields = {
   temperatureClass: Joi.string().valid(...TEMP_CLASSES),
   minTempC: TEMP,
   maxTempC: TEMP,
+  isSecure: Joi.boolean(),
   isFoodGrade: Joi.boolean(),
   productCategoryIds: Joi.array().items(ID).max(50).unique(),
   status: STATUS,

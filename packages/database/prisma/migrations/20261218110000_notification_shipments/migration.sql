@@ -1,0 +1,22 @@
+-- D-57b (F1): buyer messages for shipment status (never the delivery OTP; D-40).
+INSERT INTO "notification_templates" ("id", "key", "channel", "title", "body", "variables", "description") VALUES
+  (gen_random_uuid(), 'shipment.dispatched', 'IN_APP', 'Order {{orderNo}} dispatched',
+   'Your order {{orderNo}} has left our warehouse (shipment {{shipmentNo}}). Track it in the app.',
+   '[{"name":"orderNo","type":"string","maxLength":40},{"name":"shipmentNo","type":"string","maxLength":20}]',
+   'Buyer: shipment gate-out'),
+  (gen_random_uuid(), 'shipment.out_for_delivery', 'IN_APP', 'Order {{orderNo}} is out for delivery',
+   'Your order {{orderNo}} is on the way today. Share the delivery code shown in the FarmX app only with the delivery person.',
+   '[{"name":"orderNo","type":"string","maxLength":40},{"name":"shipmentNo","type":"string","maxLength":20}]',
+   'Buyer: shipment out for delivery (the code is in the app only)'),
+  (gen_random_uuid(), 'shipment.out_for_delivery', 'SMS', NULL,
+   'FarmX: order {{orderNo}} is out for delivery today. Open the FarmX app for your delivery code. Never share it on a call.',
+   '[{"name":"orderNo","type":"string","maxLength":40},{"name":"shipmentNo","type":"string","maxLength":20}]',
+   'Buyer SMS: out for delivery (no code in the SMS)'),
+  (gen_random_uuid(), 'shipment.delivered', 'IN_APP', 'Order {{orderNo}} delivered',
+   'Shipment {{shipmentNo}} of order {{orderNo}} was delivered. Thank you for choosing FarmX.',
+   '[{"name":"orderNo","type":"string","maxLength":40},{"name":"shipmentNo","type":"string","maxLength":20}]',
+   'Buyer: shipment delivered'),
+  (gen_random_uuid(), 'shipment.delivery_failed', 'IN_APP', 'Delivery of order {{orderNo}} could not be completed',
+   'We could not deliver shipment {{shipmentNo}} of order {{orderNo}} today. Our team will contact you to arrange another attempt.',
+   '[{"name":"orderNo","type":"string","maxLength":40},{"name":"shipmentNo","type":"string","maxLength":20}]',
+   'Buyer: delivery attempt failed');

@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/errors';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@farmx/common/errors';
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
 import { FARM_EVENTS, type FarmFactsV1 } from '@farmx/infra/events';
@@ -101,9 +106,33 @@ export class FarmsService {
 
   /** Cached full view (Redis, single-flight). `null` results are cached too (no DB hammering). */
   private cachedView(id: string): Promise<FarmView | null> {
-    return this.deps.cache.getOrSet(farmKeys.farm(id), FARM_TTL, () =>
-      this.deps.farmsRepository.findView(id),
-    );
+    return this.deps.cache.getOrSet(farmKeys.farm(id), FARM_TTL, async () => {
+      const view = await this.deps.farmsRepository.findView(id);
+      return view === null ? null : this.withNodes(view);
+    });
+  }
+
+  /**
+   * Serving-node names + delivery promise ("Mother WH (Eluru), backup Tanuku C&F · Next-day
+   * delivery") from the pin directory (LRU + Redis cached). A node is named only while the pin
+   * still points at the farm's stored node; any lookup failure leaves the names null.
+   */
+  private async withNodes(view: FarmView): Promise<FarmView> {
+    const loc = view.location;
+    if (loc?.pinCode == null) return view;
+    const pin = await this.deps.geoService.lookupPin(loc.pinCode).catch(() => null);
+    if (pin === null) return view;
+    const nameOf = (node: { id: string; name: string | null } | null, id: string | null) =>
+      node !== null && node.id === id ? node.name : null;
+    return {
+      ...view,
+      location: {
+        ...loc,
+        primaryNodeName: nameOf(pin.primaryNode, loc.primaryNodeId),
+        backupNodeName: nameOf(pin.backupNode, loc.backupNodeId),
+        deliveryPromise: pin.serviceable ? pin.deliveryPromise : null,
+      },
+    };
   }
 
   /** 404 (never 403) for farms the caller does not own: no id enumeration. */
@@ -241,7 +270,7 @@ export class FarmsService {
       return this.mustFind(tx, farm.id);
     });
     await this.invalidate(view);
-    return view;
+    return this.withNodes(view);
   }
 
   updateDetails(
@@ -272,16 +301,37 @@ export class FarmsService {
     input: LocationInput,
   ): Promise<FarmView> {
     const pin = await this.deps.geoService.resolveServiceablePin(input.pinCode);
-    return this.mutateOwned(actor, id, ifMatch, (_tx, farm) => {
-      assertEditable(farm.status);
-      return Promise.resolve({
+    return this.mutateOwned(actor, id, ifMatch, async (tx, farm) => {
+      if (farm.status === 'ACTIVE') {
+        // The Farm ID carries the territory (FX-WG-…): an active farm may move only inside it.
+        if (pin.territory.code !== farm.location?.territoryCode)
+          throw new ConflictError(
+            'This pin code is in another territory. Your Farm ID is tied to its territory; contact support to move the farm.',
+            {
+              details: {
+                reason: 'TERRITORY_LOCKED',
+                currentTerritory: farm.location?.territoryCode ?? null,
+                newTerritory: pin.territory.code,
+              },
+            },
+          );
+        await this.deps.outbox.add(
+          tx,
+          FARM_EVENTS.farmUpdated,
+          { farmId: id, changedFields: ['location'] },
+          actor.requestId,
+        );
+      } else {
+        assertEditable(farm.status);
+      }
+      return {
         ...this.locationPatch(input, pin),
         addressLine: input.addressLine ?? null,
         village: input.village,
         pinCode: input.pinCode,
         locationCapturedAt: new Date(input.capturedAt),
         registrationStep: Math.max(farm.registrationStep, 3),
-      });
+      };
     });
   }
 
@@ -442,10 +492,20 @@ export class FarmsService {
         });
       const patch: FarmPatch = {};
       if (input.addressLine !== undefined) patch.addressLine = input.addressLine;
+      if (input.productionTypes !== undefined) {
+        // [0] sets the Farm ID type code (FX-WG-L-…), which never changes.
+        if (input.productionTypes[0] !== farm.productionTypes[0])
+          throw new ConflictError(
+            `The primary production type (${farm.productionTypes[0] ?? 'none'}) is part of your Farm ID and cannot change; add or remove the others.`,
+            { details: { reason: 'PRIMARY_TYPE_LOCKED', primary: farm.productionTypes[0] } },
+          );
+      }
       if (input.capacities !== undefined) {
-        const types = validateDetails(farm.category, farm.productionTypes, input.capacities);
+        const requested = input.productionTypes ?? farm.productionTypes;
+        const types = validateDetails(farm.category, requested, input.capacities);
         await this.deps.farmsRepository.replaceCapacities(tx, id, types, input.capacities);
         patch.totalBirdCapacity = totalBirds(input.capacities);
+        if (input.productionTypes !== undefined) patch.productionTypes = types;
       }
       await this.deps.outbox.add(
         tx,
@@ -465,6 +525,36 @@ export class FarmsService {
     if (!KYC_OPEN.includes(farm.status))
       throw new ConflictError('This farm is closed', { details: { reason: 'FARM_STATE_INVALID' } });
     return { farm, ownerId: farm.owner.id, ownerUserId: farm.owner.userId };
+  }
+
+  /**
+   * `user.profile_updated.v1` (inbox tx): the account name/phone is the source of truth; the
+   * owner row keeps a snapshot. Caches are dropped after commit (`invalidateOwner`).
+   */
+  syncOwnerContactInTx(
+    tx: Tx,
+    userId: string,
+    contact: { fullName: string; phone: string | null },
+  ): Promise<void> {
+    const name = contact.fullName.trim();
+    return this.deps.farmsRepository.syncOwnerContact(tx, userId, {
+      // A blank account name (fresh phone sign-up) never wipes the name typed at registration.
+      ...(name.length >= 2 ? { fullName: name } : {}),
+      phone: contact.phone,
+    });
+  }
+
+  /** Post-commit cache drop for all of a user's farms (best effort; TTL bounds staleness). */
+  async invalidateOwner(userId: string): Promise<void> {
+    try {
+      const ids = await this.deps.farmsRepository.farmIdsOfUser(userId);
+      await this.deps.cache.invalidate(
+        ...ids.map((id) => farmKeys.farm(id)),
+        farmKeys.userFarms(userId),
+      );
+    } catch (err) {
+      this.deps.logger.warn({ err, userId }, 'owner cache invalidation failed; TTL applies');
+    }
   }
 
   updateOwnerInTx(tx: Tx, ownerId: string, patch: OwnerPatch): Promise<void> {
@@ -580,9 +670,64 @@ export class FarmsService {
     ]);
     if (farm === null) throw new NotFoundError('Farm');
     return {
-      ...farm,
+      ...(await this.withNodes(farm)),
       statusHistory: events.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
     };
+  }
+
+  /**
+   * "Keep farm name & send for review" decision (queue: `GET /admin/farms?invoiceNameReview=PENDING`).
+   * approve → invoices switch to the farm name; reject → they stay on the GST trade name and the
+   * reason is shown to the owner. Reviewer ≠ owner / registrar (segregation of duties).
+   */
+  async decideInvoiceName(
+    actor: Actor,
+    id: string,
+    decision: 'approve' | 'reject',
+    reason: string,
+    ifMatch: number | undefined,
+  ): Promise<FarmView> {
+    const view = await this.deps.runInTransaction(async (tx) => {
+      const farm = await this.mustFind(tx, id);
+      this.checkVersion(farm, ifMatch);
+      if (farm.billing.invoiceNameReview?.status !== 'PENDING')
+        throw new ConflictError('No invoice-name review is pending for this farm', {
+          details: { reason: 'NO_PENDING_REVIEW' },
+        });
+      if (actor.userId === farm.owner.userId || actor.userId === farm.createdByUserId)
+        throw new ForbiddenError('You cannot review a farm you own or registered', {
+          details: { reason: 'SOD_VIOLATION' },
+        });
+      const approve = decision === 'approve';
+      const reviewed = {
+        invoiceNameReview: approve ? ('APPROVED' as const) : ('REJECTED' as const),
+        invoiceNameReviewedById: actor.userId,
+        invoiceNameReviewedAt: new Date(),
+        invoiceNameReviewNote: reason,
+      };
+      await this.save(
+        tx,
+        id,
+        farm.version,
+        approve
+          ? { ...reviewed, invoiceNameSource: 'FARM_NAME', invoiceName: farm.name }
+          : reviewed,
+      );
+      await this.deps.auditService.record(tx, actor, {
+        action: approve ? 'farm.invoice_name_approved' : 'farm.invoice_name_rejected',
+        targetType: 'farm',
+        targetId: id,
+        before: { invoiceName: farm.billing.invoiceName, review: 'PENDING' },
+        after: {
+          invoiceName: approve ? farm.name : farm.billing.invoiceName,
+          review: reviewed.invoiceNameReview,
+        },
+        reason,
+      });
+      return this.mustFind(tx, id);
+    });
+    await this.invalidate(view);
+    return this.withNodes(view);
   }
 
   async adminHistory(id: string, query: { cursor?: string; limit: number }) {
@@ -763,7 +908,7 @@ export class FarmsService {
       return this.mustFind(tx, id);
     });
     await this.invalidate(view);
-    return view;
+    return this.withNodes(view);
   }
 
   private locationPatch(

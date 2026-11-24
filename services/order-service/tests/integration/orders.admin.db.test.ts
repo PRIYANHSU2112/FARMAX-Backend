@@ -392,4 +392,71 @@ describe.skipIf(DB_URL === undefined)('admin review, cancellation and recovery (
     expect(stats.awaitingReview).toBeGreaterThan(0);
     expect((await call('GET', '/admin/orders/stats', { user: customer() })).statusCode).toBe(403);
   });
+
+  it('F1: shipment events drive IN_FULFILMENT → DELIVERED (+ order.delivered); stage-based cancel; shortage refund', async () => {
+    const o = await ready();
+    await adminPost(`/${o.order.id}/confirm`, reviewer, {
+      expectedVersion: await version(o.order.id),
+    });
+    const shipmentId = randomUUID();
+    const warehouseId = randomUUID();
+    const event = (from: string | null, to: string, delivered = 0) => ({
+      shipmentId,
+      shipmentNo: 'SHP-2611-0001',
+      orderId: o.order.id,
+      orderNo: o.order.orderNo,
+      warehouseId,
+      from,
+      to,
+      at: new Date().toISOString(),
+      orderShipments: [
+        {
+          shipmentId,
+          warehouseId,
+          status: to,
+          deliveredLines: delivered > 0 ? [{ lineNo: 1, variantId: variant, qty: delivered }] : [],
+        },
+      ],
+    });
+    await deliver('shipment.status_changed.v1', event('RELEASED', 'ALLOCATED'));
+    expect((await orderRow(o.order.id)).status).toBe('IN_FULFILMENT');
+    await deliver('shipment.status_changed.v1', event('ASSIGNED', 'PICKING'));
+    const quote = data<{ eligible: boolean; reason: string }>(
+      await call('POST', `/orders/${o.order.id}/cancellation-quote`, { user: o.user, payload: {} }),
+    );
+    expect(quote).toMatchObject({ eligible: false });
+    expect(quote.reason).toContain('Picking has started');
+
+    const facts = await call('GET', `/internal/orders/${o.order.id}/fulfilment-facts`, {
+      internal: true,
+    });
+    expect(facts.statusCode, facts.body).toBe(200);
+    expect(data<{ fulfilmentStage: string; lines: unknown[] }>(facts)).toMatchObject({
+      fulfilmentStage: 'PICKING',
+    });
+    const counts = data<Record<string, number>>(
+      await call('GET', '/internal/orders/counts', { internal: true }),
+    );
+    expect(counts.IN_FULFILMENT).toBeGreaterThanOrEqual(1);
+
+    await deliver('shipment.status_changed.v1', event('OUT_FOR_DELIVERY', 'DELIVERED', 2));
+    expect((await orderRow(o.order.id)).status).toBe('DELIVERED');
+    const [ev] = await outbox('order.delivered.v1', o.order.id);
+    expect(ev?.data).toMatchObject({ lines: [{ lineNo: 1, variantId: variant, qty: 2 }] });
+    await deliver('shipment.status_changed.v1', event('DELIVERED', 'DELIVERED', 2));
+    expect(await outbox('order.delivered.v1', o.order.id)).toHaveLength(1);
+
+    const body = { shipmentId, lines: [{ lineNo: 1, qty: 1 }] };
+    const r1 = await call('POST', `/internal/orders/${o.order.id}/shortage-refund`, {
+      internal: true,
+      payload: body,
+    });
+    expect(r1.statusCode, r1.body).toBe(200);
+    expect(data<{ amountPaise: number }>(r1).amountPaise).toBeGreaterThan(0);
+    await call('POST', `/internal/orders/${o.order.id}/shortage-refund`, {
+      internal: true,
+      payload: body,
+    });
+    expect(await outbox('order.refund_requested.v1', `shortage:${shipmentId}`)).toHaveLength(1);
+  });
 });

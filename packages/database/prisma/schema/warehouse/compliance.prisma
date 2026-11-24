@@ -1,0 +1,154 @@
+// warehouse-service feature: compliance (D-57b Phase 3, W3.16). Regulated orders (schedule H/H1/X,
+// antimicrobial, hazard class) wait for document checks before FEFO allocation. Never
+// auto-approved; auto-rejected after the time limit (§2a.7).
+
+enum WmsComplianceCheckType {
+  VET_RX
+  DRUG_LICENCE
+  RESTRICTED_PERMIT
+  FARMER_DECLARATION
+  COA
+}
+
+enum WmsComplianceCheckStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  WAIVED
+}
+
+enum WmsVerificationMethod {
+  MANUAL
+  AUTO_COA
+  AUTO_PORTAL
+  OCR
+}
+
+enum WmsEvidenceType {
+  RX_SCAN
+  LICENCE
+  DECLARATION
+  OTHER
+}
+
+/// Regulatory registry: which lines need which checks.
+model WmsComplianceRule {
+  key            String                   @id @db.VarChar(40)
+  name           String                   @db.VarChar(120)
+  /// {drugSchedules?: string[], antimicrobial?: boolean, hazardClasses?: string[], vetConsult?: boolean}
+  appliesWhen    Json
+  requiredChecks WmsComplianceCheckType[]
+  legalBasis     String?                  @db.VarChar(200)
+  periodLimitQty Int?
+  isActive       Boolean                  @default(true)
+  version        Int                      @default(0)
+  updatedBy      String?                  @db.Uuid
+  updatedAt      DateTime                 @updatedAt
+
+  @@map("warehouse_compliance_rules")
+}
+
+model WmsComplianceCase {
+  id              String              @id @default(uuid(7)) @db.Uuid
+  /// CMP-YYMM-####
+  caseNo          String              @unique @db.VarChar(20)
+  orderId         String              @unique @db.Uuid
+  warehouseId     String?             @db.Uuid
+  status          WmsComplianceStatus @default(PENDING)
+  inspectorUserId String?             @db.Uuid
+  slaDueAt        DateTime
+  escalationLevel Int                 @default(0)
+  restrictedCount Int                 @default(0)
+  skuCount        Int                 @default(0)
+  value           Decimal             @default(0) @db.Decimal(14, 2)
+  decidedBy       String?             @db.Uuid
+  decidedAt       DateTime?
+  decisionNote    String?             @db.VarChar(500)
+  version         Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  checks WmsComplianceCheck[]
+
+  @@index([status, slaDueAt])
+  @@index([warehouseId, status])
+  @@map("warehouse_compliance_cases")
+}
+
+model WmsComplianceCheck {
+  id                 String                   @id @default(uuid(7)) @db.Uuid
+  caseId             String                   @db.Uuid
+  type               WmsComplianceCheckType
+  ruleKey            String?                  @db.VarChar(40)
+  lineNos            Int[]
+  status             WmsComplianceCheckStatus @default(PENDING)
+  legalBasis         String?                  @db.VarChar(200)
+  documentNo         String?                  @db.VarChar(60)
+  issuerName         String?                  @db.VarChar(120)
+  issuerRegNo        String?                  @db.VarChar(60)
+  validUntil         DateTime?                @db.Date
+  verificationMethod WmsVerificationMethod?
+  qtyLabel           String?                  @db.VarChar(80)
+  mediaKeys          String[]
+  uploadedBy         String?                  @db.Uuid
+  verifiedBy         String?                  @db.Uuid
+  verifiedAt         DateTime?
+  note               String?                  @db.VarChar(500)
+  requestedAt        DateTime?
+  requestedVia       String?                  @db.VarChar(20)
+  case               WmsComplianceCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("warehouse_compliance_checks")
+}
+
+model WmsComplianceEvidence {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  caseId     String          @db.Uuid
+  checkId    String?         @db.Uuid
+  docType    WmsEvidenceType
+  mediaKey   String          @db.VarChar(300)
+  note       String?         @db.VarChar(500)
+  uploadedBy String?         @db.Uuid
+  createdAt  DateTime        @default(now())
+
+  @@index([caseId, createdAt])
+  @@map("warehouse_compliance_evidence")
+}
+
+model WmsComplianceNote {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  caseId    String   @db.Uuid
+  body      String   @db.VarChar(1000)
+  authorId  String?  @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+  @@map("warehouse_compliance_notes")
+}
+
+model WmsComplianceInspector {
+  userId        String   @id @db.Uuid
+  displayName   String   @db.VarChar(120)
+  title         String?  @db.VarChar(120)
+  govtRegNo     String?  @db.VarChar(60)
+  photoMediaKey String?  @db.VarChar(300)
+  onDuty        Boolean  @default(true)
+  version       Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@map("warehouse_compliance_inspectors")
+}
+
+model WmsComplianceWaiver {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  caseId          String   @db.Uuid
+  authorizationNo String   @db.VarChar(60)
+  receipt         String?  @db.VarChar(300)
+  checkIds        String[]
+  waivedBy        String   @db.Uuid
+  createdAt       DateTime @default(now())
+
+  @@index([caseId])
+  @@map("warehouse_compliance_waivers")
+}

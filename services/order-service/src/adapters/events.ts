@@ -32,6 +32,8 @@ export const ORDER_BINDINGS = [
   'inventory.reservation_committed.v1',
   'inventory.reservation_rejected.v1',
   'inventory.reservation_released.v1',
+  // F1 (D-57b): order status follows its shipments.
+  'shipment.status_changed.v1',
 ];
 
 export type EventHandlerMap = Partial<

@@ -10,6 +10,9 @@ import { AuthClient } from './adapters/auth-client.js';
 import { AccessClient, buildTokenVerifier } from './adapters/auth.js';
 import { CatalogClient } from './adapters/catalog-client.js';
 import { MediaClient } from './adapters/media-client.js';
+import { OrderClient } from './adapters/order-client.js';
+import { PaymentClient } from './adapters/payment-client.js';
+import { ProductClient } from './adapters/product-client.js';
 import { EventsRuntime } from './adapters/events.js';
 import { InventoryClient } from './adapters/inventory-client.js';
 import { JobsRuntime } from './adapters/jobs.js';
@@ -29,6 +32,9 @@ declare module '@fastify/awilix' {
     catalogClient: CatalogClient;
     mediaClient: MediaClient;
     inventoryClient: InventoryClient;
+    productClient: ProductClient;
+    orderClient: OrderClient;
+    paymentClient: PaymentClient;
     tokenVerifier: TokenVerifier;
     /** Outbox relay + order event consumer (started by server.ts when EVENTS_ENABLED). */
     eventsRuntime: EventsRuntime;
@@ -85,6 +91,15 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
     ).singleton(),
     inventoryClient: asFunction(
       (cradle: Cradle) => new InventoryClient({ config: cradle.config, logger: cradle.logger }),
+    ).singleton(),
+    productClient: asFunction(
+      (cradle: Cradle) => new ProductClient({ config: cradle.config, logger: cradle.logger }),
+    ).singleton(),
+    orderClient: asFunction(
+      (cradle: Cradle) => new OrderClient({ config: cradle.config, logger: cradle.logger }),
+    ).singleton(),
+    paymentClient: asFunction(
+      (cradle: Cradle) => new PaymentClient({ config: cradle.config, logger: cradle.logger }),
     ).singleton(),
     tokenVerifier: asFunction((cradle: Cradle) =>
       buildTokenVerifier(cradle.config, cradle.logger, () => cradle.redis),

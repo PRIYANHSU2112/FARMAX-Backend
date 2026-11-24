@@ -59,6 +59,14 @@ enum InvoiceNameSource {
   GST_TRADE_NAME
 }
 
+/// "Keep farm name & send for review" (D-58b): staff decision on FARM_NAME invoices whose GST
+/// portal names differ from the farm name.
+enum InvoiceNameReview {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AgeBand {
   AGE_18_30
   AGE_31_45
@@ -121,61 +129,69 @@ model FarmOwner {
 
 /// One farm unit. Gets an immutable Farm ID (`farmCode`) on activation.
 model Farm {
-  id                 String              @id @default(uuid(7)) @db.Uuid
+  id                      String              @id @default(uuid(7)) @db.Uuid
   /// FX-WG-L-00418 — set once on activation, immutable (DB trigger).
-  farmCode           String?             @unique @db.VarChar(24)
-  ownerId            String              @db.Uuid
-  category           FarmCategory
+  farmCode                String?             @unique @db.VarChar(24)
+  ownerId                 String              @db.Uuid
+  category                FarmCategory
   /// Ordered; [0] is the primary type that sets the Farm ID type code.
-  productionTypes    ProductionType[]
-  name               String              @db.VarChar(120)
+  productionTypes         ProductionType[]
+  name                    String              @db.VarChar(120)
   /// lower-cased, trimmed, single-spaced name for search and dedupe.
-  nameNormalized     String              @db.VarChar(120)
+  nameNormalized          String              @db.VarChar(120)
   // Billing
-  gstin              String?             @db.Char(15)
-  gstVerificationId  String?             @db.Uuid
-  invoiceNameSource  InvoiceNameSource   @default(FARM_NAME)
-  invoiceName        String?             @db.VarChar(200)
+  gstin                   String?             @db.Char(15)
+  gstVerificationId       String?             @db.Uuid
+  invoiceNameSource       InvoiceNameSource   @default(FARM_NAME)
+  invoiceName             String?             @db.VarChar(200)
   /// GST portal "Legal Name of Business" + trade name, copied from the bound verification
   /// (never typed by the client). Set together with gstin; null = not GST-registered.
-  gstBusinessName    String?             @db.VarChar(200)
-  gstTradeName       String?             @db.VarChar(200)
+  gstBusinessName         String?             @db.VarChar(200)
+  gstTradeName            String?             @db.VarChar(200)
   /// Portal check time of the bound verification.
-  gstVerifiedAt      DateTime?
+  gstVerifiedAt           DateTime?
+  /// null = no review asked. While PENDING (and after REJECTED) invoices use the GST trade name;
+  /// APPROVED switches invoiceNameSource to FARM_NAME.
+  invoiceNameReview       InvoiceNameReview?
+  invoiceNameRequestedAt  DateTime?
+  invoiceNameReviewedById String?             @db.Uuid
+  invoiceNameReviewedAt   DateTime?
+  /// Staff reason; shown to the owner on rejection.
+  invoiceNameReviewNote   String?             @db.VarChar(500)
   // Location
-  latitude           Decimal?            @db.Decimal(9, 6)
-  longitude          Decimal?            @db.Decimal(9, 6)
-  gpsAccuracyM       Int?                @db.SmallInt
-  locationCapturedAt DateTime?
-  addressLine        String?             @db.VarChar(200)
-  village            String?             @db.VarChar(80)
-  pinCode            String?             @db.Char(6)
-  territoryId        String?             @db.Uuid
-  territoryCode      String?             @db.VarChar(3)
-  districtName       String?             @db.VarChar(80)
-  mandalName         String?             @db.VarChar(80)
-  primaryNodeId      String?             @db.Uuid
-  backupNodeId       String?             @db.Uuid
+  latitude                Decimal?            @db.Decimal(9, 6)
+  longitude               Decimal?            @db.Decimal(9, 6)
+  gpsAccuracyM            Int?                @db.SmallInt
+  locationCapturedAt      DateTime?
+  addressLine             String?             @db.VarChar(200)
+  village                 String?             @db.VarChar(80)
+  pinCode                 String?             @db.Char(6)
+  territoryId             String?             @db.Uuid
+  territoryCode           String?             @db.VarChar(3)
+  districtName            String?             @db.VarChar(80)
+  mandalName              String?             @db.VarChar(80)
+  primaryNodeId           String?             @db.Uuid
+  backupNodeId            String?             @db.Uuid
   /// Denormalised sum of BIRDS capacities (pass, lists).
-  totalBirdCapacity  Int?
+  totalBirdCapacity       Int?
   // Lifecycle
-  status             FarmStatus          @default(DRAFT)
-  statusReason       String?             @db.VarChar(500)
-  statusChangedAt    DateTime            @default(now())
+  status                  FarmStatus          @default(DRAFT)
+  statusReason            String?             @db.VarChar(500)
+  statusChangedAt         DateTime            @default(now())
   /// Resume point of the 5-step registration (1..5).
-  registrationStep   Int                 @default(1) @db.SmallInt
-  kycDeferredAt      DateTime?
-  submittedAt        DateTime?
+  registrationStep        Int                 @default(1) @db.SmallInt
+  kycDeferredAt           DateTime?
+  submittedAt             DateTime?
   /// "Member since".
-  activatedAt        DateTime?
-  mergedIntoFarmId   String?             @db.Uuid
-  channel            RegistrationChannel @default(SELF)
-  createdByUserId    String              @db.Uuid
+  activatedAt             DateTime?
+  mergedIntoFarmId        String?             @db.Uuid
+  channel                 RegistrationChannel @default(SELF)
+  createdByUserId         String              @db.Uuid
   /// Optimistic concurrency (If-Match).
-  version            Int                 @default(0)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  deletedAt          DateTime?
+  version                 Int                 @default(0)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  deletedAt               DateTime?
 
   owner        FarmOwner         @relation(fields: [ownerId], references: [id])
   capacities   FarmCapacity[]
@@ -187,6 +203,7 @@ model Farm {
   @@index([category, status, id])
   @@index([pinCode])
   @@index([gstin])
+  @@index([invoiceNameReview, invoiceNameRequestedAt])
   // Trigram search (q=…); declared so `migrate dev` does not try to drop them.
   @@index([nameNormalized(ops: raw("gin_trgm_ops"))], type: Gin, map: "farms_nameNormalized_trgm_idx")
   @@index([farmCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "farms_farmCode_trgm_idx")

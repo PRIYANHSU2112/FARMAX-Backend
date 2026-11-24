@@ -30,6 +30,10 @@ export interface FarmConfig extends BaseConfig {
   REDIS_QUEUE_URL: string;
   /** Run the BullMQ jobs (off in tests). */
   JOBS_ENABLED: boolean;
+  /** RabbitMQ for the event consumer (auth account events). */
+  RABBITMQ_URL: string;
+  /** Start the event consumer (off in tests). */
+  EVENTS_ENABLED: boolean;
   /** media-service CDN base; content image / asset URLs must start with it (unset: https only). */
   MEDIA_PUBLIC_BASE_URL?: string;
 }
@@ -74,7 +78,16 @@ const schema = Joi.object<FarmConfig>({
     .truthy('1')
     .falsy('0')
     .default((parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test'),
-  MEDIA_PUBLIC_BASE_URL: Joi.string().uri({ scheme: ['https', 'http'] }).allow(''),
+  RABBITMQ_URL: Joi.string()
+    .uri({ scheme: ['amqp', 'amqps'] })
+    .default('amqp://farmx:farmx@localhost:5672'),
+  EVENTS_ENABLED: Joi.boolean()
+    .truthy('1')
+    .falsy('0')
+    .default((parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test'),
+  MEDIA_PUBLIC_BASE_URL: Joi.string()
+    .uri({ scheme: ['https', 'http'] })
+    .allow(''),
 });
 
 /** The root `.env` sets a generic PORT for the gateway; this service reads FARM_SERVICE_PORT. */

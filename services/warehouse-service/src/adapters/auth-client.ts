@@ -198,6 +198,14 @@ export class AuthClient {
     return this.call<{ revoked: number }>('POST', '/internal/staff/assignments/revoke', body);
   }
 
+  /** D-57b step-up: the person's current TOTP code (single use; 5 wrong codes → locked 15 min). */
+  verifyStepUp(userId: string, code: string) {
+    return this.call<{ valid: boolean; locked: boolean }>('POST', '/internal/staff/mfa/verify', {
+      userId,
+      code,
+    });
+  }
+
   /** One internal call; non-2xx → the same AppError; no answer → 503. Contacts cache dropped. */
   private async call<T>(method: 'GET' | 'POST', path: string, body?: object): Promise<T> {
     const { config, logger } = this.deps;

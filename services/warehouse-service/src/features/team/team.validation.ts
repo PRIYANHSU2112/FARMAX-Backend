@@ -28,6 +28,7 @@ export const addSchema = {
     ),
     workAreas: AREAS,
     shiftId: ID.allow(null),
+    jobTitle: Joi.string().trim().max(80).allow(null, ''),
   }),
 };
 
@@ -37,9 +38,10 @@ export const updateSchema = {
     phone: PHONE.allow(null),
     workAreas: AREAS,
     shiftId: ID.allow(null),
+    jobTitle: Joi.string().trim().max(80).allow(null, ''),
     roleId: ID,
     reason: REASON,
-  }).or('phone', 'workAreas', 'shiftId', 'roleId'),
+  }).or('phone', 'workAreas', 'shiftId', 'roleId', 'jobTitle'),
 };
 
 export const removeSchema = {

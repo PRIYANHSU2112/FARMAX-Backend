@@ -143,8 +143,16 @@ export const updateActiveSchema = {
   ...idParams,
   body: Joi.object({
     addressLine: Joi.string().trim().max(200),
+    productionTypes: Joi.array()
+      .items(Joi.string().valid(...PRODUCTION_TYPES))
+      .min(1)
+      .max(4)
+      .unique()
+      .description('Ranked; [0] must stay the current primary type'),
     capacities: capacities.min(1),
-  }).min(1),
+  })
+    .min(1)
+    .with('productionTypes', 'capacities'),
 };
 
 export const verifyPassSchema = {
@@ -170,6 +178,9 @@ export const adminListSchema = {
     pinCode: PIN,
     kycStatus: Joi.string().valid(...KYC_STATUSES),
     channel: Joi.string().valid('SELF', 'FIELD_ASSISTED', 'ADMIN', 'IMPORT'),
+    invoiceNameReview: Joi.string()
+      .valid('PENDING', 'APPROVED', 'REJECTED')
+      .description('`PENDING` = the "invoice as farm name" review queue'),
     createdFrom: Joi.date().iso(),
     createdTo: Joi.date().iso().greater(Joi.ref('createdFrom')),
     cursor: ID,
@@ -191,6 +202,12 @@ export const adminUpdateSchema = {
     capacities: capacities.min(1),
     reason: REASON,
   }).min(2),
+};
+
+/** Approve / reject "Keep farm name & send for review"; the reason is audited (and shown on reject). */
+export const invoiceNameDecisionSchema = {
+  ...idParams,
+  body: Joi.object({ reason: REASON }),
 };
 
 const issue = Joi.object({

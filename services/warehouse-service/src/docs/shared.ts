@@ -64,8 +64,12 @@ export const wmsDoc = (
   area: string,
   summary: string,
   permission: string,
-  o: Parameters<typeof staffDoc>[3] = {},
-): RouteDocs => ({
-  ...staffDoc(wmsTag(aud, area), summary, permission, o),
-  auth: aud === 'admin' ? AUTH_ADMIN : AUTH_STAFF,
-});
+  o: Parameters<typeof staffDoc>[3] & { meta?: Schema } = {},
+): RouteDocs => {
+  const d = staffDoc(wmsTag(aud, area), summary, permission, o);
+  return {
+    ...d,
+    auth: aud === 'admin' ? AUTH_ADMIN : AUTH_STAFF,
+    ...(o.meta === undefined ? {} : { success: { ...d.success, meta: o.meta } }),
+  };
+};

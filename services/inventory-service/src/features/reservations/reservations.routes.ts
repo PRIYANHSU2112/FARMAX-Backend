@@ -17,6 +17,8 @@ import {
   byOrderRefSchema,
   getReservationSchema,
   listReservationsSchema,
+  openLinesSchema,
+  reallocateSchema,
   releaseSchema,
   reserveSchema,
 } from './reservations.validation.js';
@@ -87,5 +89,33 @@ export const reservationsInternalRoutes: FastifyPluginAsync = async (app) => {
     '/availability',
     { schema: { hide: true, ...availabilitySchema }, onRequest: [guard] },
     async (req) => ok(await svc(req).checkAvailability(req.body)),
+  );
+  // D-57b (warehouse-service): reallocate lines between warehouses; open lines for reconcile.
+  app.post<{
+    Params: IdParams;
+    Body: {
+      key: string;
+      moves: { variantId: string; fromWarehouseId: string; toWarehouseId: string; qty: number }[];
+    };
+  }>(
+    '/reservations/:id/reallocate',
+    { schema: { hide: true, ...reallocateSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).reallocate(req.params.id, req.body.key, req.body.moves)),
+  );
+  app.get<{ Querystring: { warehouseId: string; cursor?: string; limit: number } }>(
+    '/reservations-open-lines',
+    { schema: { hide: true, ...openLinesSchema }, onRequest: [guard] },
+    async (req) => {
+      const page = await svc(req).openLines(
+        req.query.warehouseId,
+        req.query.cursor,
+        req.query.limit,
+      );
+      return {
+        success: true,
+        data: page.items,
+        meta: { nextCursor: page.nextCursor, limit: req.query.limit },
+      };
+    },
   );
 };

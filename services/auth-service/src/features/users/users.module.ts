@@ -1,6 +1,7 @@
 import { defineModule } from '@farmx/common/server';
 import { asClass } from 'awilix';
 
+import { ProfileService } from './profile.service.js';
 import { UsersController } from './users.controller.js';
 import { usersInternalRoutes } from './users.internal.routes.js';
 import { UsersRepository } from './users.repository.js';
@@ -12,6 +13,7 @@ declare module '@fastify/awilix' {
     usersRepository: UsersRepository;
     usersService: UsersService;
     usersController: UsersController;
+    profileService: ProfileService;
   }
 }
 
@@ -23,6 +25,7 @@ export const usersModule = defineModule({
       usersRepository: asClass(UsersRepository).singleton(),
       usersService: asClass(UsersService).singleton(),
       usersController: asClass(UsersController).singleton(),
+      profileService: asClass(ProfileService).singleton(),
     });
   },
   routes: usersRoutes,

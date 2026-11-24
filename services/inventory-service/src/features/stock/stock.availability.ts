@@ -13,7 +13,10 @@ import type { LevelRow } from './stock.types.js';
 
 const BATCH = 500;
 
-type Deps = Pick<Cradle, 'stockRepository' | 'warehousesService' | 'runInTransaction' | 'logger'>;
+type Deps = Pick<
+  Cradle,
+  'stockRepository' | 'warehousesService' | 'runInTransaction' | 'logger' | 'settingsService'
+>;
 
 /**
  * BullMQ job (every 2 s, see adapters/jobs.ts). Drains `inventory_availability_dirty` and, per
@@ -26,8 +29,17 @@ type Deps = Pick<Cradle, 'stockRepository' | 'warehousesService' | 'runInTransac
 export class AvailabilityPublisher {
   constructor(private readonly deps: Deps) {}
 
+  /** D-57b W3.13 "Sync Now": re-sends availability of every variant (of one warehouse). */
+  async resync(warehouseId: string | null, invalidate = true): Promise<{ variants: number }> {
+    const variants = await this.deps.runInTransaction((tx) =>
+      this.deps.stockRepository.markAllDirty(tx, warehouseId, invalidate),
+    );
+    return { variants };
+  }
+
   async publishDirty(): Promise<{ variants: number; events: number }> {
     const allocatable = new Set(await this.deps.warehousesService.allocatableIds());
+    const floor = (await this.deps.settingsService.current()).bufferFloorPct;
     return this.deps.runInTransaction(async (tx) => {
       const { stockRepository: repo } = this.deps;
       const variantIds = await repo.drainDirty(tx, BATCH);
@@ -47,8 +59,8 @@ export class AvailabilityPublisher {
 
       for (const variantId of variantIds) {
         const rows = byVariant.get(variantId) ?? [];
-        const now = networkAvailability(rows, allocatable);
-        const nodes = nodeAvailability(rows, allocatable);
+        const now = networkAvailability(rows, allocatable, floor);
+        const nodes = nodeAvailability(rows, allocatable, floor);
         const prev = states.get(variantId);
         if (
           prev?.availableQty !== now.availableQty ||

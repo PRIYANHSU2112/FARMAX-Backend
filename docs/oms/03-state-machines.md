@@ -23,7 +23,7 @@ All of these happen in one transaction. When two transitions race, exactly one w
 | PENDING_ADMIN_CONFIRMATION | **FAILED**                      | System                                                                                    | `failureCode`: PAYMENT_NOT_COMPLETED · STOCK_UNAVAILABLE · STOCK_UNAVAILABLE_AFTER_PAYMENT · PLACEMENT_ERROR |
 | PENDING_ADMIN_CONFIRMATION | CANCELLED                       | Customer (free) or staff `orders.cancel`                                                  | Release stock; refund if paid                                                                                |
 | CONFIRMED                  | CANCELLED                       | Customer within policy (before PICKING); staff with reason                                | Release stock; refund                                                                                        |
-| CONFIRMED                  | IN_FULFILMENT                   | _F1_: first shipment PICKING                                                              |                                                                                                              |
+| CONFIRMED                  | IN_FULFILMENT                   | _F1_: first shipment ALLOCATED                                                            |                                                                                                              |
 | IN_FULFILMENT              | PARTIALLY_DELIVERED / DELIVERED | _F1_: derived from shipments                                                              | DELIVERED only when **all active** shipments are DELIVERED                                                   |
 | DELIVERED                  | COMPLETED                       | _F1_: customer confirms receipt, or auto after `autoCompleteHours`                        |                                                                                                              |
 
@@ -116,9 +116,22 @@ when a refund fails for good.
 Source refs: `reject:{orderId}`, `cancel:{cancellationId}`, `fail:{orderId}`, `late:{paymentId}`,
 `stock:{orderId}`.
 
-## Shipment (F1, designed only)
+## Shipment (F1 — built in warehouse-service, D-57 amendment 2026-11-24)
 
-`ALLOCATED → PICKING → PACKED → DISPATCHED → OUT_FOR_DELIVERY → DELIVERED`; plus
+**As built (supersedes the design line below):** `PENDING_RELEASE` (placed, not confirmed) →
+`RELEASED` (order confirmed) → `ALLOCATED` (FEFO lots) → `ASSIGNED` (task) → `PICKING` → `PACKING`
+→ `QC` → `READY_TO_DISPATCH` (staged) → `DISPATCHED` (gate-out; stock issued once per
+`dispatchId`) → `OUT_FOR_DELIVERY` (OTP created) → `DELIVERED` (OTP or override + POD) →
+`FULFILLED` (final quantities confirmed). Side paths: `DELIVERY_FAILED` → reattempt or
+`RETURNED_TO_WAREHOUSE`; `CANCELLED` from any state before DISPATCHED. Hold is a flag (blocks
+moving forward), not a state. One **open** shipment per order × warehouse (a backorder follow-up
+may ship after the first left). Order status is derived from `shipment.status_changed.v1`
+(IN_FULFILMENT once a shipment is ALLOCATED, PARTIALLY_DELIVERED / DELIVERED from active shipments;
+order-service merges each snapshot into `orders.shipmentStates` by shipment `version`, so a late or
+out-of-order event never moves the status or `fulfilmentStage` back);
+cancellation by the customer stops at PICKING, by staff at DISPATCHED. Details: `docs/decisions.md` D-57.
+
+Original design: `ALLOCATED → PICKING → PACKED → DISPATCHED → OUT_FOR_DELIVERY → DELIVERED`; plus
 `OUT_FOR_DELIVERY → DELIVERY_FAILED → OUT_FOR_DELIVERY` (reattempt, new OTP) or
 `RETURNED_TO_WAREHOUSE`; and `ALLOCATED | PICKING → CANCELLED`.
 

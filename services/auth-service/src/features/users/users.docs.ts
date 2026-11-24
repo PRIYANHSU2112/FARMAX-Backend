@@ -89,6 +89,8 @@ const exampleUser = {
 };
 const ok = (data: unknown) => ({ success: true, data });
 
+const SELF_AUTH = 'Bearer access token (full scope) of a CUSTOMER. Other account types get 403.';
+
 /** Swagger docs per route (spread into the route `schema`). */
 const meSchema = userSchema
   .keys({
@@ -117,6 +119,55 @@ export const USERS_DOCS = {
         mfaRequired: true,
       }),
     },
+  },
+  updateMe: {
+    tag: USER_TAG,
+    auth: SELF_AUTH,
+    summary: 'Edit my profile (Contact screen, profile photo)',
+    description:
+      'Owner name, email and profile photo. A new email is stored unverified (`emailVerified: false`). ' +
+      'The farm owner name is synced to every farm through `user.profile_updated.v1`. ' +
+      'The mobile number changes through `POST /me/phone/otp` + `/me/phone/verify`.',
+    requestExample: {
+      fullName: 'Venkatesh Ramana',
+      email: 'venkata.ramana@email.com',
+      avatarUrl: 'https://cdn.farmx.in/dev/avatars/0193a5f2.jpg',
+    },
+    success: { status: 200, description: 'Your updated profile', data: meSchema },
+    errors: [403, 409, 422],
+  },
+  phoneOtp: {
+    tag: USER_TAG,
+    auth: SELF_AUTH,
+    summary: 'Change mobile: send OTP to the new number',
+    description:
+      '"Update" next to the mobile number. The code goes to the NEW number. 409 `PHONE_TAKEN` if ' +
+      'another account uses it.',
+    rateLimit: '5 per user per hour (+ 30 s resend cooldown)',
+    requestExample: { phone: '+919876543210' },
+    success: {
+      status: 200,
+      description: 'Sent',
+      data: Joi.object({
+        sent: Joi.boolean(),
+        destination: Joi.string().example('+91******3210'),
+        expiresIn: Joi.number(),
+        resendAfter: Joi.number(),
+      }),
+    },
+    errors: [403, 409, 422, 429],
+  },
+  phoneVerify: {
+    tag: USER_TAG,
+    auth: SELF_AUTH,
+    summary: 'Change mobile: verify the OTP',
+    description:
+      '"Verify". The new number becomes the verified login phone (old number stops working for ' +
+      'login). Synced to farm owners through `user.profile_updated.v1`.',
+    rateLimit: '10 per user per hour',
+    requestExample: { phone: '+919876543210', otp: '123456' },
+    success: { status: 200, description: 'Your updated profile', data: meSchema },
+    errors: [401, 403, 409, 422, 429],
   },
   list: {
     tag: ADMIN_USERS_TAG,

@@ -334,6 +334,7 @@ export class WarehousesService {
           pinCode: input.pinCode,
           latitude: input.latitude ?? null,
           longitude: input.longitude ?? null,
+          tagline: input.tagline === '' ? null : (input.tagline ?? null),
           totalAreaSqft: input.totalAreaSqft ?? null,
           capacityKg: toKg(input.capacity) ?? null,
           temperatureClasses: [...new Set(input.temperatureClasses)],

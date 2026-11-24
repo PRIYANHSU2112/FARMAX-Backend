@@ -1,0 +1,157 @@
+// user-service feature: home (D-59). Server-driven layout of the app's Home and All Categories
+// pages: versioned layouts (DRAFT → SCHEDULED/PUBLISHED → ARCHIVED), ordered sections (one widget
+// each) and their static items. Product, category, brand and disease ids are plain uuid
+// references (D-21); labels/images are copied onto items so a read never calls another service.
+// Only home.repository.ts queries these models.
+//
+// Raw SQL in the migration (Prisma can't express them):
+//   one PUBLISHED layout per page, one SCHEDULED layout per page (partial unique indexes).
+
+enum HomePage {
+  HOME
+  CATEGORIES
+}
+
+enum HomeLayoutStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HomeWidgetType {
+  BANNER_CAROUSEL
+  CATEGORY_GRID
+  PRODUCT_GRID_2X2
+  PRODUCT_HORIZONTAL_RAIL
+  VET_CONSULT_PROMO
+  REORDER_CARD
+  FLOCK_STAGE_SELECTOR
+  NEWS_FEED
+  BULK_FEED_PROMO
+  LIVE_ORDER_STRIP
+  REQUIREMENT_CALENDAR
+  APPOINTMENT_CARD
+  SHOP_BY_PROBLEM
+  BRAND_GRID
+}
+
+enum HomeDataSource {
+  STATIC_ITEMS
+  MANUAL_PRODUCTS
+  DYNAMIC_QUERY
+  LIVE_OFFERS
+  BANNER_PLACEMENT
+  CATALOG_CATEGORIES
+  REMOTE_FEED
+}
+
+/// Allowlisted live data the app may ask for (`GET /v1/home/feeds`). Never a free-text URL.
+enum HomeFeedKey {
+  ORDER_LIVE
+  APPOINTMENT_NEXT
+  NEWS_LATEST
+  BUY_AGAIN
+  VET_AVAILABILITY
+  FLOCK_CONTEXT
+  REQUIREMENT_DUE
+}
+
+enum HomeItemRefType {
+  CATEGORY
+  FLOCK_STAGE
+  DISEASE
+  BRAND
+  PRODUCT
+  CUSTOM
+}
+
+model HomeConfiguration {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  page               HomePage
+  /// 1, 2, 3… per page (shown to admins as "Layout #12").
+  layoutNo           Int
+  name               String           @db.VarChar(120)
+  status             HomeLayoutStatus @default(DRAFT)
+  notes              String?          @db.VarChar(1000)
+  /// Page-level settings, e.g. `{ orderPhones: { default, byRegion: { WG } } }`.
+  settings           Json             @default("{}")
+  scheduledPublishAt DateTime?
+  publishedAt        DateTime?
+  publishedByUserId  String?          @db.Uuid
+  /// Per-page counter, max+1 on every publish / rollback / scheduled flip. Cache keys use it.
+  publishRev         Int?
+  /// Optimistic concurrency (If-Match).
+  version            Int              @default(0)
+  createdByUserId    String           @db.Uuid
+  updatedByUserId    String           @db.Uuid
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  sections HomeSection[]
+
+  @@unique([page, layoutNo])
+  @@unique([page, publishRev])
+  @@index([page, status, id(sort: Desc)])
+  @@map("home_configurations")
+}
+
+model HomeSection {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  configurationId String         @db.Uuid
+  /// Stable slug the app and caches use, e.g. `featured`, `clearance`.
+  sectionKey      String         @db.VarChar(60)
+  widgetType      HomeWidgetType
+  dataSource      HomeDataSource
+  /// Live fields for this widget (REMOTE_FEED or a promo with live numbers).
+  feedKey         HomeFeedKey?
+  /// Localized text `{ en, hi? }` (en required).
+  eyebrow         Json?
+  title           Json?
+  subtitle        Json?
+  viewAllLink     String?        @db.VarChar(500)
+  displayOrder    Int
+  isEnabled       Boolean        @default(true)
+  itemLimit       Int            @default(10) @db.SmallInt
+  /// Hide the section when fewer items than this remain (empty rails leave no gap).
+  minItems        Int            @default(1) @db.SmallInt
+  /// Send the first page inside the layout response (max 3 per layout).
+  inline          Boolean        @default(false)
+  experimentKey   String?        @db.VarChar(60)
+  /// Per-widget settings (validated per widget in home.widgets.ts).
+  config          Json           @default("{}")
+  targeting       Json?
+
+  configuration HomeConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  items         HomeSectionItem[]
+
+  @@unique([configurationId, sectionKey])
+  @@index([configurationId, displayOrder])
+  @@map("home_sections")
+}
+
+model HomeSectionItem {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  sectionId    String          @db.Uuid
+  refType      HomeItemRefType
+  refId        String?         @db.Uuid
+  /// e.g. a FLOCK_STAGE lookup code.
+  refCode      String?         @db.VarChar(60)
+  /// Localized text `{ en, hi? }`.
+  label        Json
+  subtitle     Json?
+  badge        Json?
+  /// `{ mediaId?, url, width?, height? }`
+  image        Json?
+  deepLink     String          @db.VarChar(500)
+  displayOrder Int
+  isEnabled    Boolean         @default(true)
+  targeting    Json?
+  /// Set by the ref check when the referenced category/product/brand/disease is gone.
+  refBroken    Boolean         @default(false)
+
+  section HomeSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, displayOrder])
+  @@map("home_section_items")
+}

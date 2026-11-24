@@ -1,7 +1,12 @@
 import { randomBytes } from 'node:crypto';
 
 import { type Tx, createOutboxSource, writeOutboxEvent } from '@farmx/database';
-import { AUTH_EVENT_SOURCE, type EventEnvelope, OutboxRelay } from '@farmx/infra/events';
+import {
+  AUTH_EVENT_SOURCE,
+  type EventEnvelope,
+  OutboxRelay,
+  type UserProfileUpdatedV1,
+} from '@farmx/infra/events';
 import { RabbitPublisher } from '@farmx/infra/rabbitmq';
 import type { Cradle } from '@fastify/awilix';
 
@@ -23,6 +28,7 @@ export interface AuthEventData {
     changedByUserId: string | null;
   };
   'user.deleted.v1': { userId: string; deletedByUserId: string | null };
+  'user.profile_updated.v1': UserProfileUpdatedV1;
 }
 
 /** Transactional outbox write (commits with the user change, or not at all). */

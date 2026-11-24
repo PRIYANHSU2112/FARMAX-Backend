@@ -10,6 +10,8 @@ export type AuditTarget =
   | 'faq'
   | 'faq_category'
   | 'legal'
+  | 'company_document'
+  | 'company_application'
   | 'agent'
   | 'canned_reply';
 
