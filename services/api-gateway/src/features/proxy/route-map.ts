@@ -1,6 +1,7 @@
-import { NotFoundError } from '@farmx/common/errors';
+import { NotFoundError, ServiceUnavailableError } from '@farmx/common/errors';
+import { fail } from '@farmx/common/response';
 import httpProxy from '@fastify/http-proxy';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify';
 
 import type { ServiceUrls } from '../../config/services.js';
 
@@ -182,6 +183,41 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
   },
 ];
 
+/**
+ * The upstream did not answer (not deployed, crashed, restarting, DNS, socket reset, timeout).
+ * reply-from turns ECONNREFUSED into a generic 500, which made every missing service look like a
+ * bug in that service; this answers 503 SERVICE_UNAVAILABLE in the standard envelope instead and
+ * logs which upstream failed and why (with the request id) for the server-side trace.
+ */
+/** The bits of the (HTTP/1 or HTTP/2) reply the handler needs. */
+interface ProxyReply {
+  request: { log: FastifyBaseLogger; url: string; id: string };
+  sent: boolean;
+  code(statusCode: number): { send(payload: unknown): unknown };
+}
+
+export const upstreamErrorHandler =
+  (route: Pick<ProxyRoute, 'prefix' | 'upstream'>) =>
+  (reply: ProxyReply, { error }: { error: Error & { code?: string; cause?: unknown } }): void => {
+    const cause = error.cause as { code?: string } | undefined;
+    reply.request.log.error(
+      {
+        err: error,
+        upstream: route.upstream,
+        prefix: route.prefix,
+        cause: cause?.code ?? error.code,
+        path: reply.request.url.split('?')[0],
+      },
+      'upstream service unavailable',
+    );
+    if (reply.sent) return;
+    void reply
+      .code(503)
+      .send(
+        fail(new ServiceUnavailableError(undefined, { isOperational: true }), reply.request.id),
+      );
+  };
+
 /** Service-to-service routes are never reachable through the gateway, whatever the prefix. */
 export const INTERNAL_PATH = /(^|\/)internal(\/|$)/i;
 
@@ -208,6 +244,7 @@ export const proxyRoutes =
         prefix: route.prefix,
         rewritePrefix: route.rewritePrefix,
         http2: false,
+        replyOptions: { onError: upstreamErrorHandler(route) },
         ...(route.websocket === true ? { websocket: true } : {}),
       });
     }
