@@ -35,6 +35,11 @@ export const WAREHOUSE_BINDINGS = [
   'product.variant_created.v1',
   'product.variant_updated.v1',
   'product.variant_deactivated.v1',
+  // D-60 quality-service: SKU quality policy, batch read copy, decisions to execute.
+  'quality.spec_changed.v1',
+  'quality.batch_state_changed.v1',
+  'quality.decision_requested.v1',
+  'quality.decision_retry_requested.v1',
 ];
 
 export type EventHandlerMap = Partial<

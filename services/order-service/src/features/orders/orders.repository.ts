@@ -82,6 +82,17 @@ export class OrdersRepository {
    * F1 projection. A new `stage` bumps the order version (it changes who may cancel); states
    * alone do not, so they never invalidate a staff edit in progress.
    */
+  /** Shipment states of a set of orders (by primary key). */
+  async shipmentStatesOf(ids: readonly string[]): Promise<Map<string, unknown>> {
+    const rows = await withPrismaErrors(() =>
+      this.db.order.findMany({
+        where: { id: { in: [...ids] } },
+        select: { id: true, shipmentStates: true },
+      }),
+    );
+    return new Map(rows.map((r) => [r.id, r.shipmentStates]));
+  }
+
   async setShipmentStates(
     tx: Tx,
     id: string,

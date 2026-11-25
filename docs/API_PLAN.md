@@ -277,24 +277,80 @@ settings, cutover, ops. Customer `/v1/shipments/*` (own orders), 3PL `/v1/driver
 Lists: `cursor` or `page` (offset ≤ 2,000; `meta.total` exact to 10,000); KPI widgets cached 20 s
 (`fresh=true`). Full screen → API map: `docs/warehouse/README.md` (D-57 section).
 
-| Area (Swagger tag "WMS Panel · …" / "WMS Admin · …") | Prefix                                   | Screens                     |
-| ---------------------------------------------------- | ---------------------------------------- | --------------------------- |
-| Stock, Lifecycle, Vendors, Cutover, Ops              | `/stock/*`, `/vendors/*`, `/ops/*`       | W4.00–W4.11, interim inbound |
-| Restock + transfers                                  | `/stock/restock-*`, `/stock/transfers/*` | W4.07, W4.08                |
-| Fulfilment, Floor, Exceptions, Delivery              | `/fulfilment/*`, `/sync-status`, `/exports/*` | W3.01–W3.11            |
-| Routing rules                                        | `/routing/*`                             | W3.12                       |
-| Available-to-promise                                 | `/atp/*`                                 | W3.13                       |
-| Split, partial & backorder                           | `/fulfilment/orders/:id/split*`, `/fulfilment/backorders/*`, `/fulfilment/dispatch-slots` | W3.14 |
-| Order hold & edit                                    | `/fulfilment/orders/:id/hold*`, `/amendments*`, `/fulfilment/shipments/:id/manifest` | W3.15 |
-| Compliance check                                     | `/compliance/*`                          | W3.16                       |
-| Payments (prepaid)                                   | `/payments-view/*`                       | W3.18                       |
-| Dispatch + Bulk                                      | `/dispatch/*`, `/bulk/*`                 | W3.08, W3.19                |
+| Area (Swagger tag "WMS Panel · …" / "WMS Admin · …") | Prefix                                                                                    | Screens                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------- |
+| Stock, Lifecycle, Vendors, Cutover, Ops              | `/stock/*`, `/vendors/*`, `/ops/*`                                                        | W4.00–W4.11, interim inbound |
+| Restock + transfers                                  | `/stock/restock-*`, `/stock/transfers/*`                                                  | W4.07, W4.08                 |
+| Fulfilment, Floor, Exceptions, Delivery              | `/fulfilment/*`, `/sync-status`, `/exports/*`                                             | W3.01–W3.11                  |
+| Routing rules                                        | `/routing/*`                                                                              | W3.12                        |
+| Available-to-promise                                 | `/atp/*`                                                                                  | W3.13                        |
+| Split, partial & backorder                           | `/fulfilment/orders/:id/split*`, `/fulfilment/backorders/*`, `/fulfilment/dispatch-slots` | W3.14                        |
+| Order hold & edit                                    | `/fulfilment/orders/:id/hold*`, `/amendments*`, `/fulfilment/shipments/:id/manifest`      | W3.15                        |
+| Compliance check                                     | `/compliance/*`                                                                           | W3.16                        |
+| Payments (prepaid)                                   | `/payments-view/*`                                                                        | W3.18                        |
+| Dispatch + Bulk                                      | `/dispatch/*`, `/bulk/*`                                                                  | W3.08, W3.19                 |
 
 Other services (D-57): order-service `PATCH /v1/admin/orders/:id/delivery` and internal
 `/internal/orders/:id/{fulfilment-facts, compliance-reject, shortage-refund, cancel-lines, delivery}`,
 `/internal/orders/counts`; inventory internal `/internal/reservations/:id/reallocate`,
 `/reservations-open-lines`, `/internal/inventory/{availability-settings, availability/resync, cutover/*}`;
 payment-service internal `GET /internal/payments/stats`; auth internal `POST /internal/mfa/verify`.
+
+## 8e. Gate & Weighbridge W5 (warehouse-service) — ✅ built (D-62, 2026-11-25)
+
+Same two audiences as §8c: `/v1/wms/gate/*` (scoped) and `/v1/admin/wms/gate/*` (GLOBAL), 81 operations
+each; setup `/v1/admin/warehouses/:id/{weigh-scales, gate-settings}` (6). Every write: `Idempotency-Key`
+(24 h replay per user + route, different body → 422) + state guard; dashboard reads: ETag / 304 + Redis
+cache keyed by the warehouse gate version and the minute bucket. Full screen → API map:
+`docs/warehouse/README.md` (D-62 section).
+
+| Area (Swagger "WMS Panel · Gate · …") | Prefix                                                                                                                                                                                   | Screens      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Dashboard & shipments                 | `/gate/{lookups, bays, purchase-orders, products, summary, status-mix, activity, shipments*}`, `/gate/documents/:docId/preview`                                                          | W5.01–W5.04  |
+| Entries, documents & passes           | `/gate/arrivals`, `/gate/entries*`, `/gate/documents/:docId/verify`, `/gate/passes/*`                                                                                                    | W5.05–W5.08  |
+| Weighbridge                           | `/gate/weighbridge/lookup`, `/gate/entries/:id/{weighments, reconciliation, hold*, outward-pass, exit, weighment-slip.pdf}`, `/gate/weighments/:id/*`, `/gate/approvals`, `/gate/scales` | W5.09, W5.10 |
+| Dock appointments & ASN               | `/gate/appointments*`, `/gate/asns*`                                                                                                                                                     | W5.11, W5.12 |
+| Visitors & security                   | `/gate/security/summary`, `/gate/visitors*`, `/gate/outward-materials*`, `/gate/security-checks*`                                                                                        | W5.13        |
+
+Internal (hidden): `POST /internal/wms/gate/asns` (vendor portal / EDI, idempotent on vendor + ASN ref).
+Changed: `POST /wms/stock/receipts` accepts `gateEntryId` + `finalForGate` (receipt always posts; link or
+`warnings[GATE_LINK_SKIPPED]`). media-service private purpose `gate_document` (≤ 25 MB, TIFF allowed).
+Tables (§9): `warehouse_inbound_shipments` (+ lines), `warehouse_gate_entries` (+ `…_entry_receipts`),
+`warehouse_weigh_scales`, `warehouse_weighments`, `warehouse_gate_documents`, `warehouse_gate_passes`,
+`warehouse_gate_events` (append-only), `warehouse_asns` (+ lines), `warehouse_gate_visitors`,
+`warehouse_gate_outward_materials`, `warehouse_gate_security_checks`; `warehouse_dock_bookings` +
+inboundShipmentId / vendorId / asnId / confirmedAt. Migration `20261225110000_warehouse_gate`.
+
+## 8d. GST invoices + credit notes (order-service) — ✅ built (D-61, 2026-11-25)
+
+One tax invoice (or bill of supply) per shipment, issued at gate-out **before** goods leave;
+credit notes for short delivery and for invoices of shipments that never left (void). Money in
+rupee strings; documents immutable (DB triggers); every byte served is integrity-checked.
+
+| Method | Path                                                                  | Who                                                             | Notes                                                                                                                                    |
+| ------ | --------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/orders/{id}/invoices`                                            | CUSTOMER (own; else empty list)                                 | documents oldest first, no snapshot JSON                                                                                                 |
+| GET    | `/v1/orders/{id}/invoices/{docId}/download`                           | CUSTOMER (own; else 404), 30/min                                | `{url, expiresAt}` signed 5 min; 409 `PDF_NOT_READY` + `Retry-After: 5`                                                                  |
+| GET    | `/v1/orders/{id}/invoices/combined`                                   | CUSTOMER (own; else 404), 10/min                                | `application/pdf`, ≤ 20 documents, cached per document set                                                                               |
+| GET    | `/v1/admin/invoices`                                                  | `invoices.view`                                                 | q (exact doc / order no.), orderId, userId, farmId, docType, status, pdfStatus, b2b, from/to (IST); keyset                               |
+| GET    | `/v1/admin/invoices/{id}`                                             | `invoices.view`                                                 | lines, snapshot, hash, PDF state, linked documents                                                                                       |
+| GET    | `/v1/admin/invoices/{id}/download`                                    | `invoices.view` (audited)                                       | as the customer download                                                                                                                 |
+| POST   | `/v1/admin/invoices/{id}/pdf/retry`                                   | `invoices.view` (reason, audited)                               | FAILED → PENDING only (409 `NOT_FAILED`)                                                                                                 |
+| GET    | `/v1/admin/invoices/export.csv?from&to`                               | `invoices.export` (audited), 5/min                              | GST register, ≤ 31 days, streamed, CSV-injection safe                                                                                    |
+| GET    | `/v1/wms/fulfilment/shipments/{id}/invoice.pdf` (+ `/v1/admin/wms/…`) | `fulfilment.view` in that warehouse (else 404), 30/min, audited | gate copy; 404 `NO_INVOICE` before gate-out                                                                                              |
+| POST   | `/v1/wms/dispatch/trips/{id}/depart` (changed)                        | `logistics.dispatch_assign`                                     | issues invoices first; 409 `INVOICE_BLOCKED` / `INVOICE_STALE`, 503 `INVOICE_UNAVAILABLE`; response `invoices[]` with `ewayBillRequired` |
+
+Internal (service token, never routed by the gateway, hidden from Swagger by rule):
+`POST /internal/orders/{id}/shipments/{shipmentId}/invoice` (`{lines, linesHash, by}` →
+`{docId, docNo, docType, grandTotal, grandTotalPaise, linesHash, replayed, voidedDocNo}`; 409
+`INVOICE_INVALID` / `ALREADY_DISPATCHED` / `LINES_HASH_MISMATCH`) and
+`GET /internal/orders/{id}/invoices/by-shipment/{shipmentId}/pdf` (bytes + `X-Document-No`).
+`POST /internal/orders/{id}/shortage-refund` now also returns `creditNoteNo` and refunds exactly
+the credit note total. Compliance checklist: `docs/invoices/gst-compliance.md`.
+
+Future: move PDF rendering off the API event loop (worker thread pool or a separate renderer
+process): each invoice costs ~15–20 ms CPU, which raises API latency during bulk dispatch or load.
+See D-61.
 
 ## 9. DB models and relations
 

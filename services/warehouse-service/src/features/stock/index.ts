@@ -1,5 +1,5 @@
 // Public API of the stock feature. Other features import ONLY from here.
-export { stockAdminModule, stockModule } from './stock.module.js';
+export { stockAdminModule, stockInternalModule, stockModule } from './stock.module.js';
 export type { StockEngine, StockMove, ApplyContext } from './stock.engine.js';
 export type { StockService } from './stock.service.js';
 export type { StockSettings } from './stock.settings.js';

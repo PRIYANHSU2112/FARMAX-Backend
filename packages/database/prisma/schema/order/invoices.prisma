@@ -94,7 +94,9 @@ model TaxDocument {
   lines TaxDocumentLine[]
 
   @@index([orderId])
+  @@index([orderNo])
   @@index([userId, issuedAt(sort: Desc)])
+  @@index([farmId, issuedAt(sort: Desc)])
   @@index([issuedAt, id])
   @@index([docType, status])
   @@index([originalDocId])

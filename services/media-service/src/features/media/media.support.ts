@@ -11,6 +11,7 @@ import type { Cradle } from '@fastify/awilix';
 
 import { scanWithClamd } from '../../adapters/clamav.js';
 import type { IncomingFile } from './media.types.js';
+import { GATE_DOCUMENT_MAX_BYTES } from './media.types.js';
 import { readHead, resolveAllowedType } from './processing/detect.js';
 import { compressImage } from './processing/image.js';
 import { uuidv7 } from './processing/uuidv7.js';
@@ -25,13 +26,23 @@ export type ScanStatus = 'CLEAN' | 'REENCODED' | 'UNSCANNED';
  * Private upload purposes: support = ticket evidence; staff_document = warehouse staff ID /
  * address proof and photo (D-56, verified by warehouse-service). Each has its own folder.
  */
-export const PRIVATE_PURPOSES = ['support', 'staff_document', 'wms_document'] as const;
+export const PRIVATE_PURPOSES = [
+  'support',
+  'staff_document',
+  'wms_document',
+  'gate_document',
+] as const;
 export type PrivatePurpose = (typeof PRIVATE_PURPOSES)[number];
 const FOLDER: Record<PrivatePurpose, string> = {
   support: 'support',
   staff_document: 'staff',
   wms_document: 'wms',
+  gate_document: 'gate',
 };
+
+/** Size limit of one private purpose (gate scans may be large TIFF / multi-page PDF). */
+export const privateMaxBytes = (purpose: PrivatePurpose): number =>
+  purpose === 'gate_document' ? GATE_DOCUMENT_MAX_BYTES : SUPPORT_MAX_BYTES;
 
 export interface SupportUpload {
   key: string;
@@ -81,13 +92,15 @@ export class SupportUploads {
     const secret = this.deps.config.INTERNAL_SERVICE_TOKEN;
     if (secret === undefined)
       throw new ServiceUnavailableError('Support uploads are not configured');
-    const allowed = resolveAllowedType({ ...file, head: await readHead(file.path) });
+    const allowed = resolveAllowedType({ ...file, head: await readHead(file.path) }, purpose);
     if (allowed.kind !== 'image' && allowed.kind !== 'document')
       throw new ValidationError([
         { path: 'file', message: 'Support evidence must be a photo or a PDF' },
       ]);
-    if (file.size > SUPPORT_MAX_BYTES)
-      throw new PayloadTooLargeError('Support files must be at most 10 MB');
+    if (file.size > privateMaxBytes(purpose))
+      throw new PayloadTooLargeError(
+        `Files must be at most ${String(privateMaxBytes(purpose) / (1024 * 1024))} MB`,
+      );
 
     let body: Buffer;
     let contentType: string;

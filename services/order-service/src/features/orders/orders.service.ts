@@ -32,6 +32,7 @@ import {
   type OrderRow,
   type OrderWithLines,
   SERVICE,
+  type ShipmentStates,
   SYSTEM,
   UNPAID_STATUSES,
 } from './orders.types.js';
@@ -71,6 +72,16 @@ export interface CheckoutResult {
 const STUCK_AFTER_MS = 2 * 60_000;
 const GIVE_UP_AFTER_MS = 10 * 60_000;
 const JOB_BATCH = 50;
+
+/** Shipment states after gate-out: the invoice of such a shipment can never change. */
+const LEFT_WAREHOUSE = new Set([
+  'DISPATCHED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERY_FAILED',
+  'RETURNED_TO_WAREHOUSE',
+  'DELIVERED',
+  'FULFILLED',
+]);
 
 const refusal = (message: string, reason: string, extra: object = {}) =>
   new ConflictError(message, { details: { reason, ...extra } });
@@ -420,9 +431,10 @@ export class OrdersService {
   }
 
   /**
-   * F1 HOOK: issue the tax invoice for a dispatched shipment, INSIDE the dispatch transaction.
-   * Locks the order row (concurrent shipments of one order serialise), reads its checkout
-   * snapshot and delegates to the invoices feature. Idempotent per shipment.
+   * F1 HOOK (D-61): issue the tax invoice of a shipment BEFORE it leaves (warehouse gate-out
+   * calls this first, then dispatches in its own transaction and re-checks the lines hash).
+   * Locks the order row (concurrent shipments / credits of one order serialise), reads its
+   * checkout snapshot and delegates to the invoices feature. Idempotent per shipment + lines.
    */
   async issueShipmentInvoiceInTx(
     tx: Tx,
@@ -434,8 +446,59 @@ export class OrdersService {
     if ((await ordersRepository.lock(tx, orderId)) === null) throw new NotFoundError('Order');
     const order = await ordersRepository.find(orderId, tx);
     if (order === null) throw new NotFoundError('Order');
+    const states = (order.shipmentStates ?? {}) as ShipmentStates;
+    const dispatched = LEFT_WAREHOUSE.has(states[shipment.shipmentId]?.status ?? '');
     const method = await transactionsService.paymentMethod(tx, orderId);
-    return invoicesService.issueForShipment(tx, toInvoiceFacts(order, method), shipment, issuedBy);
+    return invoicesService.issueForShipment(tx, toInvoiceFacts(order, method), shipment, issuedBy, {
+      dispatched,
+    });
+  }
+
+  /** Internal route: one short transaction (order row + sequence row held for milliseconds). */
+  issueShipmentInvoice(
+    orderId: string,
+    shipment: ShipmentRequest,
+    issuedBy: string | null,
+  ): Promise<IssuedDocument> {
+    return this.deps.runInTransaction((tx) =>
+      this.issueShipmentInvoiceInTx(tx, orderId, shipment, issuedBy),
+    );
+  }
+
+  /**
+   * Safety net for missed `shipment.status_changed.v1` events (invoice-reconcile job): voids the
+   * invoices of shipments recorded as CANCELLED on recently changed orders. Idempotent.
+   */
+  async reconcileShipmentInvoices(): Promise<{ voided: number }> {
+    // Index-driven: recent active invoices (small) → their orders' shipment states (by id).
+    const open = await this.deps.invoicesService.recentActiveShipments(
+      new Date(Date.now() - 7 * 86_400_000),
+      1000,
+    );
+    if (open.length === 0) return { voided: 0 };
+    const states = await this.deps.ordersRepository.shipmentStatesOf([
+      ...new Set(open.map((o) => o.orderId)),
+    ]);
+    const pairs = new Map<string, string[]>();
+    for (const o of open) {
+      const s = (states.get(o.orderId) ?? {}) as ShipmentStates;
+      if (s[o.shipmentId]?.status !== 'CANCELLED') continue;
+      pairs.set(o.orderId, [...(pairs.get(o.orderId) ?? []), o.shipmentId]);
+    }
+    let voided = 0;
+    for (const [orderId, shipmentIds] of pairs) {
+      try {
+        voided += (
+          await this.deps.runInTransaction(async (tx) => {
+            if ((await this.deps.ordersRepository.lock(tx, orderId)) === null) return [];
+            return this.deps.invoicesService.voidCancelledShipments(tx, orderId, shipmentIds);
+          })
+        ).length;
+      } catch (err) {
+        this.deps.logger.error({ err, orderId }, 'invoice reconcile failed for order');
+      }
+    }
+    return { voided };
   }
 
   /** The buyer's money ledger for one own order (another buyer's id → 404). */
@@ -598,9 +661,25 @@ export class OrdersService {
           });
         paise += shareOf(toPaise(line.lineTotal.toFixed(2)), line.qty, l.qty);
       }
+      const sourceRef = `shortage:${input.shipmentId}`;
+      // D-61: the GST credit note decides the amount (refund = credit note, to the paisa), so the
+      // money ledger and the GST books always agree. No invoice (dev flag) → line shares.
+      const credit = await this.deps.invoicesService.creditForShipment(tx, {
+        orderId,
+        shipmentId: input.shipmentId,
+        lines: input.lines.map((l) => ({ orderLineNo: l.lineNo, qty: l.qty })),
+        sourceRef,
+        reason: 'Units not delivered (short delivery)',
+        issuedBy: null,
+      });
+      if (credit.kind === 'ISSUED') paise = Number(credit.document.grandTotalPaise);
+      else if (credit.kind === 'TIME_BARRED')
+        this.deps.logger.error(
+          { orderId, invoiceDocNo: credit.invoiceDocNo, deadline: credit.deadline },
+          'ALERT credit note time-barred (CGST s.34): refund proceeds without a credit note',
+        );
       const refundable = await this.deps.orderLifecycle.refundablePaise(tx, locked);
       const amountPaise = Math.min(paise, refundable);
-      const sourceRef = `shortage:${input.shipmentId}`;
       await this.deps.orderLifecycle.requestRefundInTx(tx, locked, {
         source: 'SHORTAGE',
         sourceRef,
@@ -610,7 +689,13 @@ export class OrdersService {
         ctx,
         isSystem: true,
       });
-      return { orderId, sourceRef, amountPaise, amount: fromPaise(amountPaise) };
+      return {
+        orderId,
+        sourceRef,
+        amountPaise,
+        amount: fromPaise(amountPaise),
+        creditNoteNo: credit.kind === 'ISSUED' ? credit.document.docNo : null,
+      };
     });
   }
 

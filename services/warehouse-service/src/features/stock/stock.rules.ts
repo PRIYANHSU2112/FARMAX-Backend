@@ -125,7 +125,28 @@ export const periodOf = (d: Date): number => {
 /** CN-2611-0001, ADJ-2611-0007, RST-2611-0003, TR-2611-0041. */
 /** Document kinds: receipt CN, customer return RT, adjustment ADJ, restock RST, transfer TR. */
 export type DocKind =
-  'CN' | 'RT' | 'ADJ' | 'RST' | 'TR' | 'SHP' | 'BLK' | 'TSK' | 'EX' | 'B' | 'CMP' | 'RLC' | 'TRP';
+  | 'CN'
+  | 'RT'
+  | 'ADJ'
+  | 'RST'
+  | 'TR'
+  | 'SHP'
+  | 'BLK'
+  | 'TSK'
+  | 'EX'
+  | 'B'
+  | 'CMP'
+  | 'RLC'
+  | 'TRP'
+  // D-62 gate: inbound shipment, gate entry, inward / outward pass, receiving handover, visitor,
+  // outward material.
+  | 'INB'
+  | 'GE'
+  | 'GPI'
+  | 'GPO'
+  | 'RCV'
+  | 'VIS'
+  | 'OM';
 export const docNo = (kind: DocKind, period: number, n: number): string =>
   `${kind}-${String(period).padStart(4, '0')}-${String(n).padStart(4, '0')}`;
 

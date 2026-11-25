@@ -66,6 +66,69 @@ export interface ShipmentRequest {
   lines: { lineNo: number; qty: number }[];
 }
 
+/** One stored line of an issued invoice (paise as bigint). */
+export interface InvoiceLineRow {
+  lineNo: number;
+  kind: 'GOODS' | 'FREIGHT';
+  orderLineNo: number | null;
+  variantId: string | null;
+  sku: string | null;
+  description: string;
+  hsnSac: string;
+  qty: number;
+  unitPricePaise: bigint;
+  grossPaise: bigint;
+  discountPaise: bigint;
+  taxablePaise: bigint;
+  gstRateBp: number;
+  cgstPaise: bigint;
+  sgstPaise: bigint;
+  igstPaise: bigint;
+  totalPaise: bigint;
+}
+
+/** The active (not voided) invoice of a shipment, with what was already credited against it. */
+export interface ActiveInvoice {
+  id: string;
+  docType: TaxDocumentType;
+  docNo: string;
+  fy: string;
+  status: 'ISSUED' | 'PARTIALLY_CREDITED' | 'CREDITED';
+  orderId: string;
+  orderNo: string;
+  shipmentId: string;
+  userId: string;
+  farmId: string;
+  sellerGstin: string;
+  sellerStateCode: string;
+  buyerGstin: string | null;
+  placeOfSupply: string;
+  supplyType: SupplyType;
+  issuedAt: Date;
+  /** Hash of the dispatched lines the invoice was issued for (suffix of its idempotency key). */
+  linesHash: string;
+  snapshot: InvoiceSnapshot;
+  lines: InvoiceLineRow[];
+  /** Units already credited per invoice line (`lineNo` of the INVOICE line). */
+  creditedQty: ReadonlyMap<number, number>;
+  creditNotes: number;
+}
+
+/** A credit request against one invoice: units per ORDER line, or the whole remainder. */
+export type CreditLines = { orderLineNo: number; qty: number }[] | 'ALL';
+
+/** A validated credit note before it gets its number. */
+export interface CreditDraft {
+  lines: DraftLine[];
+  hsnSummary: HsnSummaryRow[];
+  totals: Totals;
+  amountInWords: string;
+  /** CDNR (registered buyer) · CDNUR (original was B2CL) · B2CS (net adjustment of table 7). */
+  gstr1Section: 'CDNR' | 'CDNUR' | 'B2CS';
+  /** True when the invoice is fully credited after this note. */
+  fullyCredited: boolean;
+}
+
 /** Quantities already billed on earlier invoices of the order. */
 export interface AlreadyInvoiced {
   qtyByLine: ReadonlyMap<number, number>;
@@ -139,6 +202,59 @@ export interface IssuedDocument {
   issuedAt: Date;
   /** True when this call returned an existing document (same idempotency key). */
   replayed: boolean;
+  /** Invoices: hash of the dispatched lines (the warehouse re-checks it at gate-out). */
+  linesHash?: string;
+  /** Invoices: the earlier invoice of the same shipment voided by this issue, if any. */
+  voidedDocNo?: string | null;
+}
+
+/** One row of the customer / admin document lists (no snapshot JSON: lists stay small). */
+export interface TaxDocumentSummary {
+  id: string;
+  docType: TaxDocumentType;
+  docNo: string;
+  status: 'ISSUED' | 'PARTIALLY_CREDITED' | 'CREDITED';
+  orderId: string;
+  orderNo: string;
+  shipmentId: string | null;
+  originalDocId: string | null;
+  buyerGstin: string | null;
+  placeOfSupply: string;
+  supplyType: SupplyType;
+  gstr1Section: string;
+  taxablePaise: bigint;
+  totalTaxPaise: bigint;
+  grandTotalPaise: bigint;
+  pdfStatus: 'PENDING' | 'RENDERING' | 'READY' | 'FAILED';
+  issuedAt: Date;
+}
+
+/** What a download needs (ownership already checked by the query). */
+export interface DownloadTarget {
+  id: string;
+  docNo: string;
+  fy: string;
+  pdfStatus: 'PENDING' | 'RENDERING' | 'READY' | 'FAILED';
+  pdfKey: string | null;
+  pdfSha256: string | null;
+  snapshot: unknown;
+  snapshotSha256: string;
+}
+
+/** Admin register filters (keyset on issuedAt DESC, id DESC). */
+export interface InvoiceSearch {
+  q?: string;
+  orderId?: string;
+  userId?: string;
+  farmId?: string;
+  docType?: TaxDocumentType;
+  status?: 'ISSUED' | 'PARTIALLY_CREDITED' | 'CREDITED';
+  pdfStatus?: 'PENDING' | 'RENDERING' | 'READY' | 'FAILED';
+  b2b?: boolean;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit: number;
 }
 
 /** One line as frozen in the snapshot (paise as numbers). */

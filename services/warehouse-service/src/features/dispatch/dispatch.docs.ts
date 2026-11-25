@@ -115,9 +115,9 @@ export const dispatchDocs = (aud: 'panel' | 'admin') => {
     }),
     depart: D('Depart (gate-out)', 'logistics.dispatch_assign', {
       data: any,
-      errors: [404, 409],
+      errors: [404, 409, 503],
       description:
-        'Every shipment must be READY_TO_DISPATCH and not on hold. Each → DISPATCHED: packed lots leave, `shipment.dispatched.v1` (one dispatchId) makes inventory issue the reservation line once. 409 NOT_READY / ON_HOLD / VEHICLE_OR_DRIVER_MISSING.',
+        'Every shipment must be READY_TO_DISPATCH and not on hold. **D-61: no goods leave without a GST invoice** — step 1 issues (or replays) each shipment’s tax invoice at order-service (idempotent per shipment + packed lines; a shipment whose packed lines changed gets its old invoice voided by a credit note and a new one), step 2 dispatches and re-checks the invoiced lines under the shipment lock. Each → DISPATCHED: packed lots leave, `shipment.dispatched.v1` (one dispatchId) makes inventory issue the reservation line once. The response adds `invoices[]` (`invoiceNo`, `grandTotal`, `replacedInvoiceNo`, `ewayBillRequired` when the value is above the e-way bill threshold — warning only). 409 NOT_READY / ON_HOLD / VEHICLE_OR_DRIVER_MISSING / TRIP_LOCKED / **INVOICE_BLOCKED** (order-service refused: `details.invoice.issues`) / **INVOICE_STALE** (lines changed between steps: depart again) · 503 INVOICE_UNAVAILABLE (nothing departed; retry).',
     }),
     complete: D('Complete trip', 'logistics.dispatch_assign', { data: any, errors: [404, 409] }),
     cancel: D('Cancel trip (before departure)', 'logistics.dispatch_assign', {

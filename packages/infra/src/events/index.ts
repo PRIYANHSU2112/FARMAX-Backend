@@ -14,3 +14,4 @@ export * from './contracts/pricing.events.js';
 export * from './contracts/wallet.events.js';
 export * from './contracts/support.events.js';
 export * from './contracts/warehouse.events.js';
+export * from './contracts/quality.events.js';

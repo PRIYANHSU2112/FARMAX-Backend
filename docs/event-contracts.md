@@ -79,13 +79,13 @@ sequenceDiagram
 
 ### Published by auth-service
 
-| Type                          | When                                                                                       | Payload (`data`)                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `user.registered.v1`          | A user account is created by any channel                                                   | `userId`, `userType`, `fullName`, `email \| null`, `phone \| null`, `preferredLanguage`, `registrationSource`, `parentUserId \| null` |
-| `user.status_changed.v1`      | Activation, suspension, deactivation, lock, deletion request / cancel (`PENDING_DELETION`) | `userId`, `previousStatus`, `status`, `changedByUserId \| null`                                                                       |
-| `user.deleted.v1`             | Admin soft delete, or self-service purge after the grace period (D-55)                     | `userId`, `deletedByUserId \| null`                                                                                                   |
-| `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked                               | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
-| `user.profile_updated.v1`     | Customer self-service: `PATCH /me` (name, email, photo) or a verified mobile change (D-58b) | `userId`, `userType`, `fullName`, `phone \| null`, `email \| null`, `changedFields[]` (current values, not a diff)                     |
+| Type                          | When                                                                                        | Payload (`data`)                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.registered.v1`          | A user account is created by any channel                                                    | `userId`, `userType`, `fullName`, `email \| null`, `phone \| null`, `preferredLanguage`, `registrationSource`, `parentUserId \| null` |
+| `user.status_changed.v1`      | Activation, suspension, deactivation, lock, deletion request / cancel (`PENDING_DELETION`)  | `userId`, `previousStatus`, `status`, `changedByUserId \| null`                                                                       |
+| `user.deleted.v1`             | Admin soft delete, or self-service purge after the grace period (D-55)                      | `userId`, `deletedByUserId \| null`                                                                                                   |
+| `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked                                | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
+| `user.profile_updated.v1`     | Customer self-service: `PATCH /me` (name, email, photo) or a verified mobile change (D-58b) | `userId`, `userType`, `fullName`, `phone \| null`, `email \| null`, `changedFields[]` (current values, not a diff)                    |
 
 `user.profile_updated.v1` consumer: farm-service queue `farm-service.events` (D-58b) syncs
 `farm_owners.fullName` (never with a blank name) and `phone`, then drops the farm caches after commit.
@@ -346,6 +346,29 @@ ALLOCATION_ISSUE when the assigned node no longer serves the PIN).
 warehouse-service consumes (queue `warehouse-service.events`): `order.placed|paid|confirmed|delivered|rejected|cancelled|failed|delivery_updated.v1`,
 `inventory.reservation_committed|reservation_released|issue_rejected|availability_changed.v1`
 (the last feeds the W3.13 storefront sync, newest `sequence` wins), `product.variant_created|updated|deactivated.v1`.
+
+### Published by warehouse-service (built 2026-11-25, D-62 gate)
+
+| Event                          | When                                                                            | Data (key fields)                                                                                                                                                                                                                                                                                                     | Consumers                               |
+| ------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `gate_entry.status_changed.v1` | Every gate entry status change (gate-in … exit, block, hold, turn-away, cancel) | `gateEntryId`, `entryNo`, `shipmentId`, `shipmentNo`, `warehouseId`, `vendorId`, `restockRequestId`, `vehicleRegNo`, `status`, `previousStatus`, `outcome` (COMPLETED / REJECTED), `netKg`, `varianceKg`, `debitNoteRequired`, `noReceipt`, `at`. **No driver PII.** Correlation id `gate:<entry>:<status>:<version>` | Future: W6 receiving, analytics, alerts |
+
+### Published by quality-service (built 2026-11-25, D-60)
+
+Contracts: `packages/infra/src/events/contracts/quality.events.ts`. Ids, codes and verdicts only.
+
+| Event                                 | When                                           | Data (key fields)                                                                                                                                             | Consumer     |
+| ------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `quality.spec_changed.v1`             | A SKU specification is saved (W16.09)          | `variantId`, `holdOnReceipt`, `releaseMode`, `isActive`, `version` (keep the highest)                                                                         | warehouse    |
+| `quality.decision_requested.v1`       | RELEASE / QUARANTINE / RECALL decided (W16.07) | `decisionId`, `decisionNo`, `batchId`, `kind`, `stateVersion` (orders decisions), `actorUserId`, `reason`                                                     | warehouse    |
+| `quality.decision_retry_requested.v1` | QA retries the failed warehouses of a decision | `decisionId`, `batchId`, `warehouseIds`, `actorUserId`                                                                                                        | warehouse    |
+| `quality.batch_state_changed.v1`      | Decision, COA review or COA expiry             | `batchId`, `state`, `qualityBlocked`, `certificateStatus`, `coaRef`, `version`                                                                                | warehouse    |
+| `quality.coa_published.v1`            | Independent COA approved                       | `coaId`, `coaNo`, `batchId`, `batchNo`, `productName`, `verdict`, `cnNos`, `watcherUserIds`                                                                   | notification |
+| `quality.batch_recalled.v1`           | Recall (failed independent COA or QA recall)   | `decisionId`, `batchId`, `batchNo`, `productName`, `cnNos`, `buyers[{userId, orderId, orderNo}]` (later buyers get their own event, once per decision × user) | notification |
+
+New warehouse-service events for D-60 (`warehouse.events.ts`): `warehouse.receipt_created.v1` (CN + batch lines with variant facts and initial status, written in the receipt transaction), `warehouse.shipment_batches.v1` (gate-out: `customerUserId`, `orderNo`, `lines[{variantId, batchId, qty}]`), `warehouse.quality_tasks_planned.v1` (`decisionId`, `warehouseIds`), `warehouse.quality_task_updated.v1` (`status` DONE / NO_STOCK / FAILED / SUPERSEDED, `qtyMoved`, `attempts`, `error`).
+
+quality-service consumes (queue `quality-service.events`): `warehouse.receipt_created|shipment_batches|quality_tasks_planned|quality_task_updated.v1`. warehouse-service now also consumes `quality.spec_changed|batch_state_changed|decision_requested|decision_retry_requested.v1`; notification-service consumes `quality.coa_published|batch_recalled.v1`.
 
 ### Pending design
 

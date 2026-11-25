@@ -543,6 +543,26 @@ export class RestockService {
   }
 
   /** Procurement receipt (stock receipt API with `restockRequestId`), inside its transaction. */
+  // ── D-62 gate: the approved procurement request is the gate's purchase order ──
+
+  /** Approved / partly received PROCUREMENT requests of a warehouse (PO dropdown). */
+  openProcurement(q: { warehouseId: string; vendorId?: string; q?: string; limit: number }) {
+    return this.repo.openProcurement(q);
+  }
+
+  /** One request (no lock). */
+  procurement(id: string, tx?: Tx): Promise<RequestRow | null> {
+    return this.repo.request(id, tx);
+  }
+
+  /**
+   * The request row locked FOR UPDATE: serialises every gate quantity check against it
+   * (wizard shipments, ASN match / convert) so two of them cannot take the same open qty.
+   */
+  lockProcurement(tx: Tx, id: string): Promise<RequestRow | null> {
+    return this.repo.lockRequest(tx, id);
+  }
+
   async applyProcurementReceipt(
     tx: Tx,
     requestId: string,

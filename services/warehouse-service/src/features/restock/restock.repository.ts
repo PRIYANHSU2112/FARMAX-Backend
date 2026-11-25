@@ -58,6 +58,31 @@ export class RestockRepository {
     );
   }
 
+  /** D-62 gate: approved / partly received PROCUREMENT requests of one warehouse (the "PO"). */
+  openProcurement(q: {
+    warehouseId: string;
+    vendorId?: string;
+    q?: string;
+    limit: number;
+  }): Promise<RequestRow[]> {
+    return withPrismaErrors(() =>
+      this.db.wmsRestockRequest.findMany({
+        where: {
+          type: 'PROCUREMENT',
+          destWarehouseId: q.warehouseId,
+          status: { in: ['APPROVED', 'PARTIALLY_RECEIVED'] },
+          ...(q.vendorId === undefined ? {} : { vendorId: q.vendorId }),
+          ...(q.q === undefined || q.q === ''
+            ? {}
+            : { requestNo: { contains: q.q.toUpperCase() } }),
+        },
+        select: REQUEST,
+        orderBy: { createdAt: 'desc' },
+        take: q.limit,
+      }),
+    );
+  }
+
   async lockRequest(tx: Tx, id: string): Promise<RequestRow | null> {
     await tx.$queryRaw`SELECT 1 FROM "warehouse_restock_requests" WHERE "id" = ${id}::uuid FOR UPDATE`;
     return this.request(id, tx);

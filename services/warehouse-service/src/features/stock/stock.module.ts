@@ -5,6 +5,9 @@ import { createStockEventHandlers } from './stock.events.js';
 import { StockCutover } from './stock.cutover.js';
 import { StockEngine } from './stock.engine.js';
 import { StockJobs } from './stock.jobs.js';
+import { StockQualityRepository } from './stock.quality.repository.js';
+import { StockQuality } from './stock.quality.js';
+import { stockInternalRoutes } from './stock.internal.routes.js';
 import { StockQueries } from './stock.queries.js';
 import { StockReadRepository } from './stock.read.repository.js';
 import { stockReadRoutes } from './stock.read.routes.js';
@@ -36,6 +39,8 @@ declare module '@fastify/awilix' {
     stockReadRepository: StockReadRepository;
     stockQueries: StockQueries;
     stockEventHandlers: EventHandlerMap;
+    stockQualityRepository: StockQualityRepository;
+    stockQuality: StockQuality;
   }
 }
 
@@ -55,9 +60,18 @@ export const stockModule = defineModule({
       stockReadRepository: asClass(StockReadRepository).singleton(),
       stockQueries: asClass(StockQueries).singleton(),
       stockEventHandlers: asFunction(createStockEventHandlers).singleton(),
+      stockQualityRepository: asClass(StockQualityRepository).singleton(),
+      stockQuality: asClass(StockQuality).singleton(),
     });
   },
   routes: routesFor('panel'),
+});
+
+/** D-60 service-to-service: `/internal/wms/units/:qrCode/trace` (never routed by the gateway). */
+export const stockInternalModule = defineModule({
+  name: 'stock-internal',
+  prefix: '/internal/wms',
+  routes: stockInternalRoutes,
 });
 
 /** Same handlers for the admin panel (`/admin/wms/stock/*`, GLOBAL grants) + admin-only routes. */

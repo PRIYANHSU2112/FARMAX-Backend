@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 import PDFDocument from 'pdfkit';
@@ -12,8 +12,9 @@ import type { InvoiceSnapshot, SnapshotLine } from './invoices.types.js';
  */
 
 const require = createRequire(import.meta.url);
-const FONT = require.resolve('dejavu-fonts-ttf/ttf/DejaVuSans.ttf');
-const FONT_BOLD = require.resolve('dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf');
+// Read once per process (not per render): the same bytes, so output stays deterministic.
+const FONT = readFileSync(require.resolve('dejavu-fonts-ttf/ttf/DejaVuSans.ttf'));
+const FONT_BOLD = readFileSync(require.resolve('dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf'));
 
 const A4 = { width: 595.28, height: 841.89 };
 const M = 36;
@@ -62,23 +63,25 @@ export interface RenderOptions {
   logoPath?: string | undefined;
 }
 
-export function renderInvoicePdf(
-  snap: InvoiceSnapshot,
-  options: RenderOptions = {},
-): Promise<Buffer> {
-  const issuedAt = new Date(snap.document.issuedAt);
+/** A buffered A4 document with the fonts registered; `done` resolves with the bytes after end(). */
+const createDoc = (info: {
+  title: string;
+  author: string;
+  subject: string;
+  at: Date;
+}): { doc: PDFKit.PDFDocument; done: Promise<Buffer> } => {
   const doc = new PDFDocument({
     size: 'A4',
     margin: M,
     bufferPages: true,
     info: {
-      Title: `${TITLES[snap.document.docType]} ${snap.document.docNo}`,
-      Author: snap.seller.legalName ?? 'FarmX',
-      Subject: `Order ${snap.order.orderNo}`,
+      Title: info.title,
+      Author: info.author,
+      Subject: info.subject,
       Creator: 'FarmX',
       Producer: 'FarmX',
-      CreationDate: issuedAt,
-      ModDate: issuedAt,
+      CreationDate: info.at,
+      ModDate: info.at,
     },
   });
   doc.registerFont('body', FONT);
@@ -91,7 +94,81 @@ export function renderInvoicePdf(
     });
     doc.on('error', reject);
   });
+  return { doc, done };
+};
 
+/** "FX/2627/0000123 · Page i of n" on every page of one document's page range. */
+const footer = (doc: PDFKit.PDFDocument, docNo: string, start: number, count: number) => {
+  for (let p = start; p < start + count; p += 1) {
+    doc.switchToPage(p);
+    doc
+      .font('body')
+      .fontSize(7)
+      .fillColor(MUTED)
+      .text(`${docNo} · Page ${String(p - start + 1)} of ${String(count)}`, M, A4.height - M - 10, {
+        lineBreak: false,
+        width: WIDTH,
+        align: 'center',
+      });
+  }
+};
+
+/** One document (single PDF): the stored, hashed artefact of the render job. */
+export function renderInvoicePdf(
+  snap: InvoiceSnapshot,
+  options: RenderOptions = {},
+): Promise<Buffer> {
+  const { doc, done } = createDoc({
+    title: `${TITLES[snap.document.docType]} ${snap.document.docNo}`,
+    author: snap.seller.legalName ?? 'FarmX',
+    subject: `Order ${snap.order.orderNo}`,
+    at: new Date(snap.document.issuedAt),
+  });
+  drawDocument(doc, snap, options);
+  footer(doc, snap.document.docNo, 0, doc.bufferedPageRange().count);
+  doc.end();
+  return done;
+}
+
+/**
+ * "Download Combined Invoices": every document of an order in ONE PDF, each starting on a new
+ * page with its own page numbering. Deterministic (dates = the latest issue time). Rendered on
+ * request from the immutable snapshots, never stored.
+ */
+export function renderCombinedPdf(
+  snaps: readonly InvoiceSnapshot[],
+  options: RenderOptions = {},
+): Promise<Buffer> {
+  const first = snaps[0];
+  if (first === undefined) throw new Error('renderCombinedPdf: no documents');
+  const latest = snaps.reduce(
+    (max, s) => (s.document.issuedAt > max ? s.document.issuedAt : max),
+    first.document.issuedAt,
+  );
+  const { doc, done } = createDoc({
+    title: `Invoices · Order ${first.order.orderNo}`,
+    author: first.seller.legalName ?? 'FarmX',
+    subject: `Order ${first.order.orderNo}`,
+    at: new Date(latest),
+  });
+  const ranges: { docNo: string; start: number; count: number }[] = [];
+  snaps.forEach((snap, i) => {
+    if (i > 0) doc.addPage();
+    const start = doc.bufferedPageRange().count - 1;
+    drawDocument(doc, snap, options);
+    ranges.push({
+      docNo: snap.document.docNo,
+      start,
+      count: doc.bufferedPageRange().count - start,
+    });
+  });
+  for (const r of ranges) footer(doc, r.docNo, r.start, r.count);
+  doc.end();
+  return done;
+}
+
+/** Draws one GST document starting at the top of the CURRENT page. */
+function drawDocument(doc: PDFKit.PDFDocument, snap: InvoiceSnapshot, options: RenderOptions) {
   const text = (
     s: string,
     x: number,
@@ -364,18 +441,4 @@ export function renderInvoicePdf(
     align: 'right',
     bold: true,
   });
-
-  // ── Footer on every page ──
-  const range = doc.bufferedPageRange();
-  for (let p = range.start; p < range.start + range.count; p += 1) {
-    doc.switchToPage(p);
-    text(
-      `${snap.document.docNo} · Page ${String(p + 1)} of ${String(range.count)}`,
-      M,
-      A4.height - M - 10,
-      { width: WIDTH, align: 'center', color: MUTED, size: 7, lineBreak: false },
-    );
-  }
-  doc.end();
-  return done;
 }

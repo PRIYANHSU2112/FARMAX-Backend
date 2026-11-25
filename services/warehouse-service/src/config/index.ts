@@ -34,6 +34,13 @@ export interface WarehouseConfig extends BaseConfig {
   INTERNAL_SERVICE_TOKEN?: string;
   /** D-57b delivery OTP key (≥ 32 chars); unset → derived from INTERNAL_SERVICE_TOKEN (dev). */
   DELIVERY_OTP_KEY?: string;
+  /**
+   * D-62 gate pass QR signing keys, JSON {"kid":"secret ≥ 32 chars"} (several kids = rotation:
+   * old kids keep verifying until removed). Unset → one key derived from INTERNAL_SERVICE_TOKEN (dev).
+   */
+  GATE_PASS_QR_KEYS?: string;
+  /** The kid that signs NEW passes (must exist in GATE_PASS_QR_KEYS). */
+  GATE_PASS_QR_ACTIVE_KID?: string;
   /** Public base URL of 3PL driver trip links (e.g. https://app.farmx.in/driver). */
   DRIVER_LINK_BASE_URL?: string;
   RABBITMQ_URL: string;
@@ -43,6 +50,13 @@ export interface WarehouseConfig extends BaseConfig {
   JOBS_ENABLED: boolean;
   /** How often stock figures are pulled from inventory-service. */
   STATS_REFRESH_SECONDS: number;
+  /**
+   * D-61: gate-out issues the GST invoice first (order-service) and refuses to dispatch without
+   * it. Always true in prod; dev/test without a seller GSTIN may set false (logged, continues).
+   */
+  DISPATCH_REQUIRE_INVOICE: boolean;
+  /** D-61: invoice value above which gate-out flags an e-way bill (warning only), in paise. */
+  EWAY_BILL_THRESHOLD_PAISE: number;
 }
 
 const offInTests = (parent: { NODE_ENV?: string }) => parent.NODE_ENV !== 'test';
@@ -88,6 +102,8 @@ const schema = Joi.object<WarehouseConfig>({
     .default('http://localhost:3009'),
   INTERNAL_SERVICE_TOKEN: Joi.string().min(32),
   DELIVERY_OTP_KEY: Joi.string().min(32),
+  GATE_PASS_QR_KEYS: Joi.string().max(4000),
+  GATE_PASS_QR_ACTIVE_KID: Joi.string().pattern(/^[A-Za-z0-9_-]{1,20}$/),
   DRIVER_LINK_BASE_URL: Joi.string().uri(),
   RABBITMQ_URL: Joi.string()
     .uri({ scheme: ['amqp', 'amqps'] })
@@ -95,6 +111,12 @@ const schema = Joi.object<WarehouseConfig>({
   EVENTS_ENABLED: Joi.boolean().truthy('1').falsy('0').default(offInTests),
   JOBS_ENABLED: Joi.boolean().truthy('1').falsy('0').default(offInTests),
   STATS_REFRESH_SECONDS: Joi.number().integer().min(15).max(3600).default(60),
+  DISPATCH_REQUIRE_INVOICE: Joi.boolean()
+    .truthy('1')
+    .falsy('0')
+    .default(true)
+    .when('APP_ENV', { is: 'prod', then: Joi.valid(true) }),
+  EWAY_BILL_THRESHOLD_PAISE: Joi.number().integer().min(0).default(5_000_000),
 });
 
 /** The root `.env` sets a generic PORT for the gateway; this service reads WAREHOUSE_SERVICE_PORT. */

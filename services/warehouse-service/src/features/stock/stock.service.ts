@@ -7,6 +7,7 @@ import {
 import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 import { emitWarehouseEvent } from '../../adapters/events.js';
+import { bumpGateVersion } from '../../adapters/gate-version.js';
 import { uuidv7 } from '../../adapters/uuid.js';
 import type { Caller } from '../../middleware/guards.js';
 import type { Actor } from '../audit/index.js';
@@ -28,7 +29,6 @@ import {
 } from './stock.rules.js';
 import type {
   AdjustmentInput,
-  CoaInput,
   MoveInput,
   OwnerFixInput,
   ProposalDecision,
@@ -76,7 +76,15 @@ export class StockService {
   private readonly auditService: Cradle['auditService'];
   private readonly mediaClient: Cradle['mediaClient'];
   private readonly productClient: Cradle['productClient'];
-  private readonly lazy: Pick<Cradle, 'warehousesService' | 'storageService' | 'restockService'>;
+  private readonly lazy: Pick<
+    Cradle,
+    | 'warehousesService'
+    | 'storageService'
+    | 'restockService'
+    | 'stockQuality'
+    | 'gateEntries'
+    | 'redis'
+  >;
 
   constructor(
     deps: Pick<
@@ -91,6 +99,9 @@ export class StockService {
       | 'warehousesService'
       | 'storageService'
       | 'restockService'
+      | 'stockQuality'
+      | 'gateEntries'
+      | 'redis'
     >,
   ) {
     this.repo = deps.stockRepository;
@@ -135,9 +146,14 @@ export class StockService {
         : 'AVAILABLE';
     const kind: DocKind = isReturn ? 'RT' : 'CN';
     const supply = await this.repo.vendorSupply(input.lines.map((l) => l.variantId));
+    // D-60: SKUs with an active quality spec land in QC_HOLD (released only by quality-service).
+    const policies = isReturn
+      ? new Map<string, { holdOnReceipt: boolean; isActive: boolean }>()
+      : await this.lazy.stockQuality.policies(input.lines.map((l) => l.variantId));
     const serializedCats = new Set(s['stock.serializedCategoryIds']);
 
-    const id = await this.runInTransaction(async (tx) => {
+    const { id, gateWarning } = await this.runInTransaction(async (tx) => {
+      let gateWarning: { code: string; reason: string } | null = null;
       const cnNo = await this.nextDocNo(tx, kind);
       const receiptId = uuidv7();
       const moves: StockMove[] = [];
@@ -151,10 +167,18 @@ export class StockService {
         const serialize =
           sup?.requiresUnitQr === true || v.categoryPath.some((c) => serializedCats.has(c));
         const batch = await this.upsertBatch(tx, l, vendorId, serialize, i);
+        const policy = policies.get(l.variantId);
+        const lineStatus: StockStatus = isReturn
+          ? initial
+          : batch.qualityBlocked
+            ? 'QUARANTINED'
+            : policy?.isActive === true && policy.holdOnReceipt
+              ? 'QC_HOLD'
+              : initial;
         moves.push({
           type: isReturn ? 'RETURN' : 'RECEIPT',
           from: isReturn ? 'DELIVERED' : 'RECEIVED',
-          to: initial,
+          to: lineStatus,
           qty: l.qty,
           target: {
             warehouseId: input.warehouseId,
@@ -173,7 +197,7 @@ export class StockService {
           qty: l.qty,
           ownerType,
           vendorId,
-          initialStatus: initial,
+          initialStatus: lineStatus,
         });
       }
       await this.repo.createReceipt(tx, {
@@ -205,15 +229,31 @@ export class StockService {
           input.warehouseId,
           lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
         );
+      await this.lazy.stockQuality.publishReceipt(tx, receiptId, caller.requestId);
+      // D-62: the receipt always posts; the gate link is best effort (warning when skipped).
+      if (input.gateEntryId !== undefined && input.gateEntryId !== null) {
+        const link = await this.lazy.gateEntries.linkReceiptInTx(tx, caller, {
+          gateEntryId: input.gateEntryId,
+          receiptId,
+          cnNo,
+          warehouseId: input.warehouseId,
+          vendorId: input.vendorId ?? null,
+          finalForGate: input.finalForGate === true,
+        });
+        gateWarning = link.warning;
+      }
       await this.auditService.record(tx, actorOf(caller), {
         action: isReturn ? 'stock.return_received' : 'stock.received',
         targetType: 'stock_receipt',
         targetId: receiptId,
         after: { cnNo, warehouseId: input.warehouseId, lines: lines.length },
       });
-      return receiptId;
+      return { id: receiptId, gateWarning };
     });
-    return this.receiptView(id);
+    if (input.gateEntryId !== undefined && input.gateEntryId !== null)
+      await bumpGateVersion(this.lazy.redis, input.warehouseId);
+    const view = await this.receiptView(id);
+    return gateWarning === null ? view : { ...view, warnings: [gateWarning] };
   }
 
   async receiptView(id: string) {
@@ -312,50 +352,19 @@ export class StockService {
     });
   }
 
-  // ── COA ──
-
-  async setCoa(caller: Caller, batchId: string, input: CoaInput) {
-    await this.lazy.warehousesService.requireVisible(
-      caller,
-      input.warehouseId,
-      'quality.hold_create',
-    );
-    const batch = await this.mustBatch(batchId);
-    const doc =
-      input.receipt === undefined || input.receipt === null
-        ? null
-        : this.mediaClient.verify(input.receipt, caller.userId, 'body.receipt', 'wms_document');
-    return this.runInTransaction(async (tx) => {
-      const after = await this.repo.updateBatch(tx, batchId, {
-        ...(input.coaRef === undefined ? {} : { coaRef: input.coaRef }),
-        ...(doc === null ? {} : { coaMediaKey: doc.key }),
-        ...(input.certificateStatus === undefined
-          ? {}
-          : { certificateStatus: input.certificateStatus }),
-        ...(input.qualityNote === undefined ? {} : { qualityNote: input.qualityNote }),
-      });
-      await this.auditService.record(tx, actorOf(caller), {
-        action: 'stock.coa_updated',
-        targetType: 'stock_batch',
-        targetId: batchId,
-        before: { coaRef: batch.coaRef, certificateStatus: batch.certificateStatus },
-        after: { coaRef: after.coaRef, certificateStatus: after.certificateStatus },
-      });
-      return {
-        batchId,
-        coaRef: after.coaRef,
-        certificateStatus: after.certificateStatus,
-        hasDocument: after.coaMediaKey !== null,
-        qualityNote: after.qualityNote,
-      };
-    });
-  }
-
   // ── Quality release / hold ──
 
   async release(caller: Caller, input: QualityInput) {
     const from = input.from ?? 'QC_HOLD';
     await this.lazy.warehousesService.requireVisible(caller, input.warehouseId, 'warehouse.view');
+    // D-60: QC_HOLD of a SKU with a quality spec is released only by a W16.07 decision.
+    if (from === 'QC_HOLD') {
+      const batch = await this.mustBatch(input.batchId);
+      if (await this.lazy.stockQuality.isHeld(batch.variantId))
+        throw new ConflictError('Release this batch from Quality release (W16.07)', {
+          details: { reason: 'RELEASE_VIA_QUALITY', batchId: input.batchId },
+        });
+    }
     return this.qualityMove(caller, input, from, 'AVAILABLE', 'QC_RELEASE', 'quality.released');
   }
 
@@ -1159,12 +1168,23 @@ export class StockService {
       receivedBy: r.receivedBy,
       lines: r.lines,
     });
+    await this.lazy.stockQuality.publishReceipt(tx, id, `receipt:${id}`);
     return { id, cnNo };
   }
 
   // ── helpers ──
 
   /** Projection rows; SKUs missing (facts published before the WMS existed) are fetched once. */
+  /** D-62 gate: vendor facts (code, name, status) by id. */
+  vendorFacts(ids: readonly string[]) {
+    return this.repo.vendorsByIds(ids);
+  }
+
+  /** D-62 gate: product search (name / SKU) on the variant projection. */
+  searchVariants(q: string, limit: number) {
+    return this.repo.searchVariants(q, limit);
+  }
+
   async ensureVariants(ids: readonly string[]) {
     const have = await this.repo.variants(ids);
     const missing = [...new Set(ids)].filter((id) => !have.some((v) => v.variantId === id));

@@ -381,6 +381,41 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     ],
   },
   {
+    module: 'gate',
+    label: 'Gate & weighbridge (W5)',
+    permissions: [
+      {
+        key: 'gate.view',
+        description: 'View the gate dashboard, inbound shipments, entries, weighments and passes',
+        scopes: GW,
+      },
+      {
+        key: 'gate.operate',
+        description:
+          'Create inbound shipments and ASNs, record gate entries, weighments and documents, issue passes',
+        scopes: GW,
+      },
+      {
+        key: 'gate.approve',
+        description:
+          'Approve, block, unblock or turn away vehicles; review weight overrides, holds and outward material',
+        sensitive: true,
+        scopes: GW,
+      },
+      {
+        key: 'gate.security',
+        description: 'Record visitors, outward material and security checks',
+        scopes: GW,
+      },
+      {
+        key: 'gate.configure',
+        description: 'Manage weighbridge scales and gate settings (tolerance, documents, slots)',
+        sensitive: true,
+        scopes: GW,
+      },
+    ],
+  },
+  {
     module: 'orders',
     label: 'Orders & fulfilment',
     permissions: [
@@ -475,6 +510,17 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
       },
       { key: 'refunds.initiate', description: 'Initiate a refund', sensitive: true, scopes: GR },
       { key: 'refunds.approve', description: 'Approve a refund', sensitive: true, scopes: G },
+      {
+        key: 'invoices.view',
+        description: 'View, search and download GST invoices and credit notes; retry a failed PDF',
+        scopes: G,
+      },
+      {
+        key: 'invoices.export',
+        description: 'Export the GST invoice register (CSV)',
+        sensitive: true,
+        scopes: G,
+      },
       { key: 'settlements.view', description: 'View vendor settlements and payouts', scopes: GV },
       {
         key: 'settlements.approve',
@@ -667,6 +713,14 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
         assignable: false,
         scopes: G,
       },
+      // D-60 quality-service (W16.09 / W16.08).
+      {
+        key: 'quality.spec_manage',
+        description: 'Set SKU specification limits and release mode',
+        sensitive: true,
+        scopes: G,
+      },
+      { key: 'quality.lab_manage', description: 'Manage the laboratory list', scopes: G },
     ],
   },
   {
@@ -675,10 +729,11 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     permissions: [
       { key: 'traceability.coa_view', description: 'View certificates of analysis', scopes: ALL },
       {
+        // D-60: warehouse QA enters results / uploads COAs at their warehouse (approval stays G).
         key: 'traceability.coa_publish',
         description: 'Publish a COA against a consignment',
         sensitive: true,
-        scopes: G,
+        scopes: GW,
       },
       { key: 'traceability.coa_verify', description: 'Verify a COA', sensitive: true, scopes: G },
       {

@@ -101,6 +101,11 @@ export const deliveryDocs = (aud: 'panel' | 'admin') => {
     exportDownload: d('Download export (CSV)', 'fulfilment.view', {
       description: 'POD links are signed at download time (valid 5 minutes).',
     }),
+    invoicePdf: d('Print the shipment’s GST invoice (PDF)', 'fulfilment.view', {
+      errors: [404, 503],
+      description:
+        'Returns **`application/pdf`** (attachment), not JSON: the active tax invoice of THIS shipment (issued at gate-out, D-61) for the copy that travels with the goods. A shipment outside your warehouses answers 404 like a missing one; before gate-out → 404 `NO_INVOICE`. Never waits for the background renderer. Audited. 30 per user per minute.',
+    }),
     linkCreate: d('Create 3PL driver trip link', 'logistics.dispatch_assign', {
       status: 201,
       data: any,

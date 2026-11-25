@@ -101,6 +101,13 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     summary:
       'Warehouse portal (D-56): warehouse master, setup wizard and status, service areas (districts, PINs), portal shell',
   },
+  {
+    service: 'quality-service',
+    baseUrl: config.QUALITY_SERVICE_URL,
+    publicPrefix: '/v1',
+    summary:
+      'Sampling & COA (D-60, W16): labs, SKU specification limits, samples, certificates of analysis, quality release / quarantine / recall, customer certificates and public verification',
+  },
 ];
 
 /**

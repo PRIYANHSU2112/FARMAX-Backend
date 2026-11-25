@@ -47,6 +47,12 @@ export const WAREHOUSE_PERMISSIONS = new Set([
   'logistics.delivery_exception_manage',
   'logistics.fleet_manage',
   'logistics.delivery_confirm',
+  // D-62 gate & weighbridge
+  'gate.view',
+  'gate.operate',
+  'gate.approve',
+  'gate.security',
+  'gate.configure',
 ]);
 
 /**

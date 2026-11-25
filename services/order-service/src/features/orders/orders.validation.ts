@@ -197,6 +197,33 @@ export const refundOfflineSchema = {
 };
 
 /** Internal (warehouse W3.10 prepaid settlement): refund of units not delivered. */
+/** D-61 internal: issue the shipment's invoice before gate-out (lines = order line + packed qty). */
+export const shipmentInvoiceSchema = {
+  params: Joi.object({ id: ID.required(), shipmentId: ID.required() }),
+  body: Joi.object({
+    lines: Joi.array()
+      .items(
+        Joi.object({
+          lineNo: Joi.number().integer().min(1).required(),
+          qty: Joi.number().integer().min(1).max(1_000_000).required(),
+        }),
+      )
+      .min(1)
+      .max(200)
+      .unique('lineNo')
+      .required(),
+    /** The warehouse's own hash of the lines: must match ours (same algorithm both sides). */
+    linesHash: Joi.string()
+      .pattern(/^[0-9a-f]{16}$/)
+      .required(),
+    by: ID.allow(null).default(null),
+  }),
+};
+
+export const shipmentPdfSchema = {
+  params: Joi.object({ id: ID.required(), shipmentId: ID.required() }),
+};
+
 export const shortageRefundSchema = {
   ...idParams,
   body: Joi.object({

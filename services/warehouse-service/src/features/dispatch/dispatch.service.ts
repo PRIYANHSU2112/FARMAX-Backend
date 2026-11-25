@@ -653,8 +653,27 @@ export class DispatchService {
     }));
   }
 
-  /** Gate-out: every shipment must be READY_TO_DISPATCH (not on hold) → DISPATCHED. */
+  /**
+   * Gate-out: every shipment must be READY_TO_DISPATCH (not on hold) → DISPATCHED.
+   * D-61 saga: (1) access + state checked, then each shipment's GST invoice is issued (or
+   * replayed) at order-service OUTSIDE the transaction; (2) the transaction dispatches and
+   * re-checks every shipment's lines hash under its row lock. A failure before (2) leaves the
+   * trip as it was; departing again replays the same invoices (idempotent).
+   */
   async depart(caller: Caller, id: string, input: { etaAt?: string | null; note?: string | null }) {
+    const pre = await this.repo.trip(id);
+    if (pre === null) throw new NotFoundError('Trip');
+    caller.access.require('logistics.dispatch_assign', pre.warehouseId);
+    if (pre.status !== 'PLANNED' && pre.status !== 'LOADING')
+      throw new ConflictError(`The trip is ${pre.status}`, { details: { reason: 'TRIP_LOCKED' } });
+    if (pre.vehicleId === null || pre.driverId === null)
+      throw new ConflictError('Assign a vehicle and a driver before departure', {
+        details: { reason: 'VEHICLE_OR_DRIVER_MISSING' },
+      });
+    const invoices = await this.deps.fulfilmentFloor.prepareInvoices(
+      pre.shipments.map((s) => s.shipmentId),
+      caller.userId,
+    );
     await this.deps.runInTransaction(async (tx) => {
       const t = await this.lockTrip(tx, caller, id);
       if (t.status !== 'PLANNED' && t.status !== 'LOADING')
@@ -673,9 +692,16 @@ export class DispatchService {
       };
       const dispatched = [];
       for (const s of t.shipments)
-        dispatched.push(
-          await this.deps.fulfilmentFloor.dispatchInTx(tx, s.shipmentId, actor, `Trip ${t.tripNo}`),
-        );
+        dispatched.push({
+          ...(await this.deps.fulfilmentFloor.dispatchInTx(
+            tx,
+            s.shipmentId,
+            actor,
+            `Trip ${t.tripNo}`,
+            invoices.get(s.shipmentId),
+          )),
+          invoiceNo: invoices.get(s.shipmentId)?.invoice?.docNo ?? null,
+        });
       await this.repo.updateTrip(tx, id, {
         status: 'DEPARTED',
         departedAt: new Date(),
@@ -687,7 +713,18 @@ export class DispatchService {
         shipments: dispatched,
       });
     });
-    return this.trip(caller, id);
+    return {
+      ...(await this.trip(caller, id)),
+      invoices: [...invoices.values()].map((g) => ({
+        shipmentId: g.shipmentId,
+        shipmentNo: g.shipmentNo,
+        invoiceNo: g.invoice?.docNo ?? null,
+        docType: g.invoice?.docType ?? null,
+        grandTotal: g.invoice?.grandTotal ?? null,
+        replacedInvoiceNo: g.invoice?.voidedDocNo ?? null,
+        ewayBillRequired: g.ewayBillRequired,
+      })),
+    };
   }
 
   async complete(caller: Caller, id: string) {

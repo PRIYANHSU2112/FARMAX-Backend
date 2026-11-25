@@ -2,7 +2,12 @@ import type { DocsOptions, ServiceModule } from '@farmx/common/server';
 
 import type { OrderConfig } from '../config/index.js';
 import { auditModule } from '../features/audit/index.js';
-import { invoicesModule } from '../features/invoices/index.js';
+import {
+  ADMIN_INVOICES_TAG,
+  INVOICES_TAG,
+  invoicesAdminModule,
+  invoicesModule,
+} from '../features/invoices/index.js';
 import { CART_TAG, cartModule } from '../features/cart/index.js';
 import { OFFERS_TAG, offersModule } from '../features/offers/index.js';
 import {
@@ -24,6 +29,7 @@ import { transactionsModule } from '../features/transactions/index.js';
  *   /v1/orders/*            → /orders/*            checkout, my orders, ledger, offers + price preview
  *   /v1/admin/orders/*      → /admin/orders/*      manager console, ledger + reconciliation (staff)
  *   /v1/admin/promotions/*  → /admin/promotions/*  promotions admin (staff)
+ *   /v1/admin/invoices/*    → /admin/invoices/*    invoice register, downloads, GST export (staff, D-61)
  * `/internal/orders/*` is service-to-service only.
  */
 export const features: readonly ServiceModule[] = [
@@ -35,6 +41,7 @@ export const features: readonly ServiceModule[] = [
   settingsModule,
   transactionsModule,
   invoicesModule,
+  invoicesAdminModule,
   ordersModule,
   ordersAdminModule,
   ordersInternalModule,
@@ -62,6 +69,16 @@ export const createDocsOptions = (config: OrderConfig): DocsOptions => ({
       name: ADMIN_ORDERS_TAG,
       description:
         'Manager console: review queue, confirm / reject / bulk, cancel, notes, refund recovery, exception queues, settings.',
+    },
+    {
+      name: INVOICES_TAG,
+      description:
+        'GST tax invoices (one per consignment, issued before it leaves the warehouse) and credit notes of my order: list, signed download, combined PDF (D-61).',
+    },
+    {
+      name: ADMIN_INVOICES_TAG,
+      description:
+        'Invoice register: search, detail with snapshot, audited download, PDF retry, GST register CSV export (`invoices.view`, `invoices.export`).',
     },
     {
       name: OFFERS_TAG,

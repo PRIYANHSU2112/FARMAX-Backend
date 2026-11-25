@@ -42,7 +42,19 @@ export type AuditTarget =
   | 'routing_settings'
   | 'routing_throttle'
   | 'backorder'
-  | 'atp_settings';
+  | 'atp_settings'
+  // D-62 gate & weighbridge
+  | 'gate_shipment'
+  | 'gate_entry'
+  | 'gate_document'
+  | 'gate_pass'
+  | 'weighment'
+  | 'weigh_scale'
+  | 'gate_settings'
+  | 'asn'
+  | 'gate_visitor'
+  | 'outward_material'
+  | 'security_check';
 
 export interface AuditEntry {
   action: string;

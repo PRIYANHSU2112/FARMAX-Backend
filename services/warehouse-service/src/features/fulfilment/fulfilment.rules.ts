@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /** Pure fulfilment rules (D-57b): shipment state machine, SLA, distances, KPI maths. No I/O. */
 
 export const SHIPMENT_STATUSES = [
@@ -373,3 +375,30 @@ export const exceptionDue = (
 /** Percent with one decimal (null when the base is 0). */
 export const pct = (n: number, d: number): number | null =>
   d === 0 ? null : Math.round((n / d) * 1000) / 10;
+
+/**
+ * D-61 fingerprint of what a shipment dispatches: sorted `orderLineNo:qty` pairs, SHA-256, first
+ * 16 hex characters. order-service computes the SAME value (shared test vector in both suites):
+ * the invoice is issued for this hash and gate-out re-checks it under the shipment row lock.
+ */
+export const invoiceLinesHash = (lines: readonly { lineNo: number; qty: number }[]): string =>
+  createHash('sha256')
+    .update(
+      lines
+        .filter((l) => l.qty > 0)
+        .map((l) => [l.lineNo, l.qty] as const)
+        .sort((a, b) => a[0] - b[0])
+        .map(([n, q]) => `${String(n)}:${String(q)}`)
+        .join(','),
+    )
+    .digest('hex')
+    .slice(0, 16);
+
+/** What a shipment's invoice bills: order line + packed qty (lines without an order line → null). */
+export const invoiceLinesOf = (
+  lines: readonly { orderLineNo: number | null; packedQty: number }[],
+): { lineNo: number; qty: number }[] | null => {
+  const packed = lines.filter((l) => l.packedQty > 0);
+  if (packed.some((l) => l.orderLineNo === null)) return null;
+  return packed.map((l) => ({ lineNo: l.orderLineNo ?? 0, qty: l.packedQty }));
+};

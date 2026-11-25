@@ -23,10 +23,13 @@ export interface VerifiedDocument {
   key: string;
   mime: string;
   size: number;
+  fileName?: string | null;
 }
 
 const DOC_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const DOC_MAX_BYTES = 10 * 1024 * 1024;
+/** D-62 gate documents (scans, TIFF re-encoded by media-service). */
+const GATE_DOC_MAX_BYTES = 25 * 1024 * 1024;
 
 /** `base64url(json).base64url(hmacSha256(json))`, signed by media-service with the shared secret. */
 export function verifyReceipt(receipt: string, secret: string): ReceiptPayload | null {
@@ -45,7 +48,13 @@ export function verifyReceipt(receipt: string, secret: string): ReceiptPayload |
 }
 
 /** Private upload purposes warehouse-service accepts: staff ID documents (D-56); COA, POD, compliance and weigh-slip files (D-57). */
-export type MediaPurpose = 'staff_document' | 'wms_document';
+export type MediaPurpose = 'staff_document' | 'wms_document' | 'gate_document';
+
+const PURPOSE_LABEL: Record<MediaPurpose, string> = {
+  staff_document: 'staff document',
+  wms_document: 'warehouse document',
+  gate_document: 'gate document',
+};
 
 /** Why a staff-document receipt is refused (null = acceptable). Exported for unit tests. */
 export function receiptProblem(
@@ -58,9 +67,10 @@ export function receiptProblem(
   if (p === null) return 'is not a valid upload receipt';
   if (p.exp < nowSec) return 'has expired; upload the file again';
   if (p.purpose !== purpose || p.uploaderId !== uploaderId)
-    return `was not uploaded by you as a ${purpose === 'staff_document' ? 'staff document' : 'warehouse document'}`;
+    return `was not uploaded by you as a ${PURPOSE_LABEL[purpose]}`;
   if (!DOC_MIME.has(p.mime)) return 'must be a JPEG, PNG, WebP image or a PDF';
-  if (p.size > DOC_MAX_BYTES) return 'must be at most 10 MB';
+  const max = purpose === 'gate_document' ? GATE_DOC_MAX_BYTES : DOC_MAX_BYTES;
+  if (p.size > max) return `must be at most ${String(max / (1024 * 1024))} MB`;
   if (p.scanStatus === 'UNSCANNED' && prod) return 'was not virus-scanned';
   return null;
 }
@@ -92,7 +102,39 @@ export class MediaClient {
     );
     if (problem !== null || payload === null)
       throw new ValidationError([{ path: field, message: `File ${problem ?? 'is invalid'}` }]);
-    return { key: payload.key, mime: payload.mime, size: payload.size };
+    return {
+      key: payload.key,
+      mime: payload.mime,
+      size: payload.size,
+      fileName: payload.fileName,
+    };
+  }
+
+  /**
+   * Deletes private objects (D-62 PII retention: driver licence / RC scans). Returns the number
+   * deleted, or null when media-service could not be reached (the job retries later).
+   */
+  async deleteKeys(keys: readonly string[]): Promise<number | null> {
+    const { config, logger } = this.deps;
+    if (keys.length === 0) return 0;
+    if (config.INTERNAL_SERVICE_TOKEN === undefined) return null;
+    try {
+      const res = await fetch(`${config.MEDIA_SERVICE_URL}/internal/media/delete`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          [INTERNAL_TOKEN_HEADER]: config.INTERNAL_SERVICE_TOKEN,
+        },
+        body: JSON.stringify({ keys }),
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { data?: { deleted?: number } };
+      return body.data?.deleted ?? 0;
+    } catch (err) {
+      logger.warn({ err }, 'media-service delete failed');
+      return null;
+    }
   }
 
   /** Short-lived signed GET URLs (the caller already checked access). Empty on failure. */

@@ -17,6 +17,10 @@ export interface ReceiptInput {
   sourceType?: 'VENDOR' | 'RETURN';
   vendorId?: string | null;
   restockRequestId?: string | null;
+  /** D-62: link this CN to an inbound gate entry (several CNs per truck allowed). */
+  gateEntryId?: string | null;
+  /** D-62: the truck's last CN → gate entry UNLOADED. */
+  finalForGate?: boolean;
   notes?: string | null;
   lines: ReceiptLineInput[];
 }
@@ -70,15 +74,6 @@ export interface RelabelInput {
     binId?: string | null;
     qty: number;
   }[];
-}
-
-export interface CoaInput {
-  warehouseId: string;
-  coaRef?: string | null;
-  /** media-service upload receipt (purpose wms_document). */
-  receipt?: string | null;
-  certificateStatus?: 'NONE' | 'SAMPLE_REFERENCE' | 'VALID' | 'EXPIRED' | 'REJECTED';
-  qualityNote?: string | null;
 }
 
 export interface ThresholdInput {

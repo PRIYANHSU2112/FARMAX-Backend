@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { AppError, ErrorCode } from '@farmx/common/errors';
 import type { AuthUser } from '@farmx/common/types';
 import { asValue } from 'awilix';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
@@ -69,9 +70,17 @@ const memoryRedis = () => {
     get: (k: string) => Promise.resolve(store.get(k) ?? null),
     mget: (...keys: string[]) => Promise.resolve(keys.map((k) => store.get(k) ?? null)),
     del: (...keys: string[]) => Promise.resolve(keys.filter((k) => store.delete(k)).length),
-    set: (k: string, v: string) => {
+    // `SET k v EX n NX` honours NX (idempotency claims); EX is ignored in tests.
+    set: (k: string, v: string, ...args: (string | number)[]) => {
+      if (args.includes('NX') && store.has(k)) return Promise.resolve(null);
       store.set(k, v);
       return Promise.resolve('OK');
+    },
+    // D-62 gate cache version counter.
+    incr: (k: string) => {
+      const n = Number(store.get(k) ?? '0') + 1;
+      store.set(k, String(n));
+      return Promise.resolve(n);
     },
     multi: () => {
       const ops: (() => void)[] = [];
@@ -178,6 +187,17 @@ export const orderService = {
     shipmentId: string;
     lines: { lineNo: number; qty: number }[];
   }[],
+  /** D-61 gate-out invoice calls (in order) and the next answers (default: issue). */
+  invoiceCalls: [] as {
+    orderId: string;
+    shipmentId: string;
+    lines: { lineNo: number; qty: number }[];
+    linesHash: string;
+  }[],
+  invoiceAnswer: null as
+    null | { ok: false; conflict: { message: string; details: unknown } } | 'UNAVAILABLE',
+  /** Invoices issued per shipment id (the stub's "order-service"). */
+  invoices: new Map<string, { docNo: string; linesHash: string }>(),
 };
 
 /** inventory reservation stub (D-57b): reallocate answers + held lines per warehouse. */
@@ -261,6 +281,47 @@ export const buildTestApp = async (): Promise<FastifyInstance> => {
     // Category checks are skipped when the catalog cannot be read (null).
     catalogClient: asValue({ categories: () => Promise.resolve(null) } as never),
     orderClient: asValue({
+      issueShipmentInvoice: (
+        orderId: string,
+        shipmentId: string,
+        body: { lines: { lineNo: number; qty: number }[]; linesHash: string },
+      ) => {
+        orderService.invoiceCalls.push({ orderId, shipmentId, ...body });
+        const a = orderService.invoiceAnswer;
+        if (a === 'UNAVAILABLE')
+          return Promise.reject(
+            new AppError(ErrorCode.SERVICE_UNAVAILABLE, 'Invoice service unavailable', 503, {
+              details: { reason: 'INVOICE_UNAVAILABLE' },
+            }),
+          );
+        if (a !== null) return Promise.resolve(a);
+        const prev = orderService.invoices.get(shipmentId);
+        const replayed = prev?.linesHash === body.linesHash;
+        const docNo = replayed
+          ? prev.docNo
+          : 'FX/2627/' + String(orderService.invoices.size + 1).padStart(7, '0');
+        orderService.invoices.set(shipmentId, { docNo, linesHash: body.linesHash });
+        return Promise.resolve({
+          ok: true,
+          invoice: {
+            docId: shipmentId,
+            docNo,
+            docType: 'TAX_INVOICE',
+            grandTotalPaise: 6_000_000,
+            grandTotal: '60000.00',
+            issuedAt: new Date().toISOString(),
+            linesHash: body.linesHash,
+            replayed,
+            voidedDocNo: prev !== undefined && !replayed ? prev.docNo : null,
+          },
+        });
+      },
+      shipmentInvoicePdf: (_orderId: string, shipmentId: string) => {
+        const inv = orderService.invoices.get(shipmentId);
+        return Promise.resolve(
+          inv === undefined ? null : { file: Buffer.from('%PDF-1.4 test'), docNo: inv.docNo },
+        );
+      },
       fulfilmentFacts: (id: string) => Promise.resolve(orderService.facts.get(id) ?? null),
       counts: () => Promise.resolve({}),
       shortageRefund: (

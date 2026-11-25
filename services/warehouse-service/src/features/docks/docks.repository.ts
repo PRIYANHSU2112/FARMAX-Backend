@@ -31,7 +31,11 @@ const BOOKING = {
   status: true,
   startedAt: true,
   endedAt: true,
-  door: { select: { code: true } },
+  inboundShipmentId: true,
+  vendorId: true,
+  asnId: true,
+  confirmedAt: true,
+  door: { select: { code: true, name: true } },
 } as const satisfies Prisma.WmsDockBookingSelect;
 
 const STAGING = {
@@ -215,6 +219,35 @@ export class DocksRepository {
   ): Promise<BookingRow> {
     return withPrismaErrors(() =>
       tx.wmsDockBooking.update({ where: { id }, data, select: BOOKING }),
+    );
+  }
+
+  /** D-62 gate: ACTIVE doors that take INBOUND (UNLOADING or BOTH), by code. */
+  inboundDoors(warehouseId: string): Promise<DoorRow[]> {
+    return withPrismaErrors(() =>
+      this.db.wmsDockDoor.findMany({
+        where: { warehouseId, status: 'ACTIVE', type: { in: ['UNLOADING', 'BOTH'] } },
+        select: DOOR,
+        orderBy: { code: 'asc' },
+      }),
+    );
+  }
+
+  /** D-62 gate: INBOUND bookings planned to start in [from, to), all statuses. */
+  inboundBookingsBetween(warehouseId: string, from: Date, to: Date): Promise<BookingRow[]> {
+    return withPrismaErrors(() =>
+      this.db.wmsDockBooking.findMany({
+        where: { warehouseId, direction: 'INBOUND', plannedStart: { gte: from, lt: to } },
+        select: BOOKING,
+        orderBy: [{ plannedStart: 'asc' }, { id: 'asc' }],
+        take: 2_000,
+      }),
+    );
+  }
+
+  booking(warehouseId: string, id: string, tx?: Tx): Promise<BookingRow | null> {
+    return withPrismaErrors(() =>
+      (tx ?? this.db).wmsDockBooking.findFirst({ where: { id, warehouseId }, select: BOOKING }),
     );
   }
 

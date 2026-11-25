@@ -56,6 +56,8 @@ export const BATCH = {
   qualityNote: true,
   isOpening: true,
   serialized: true,
+  qualityBlocked: true,
+  qualityVersion: true,
   createdAt: true,
 } as const satisfies Prisma.WmsBatchSelect;
 export type BatchRow = Prisma.WmsBatchGetPayload<{ select: typeof BATCH }>;
@@ -403,11 +405,12 @@ export class StockRepository {
     );
   }
 
-  /** Positions of a SKU with AVAILABLE stock at a warehouse, locked in id order (no deadlocks). */
+  /** Positions of a SKU with AVAILABLE stock at a warehouse, locked in id order (no deadlocks). D-60: quality-blocked batches are never allocated. */
   lockAvailable(tx: Tx, warehouseId: string, variantId: string): Promise<PositionRow[]> {
     return tx.$queryRaw<PositionRow[]>(
       Prisma.sql`SELECT ${Prisma.raw(POSITION_COLS)} FROM "warehouse_stock_positions"
         WHERE "warehouseId" = ${warehouseId}::uuid AND "variantId" = ${variantId}::uuid AND "available" > 0
+          AND "batchId" NOT IN (SELECT "id" FROM "warehouse_batches" WHERE "qualityBlocked")
         ORDER BY "id" FOR UPDATE`,
     );
   }
@@ -438,7 +441,7 @@ export class StockRepository {
         b."certificateStatus"::text AS "certificateStatus", b."isOpening", p."reviewFields"
       FROM "warehouse_stock_positions" p JOIN "warehouse_batches" b ON b."id" = p."batchId"
       WHERE p."warehouseId" = ${warehouseId}::uuid AND p."variantId" = ANY(${[...new Set(variantIds)]}::uuid[])
-        AND p."available" > 0
+        AND p."available" > 0 AND NOT b."qualityBlocked"
       ORDER BY p."variantId", p."expiryDate" NULLS LAST, p."receivedAt", p."id"
       LIMIT 2000`;
   }
@@ -798,7 +801,7 @@ export class StockRepository {
     return withPrismaErrors(() =>
       this.db.wmsVendor.findMany({
         where: { id: { in: [...new Set(ids)] } },
-        select: { id: true, code: true, name: true, defaultOwnership: true },
+        select: { id: true, code: true, name: true, defaultOwnership: true, status: true },
       }),
     );
   }

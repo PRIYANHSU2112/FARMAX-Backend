@@ -83,24 +83,30 @@ model WmsDockDoor {
 
 /// No two PLANNED / IN_USE bookings of one door overlap (exclusion constraint in the migration).
 model WmsDockBooking {
-  id              String              @id @default(uuid(7)) @db.Uuid
-  warehouseId     String              @db.Uuid
-  dockDoorId      String              @db.Uuid
-  direction       WmsBookingDirection
+  id                String              @id @default(uuid(7)) @db.Uuid
+  warehouseId       String              @db.Uuid
+  dockDoorId        String              @db.Uuid
+  direction         WmsBookingDirection
   /// Shipment / vehicle reference, e.g. INB-1045 or AP 37 BC 2210.
-  refNo           String              @db.VarChar(40)
-  loadQty         Decimal             @db.Decimal(10, 2)
+  refNo             String              @db.VarChar(40)
+  loadQty           Decimal             @db.Decimal(10, 2)
   /// Copied from the door at booking time.
-  loadUnit        WmsCapacityUnit
-  plannedStart    DateTime
-  plannedEnd      DateTime
-  status          WmsBookingStatus    @default(PLANNED)
-  startedAt       DateTime?
-  endedAt         DateTime?
-  createdByUserId String?             @db.Uuid
-  updatedByUserId String?             @db.Uuid
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  loadUnit          WmsCapacityUnit
+  plannedStart      DateTime
+  plannedEnd        DateTime
+  status            WmsBookingStatus    @default(PLANNED)
+  startedAt         DateTime?
+  endedAt           DateTime?
+  /// D-62 gate: the inbound shipment / vendor / ASN this INBOUND slot is for.
+  inboundShipmentId String?             @db.Uuid
+  vendorId          String?             @db.Uuid
+  asnId             String?             @db.Uuid
+  /// Vendor confirmed the slot (W5.11 "Confirmed").
+  confirmedAt       DateTime?
+  createdByUserId   String?             @db.Uuid
+  updatedByUserId   String?             @db.Uuid
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   door WmsDockDoor @relation(fields: [dockDoorId], references: [id], onDelete: Restrict)
 

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
 
-import { renderInvoicePdf } from '../../src/features/invoices/invoices.pdf.js';
+import { renderCombinedPdf, renderInvoicePdf } from '../../src/features/invoices/invoices.pdf.js';
 import type { InvoiceSnapshot, SnapshotLine } from '../../src/features/invoices/invoices.types.js';
 
 const line = (n: number, over: Partial<SnapshotLine> = {}): SnapshotLine => ({
@@ -168,5 +168,39 @@ describe('invoice PDF', () => {
     expect(text).toContain('CREDIT NOTE');
     expect(text).toContain('FX/2627/0000123');
     expect(text).toContain('Total credit');
+  });
+});
+
+describe('combined PDF (D-61 "Download Combined Invoices")', () => {
+  it('every document on its own pages with its own numbering; deterministic', async () => {
+    const inv = snapshot([line(1)]);
+    const long = snapshot(
+      Array.from({ length: 45 }, (_, i) => line(i + 1)),
+      { docNo: 'FX/2627/0000124' },
+    );
+    const cn = snapshot([line(1)], { docType: 'CREDIT_NOTE', docNo: 'CN/2627/0000007' });
+    const pdf = await renderCombinedPdf([inv, long, cn]);
+    const text = await textOf(pdf);
+    for (const needle of [
+      'FX/2627/0000123 · Page 1 of 1',
+      'FX/2627/0000124 · Page 1 of',
+      'FX/2627/0000124 · Page 2 of',
+      'CN/2627/0000007 · Page 1 of 1',
+      'CREDIT NOTE',
+    ])
+      expect(text, needle).toContain(needle);
+    expect(sha(await renderCombinedPdf([inv, long, cn]))).toBe(sha(pdf));
+    // The single-document artefact is unchanged by the refactor (same bytes as a fresh render).
+    expect(sha(await renderInvoicePdf(inv))).toBe(sha(await renderInvoicePdf(inv)));
+  });
+
+  it('renders 5 documents well inside the 200 ms budget', async () => {
+    const snaps = Array.from({ length: 5 }, (_, i) =>
+      snapshot([line(1), line(2), line(3)], { docNo: `FX/2627/000020${String(i)}` }),
+    );
+    await renderCombinedPdf(snaps); // warm-up (font load)
+    const t0 = performance.now();
+    await renderCombinedPdf(snaps);
+    expect(performance.now() - t0).toBeLessThan(200);
   });
 });

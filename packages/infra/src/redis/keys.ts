@@ -64,6 +64,7 @@ export const CACHE_VERSIONS = {
   wallet: 'v1',
   support: 'v1',
   warehouse: 'v1',
+  quality: 'v1',
 } as const;
 
 const authKeyspace = createKeyspace({ service: 'auth', version: CACHE_VERSIONS.auth });
@@ -399,4 +400,24 @@ export const warehouseKeys = {
   contact: (userId: string) => warehouseKeyspace.key('contact', userId),
   /** Visible catalog categories (id → name). TTL 10 min. */
   categories: () => warehouseKeyspace.key('categories'),
+  /**
+   * D-62 gate: change counter of one warehouse's gate data (INCR after every committed gate
+   * write). Part of every gate ETag and cache key, so a cached body is never older than a write.
+   */
+  gateVersion: (warehouseId: string) => warehouseKeyspace.key('gate', 'v', warehouseId),
+  /** D-62 gate: cached dashboard body (version + minute bucket in the key). TTL 60 s. */
+  gateCache: (warehouseId: string, name: string, version: string, bucket: number, hash: string) =>
+    warehouseKeyspace.key('gate', 'c', warehouseId, name, version, bucket, hash),
+  /** Stored response of an idempotent write, per user + route + Idempotency-Key. TTL 24 h. */
+  idempotency: (userId: string, routeId: string, key: string) =>
+    warehouseKeyspace.key('idem', userId, routeId, key),
+};
+
+const qualityKeyspace = createKeyspace({ service: 'quality', version: CACHE_VERSIONS.quality });
+
+/** quality-service (D-60). Samples, COAs and decisions live in Postgres; Redis holds limits only. */
+export const qualityKeys = {
+  keyspace: qualityKeyspace,
+  rateLimit: (action: string, dimension: 'user' | 'ip', value: string) =>
+    qualityKeyspace.key('rl', action, dimension, value),
 };

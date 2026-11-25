@@ -19,6 +19,7 @@ import {
   STOCK_AREA,
   VENDORS_AREA,
   stockAdminModule,
+  stockInternalModule,
   stockModule,
 } from '../features/stock/index.js';
 import { RESTOCK_AREA, restockAdminModule, restockModule } from '../features/restock/index.js';
@@ -54,6 +55,18 @@ import {
   paymentsViewAdminModule,
   paymentsViewModule,
 } from '../features/payments-view/index.js';
+import {
+  ADMIN_GATE_TAG,
+  GATE_AREA,
+  GATE_ENTRY_AREA,
+  GATE_SECURITY_AREA,
+  GATE_WEIGH_AREA,
+  GATE_YARD_AREA,
+  gateAdminModule,
+  gateInternalModule,
+  gateModule,
+  gateSetupModule,
+} from '../features/gate/index.js';
 import { wmsTag } from '../docs/shared.js';
 
 /**
@@ -77,6 +90,7 @@ export const features: readonly ServiceModule[] = [
   portalPanelModule,
   stockModule,
   stockAdminModule,
+  stockInternalModule,
   restockModule,
   restockAdminModule,
   fulfilmentModule,
@@ -93,6 +107,10 @@ export const features: readonly ServiceModule[] = [
   atpAdminModule,
   paymentsViewModule,
   paymentsViewAdminModule,
+  gateModule,
+  gateAdminModule,
+  gateSetupModule,
+  gateInternalModule,
 ];
 
 /** Spec only (`/api-docs.json`); the gateway merges it into the single FarmX Swagger UI. */
@@ -125,6 +143,11 @@ export const createDocsOptions = (config: WarehouseConfig): DocsOptions => ({
       description: 'Storage compatibility rules: saved now, enforced by put-away later (W2.08).',
     },
     { name: ADMIN_CALENDAR_TAG, description: 'Working hours, shifts, holidays, cut-offs (W2.09).' },
+    {
+      name: ADMIN_GATE_TAG,
+      description:
+        'D-62 gate setup of a warehouse: weighbridge scales (calibration) and gate settings (tolerance, packaging allowance, required documents, slots, pass validity, retention).',
+    },
     {
       name: ADMIN_STATS_TAG,
       description:
@@ -227,6 +250,31 @@ export const createDocsOptions = (config: WarehouseConfig): DocsOptions => ({
         name: wmsTag(aud, OPS_AREA),
         description:
           'Maintenance banner; admin: background jobs (heartbeats, dead letters), reconcile reports.',
+      },
+      {
+        name: wmsTag(aud, GATE_AREA),
+        description:
+          'D-62 W5.01–W5.04: gate dashboard (KPI cards, donut, activity, table + tab badges; ETag / 304), lookups, open POs (approved procurement requests), inbound shipment wizard (preview, create, edit, cancel) and its documents.',
+      },
+      {
+        name: wmsTag(aud, GATE_ENTRY_AREA),
+        description:
+          'D-62 W5.05–W5.08: gate entry (plate match, bay, optional gross), document verification, approve → inward pass, block / unblock, turn-away, receiving handover, unloading (CN link or manual + reason), timeline, signed-QR passes (scan, reissue, PDF).',
+      },
+      {
+        name: wmsTag(aud, GATE_WEIGH_AREA),
+        description:
+          'D-62 W5.09 / W5.10: manual weighbridge (gross, tare, exit check), reconciliation against the expected load with tolerance, holds (accept / reweigh / debit note), manual overrides with maker-checker review, outward pass and exit, weighment slip.',
+      },
+      {
+        name: wmsTag(aud, GATE_YARD_AREA),
+        description:
+          'D-62 W5.11 / W5.12: dock appointments (slot grid, booked list, bays, book / reschedule / confirm / cancel) and vendor ASNs (match to PO with the PO locked, partial convert into one shipment per truck).',
+      },
+      {
+        name: wmsTag(aud, GATE_SECURITY_AREA),
+        description:
+          'D-62 W5.13: visitor and contractor register, outward material passes (maker-checker), security checks and holds.',
       },
       ...(aud === 'admin'
         ? [

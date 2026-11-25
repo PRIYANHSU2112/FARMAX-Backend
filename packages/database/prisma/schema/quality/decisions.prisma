@@ -1,0 +1,146 @@
+// quality-service (D-60): quality state of a batch, release / quarantine / recall decisions and
+// their per-warehouse tasks, customer watches, recall notices, numbering and the audit log.
+
+enum QaBatchStateValue {
+  PENDING
+  RELEASED
+  QUARANTINED
+  RECALLED
+}
+
+enum QaDecisionKind {
+  RELEASE
+  QUARANTINE
+  RECALL
+}
+
+enum QaDecisionStatus {
+  APPLYING
+  APPLIED
+  PARTIAL
+  FAILED
+}
+
+enum QaTaskStatus {
+  PENDING
+  DONE
+  FAILED
+  NO_STOCK
+  SUPERSEDED
+}
+
+/// The QA state of one batch. `version` is the concurrency guard of every decision:
+/// UPDATE … WHERE version = expectedVersion (0 rows → 409 VERSION_CONFLICT).
+model QaBatchState {
+  batchId        String            @id @db.Uuid
+  state          QaBatchStateValue @default(PENDING)
+  version        Int               @default(0)
+  lastDecisionId String?           @db.Uuid
+  updatedBy      String?           @db.Uuid
+  updatedAt      DateTime          @updatedAt
+
+  @@map("quality_batch_states")
+}
+
+/// W16.07: a release / quarantine / recall decision. One APPLYING RELEASE per batch (partial
+/// unique index in the migration SQL).
+model QaDecision {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  decisionNo       String           @unique @db.VarChar(20)
+  batchId          String           @db.Uuid
+  kind             QaDecisionKind
+  status           QaDecisionStatus @default(APPLYING)
+  remarks          String           @db.VarChar(500)
+  evidenceKeys     String[]         @default([])
+  /// Release checklist + COA verdicts at decision time.
+  checklist        Json
+  coaIds           String[]         @default([]) @db.Uuid
+  expectedVersion  Int
+  /// The batch-state version this decision produced (orders decisions in warehouse-service).
+  stateVersion     Int
+  idempotencyKey   String           @unique @db.VarChar(64)
+  decidedBy        String           @db.Uuid
+  decidedAt        DateTime         @default(now())
+  plannedAt        DateTime?
+  completedAt      DateTime?
+  warehousesTotal  Int              @default(0)
+  warehousesDone   Int              @default(0)
+  warehousesFailed Int              @default(0)
+
+  tasks QaDecisionTask[]
+
+  @@index([batchId, decidedAt(sort: Desc)])
+  @@index([status, decidedAt])
+  @@map("quality_decisions")
+}
+
+/// Mirror of warehouse-service's task per warehouse (progress, retry of FAILED ones).
+model QaDecisionTask {
+  decisionId  String       @db.Uuid
+  warehouseId String       @db.Uuid
+  status      QaTaskStatus @default(PENDING)
+  qtyMoved    Int          @default(0)
+  attempts    Int          @default(0)
+  lastError   String?      @db.VarChar(500)
+  updatedAt   DateTime     @updatedAt
+
+  decision QaDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@id([decisionId, warehouseId])
+  @@map("quality_decision_tasks")
+}
+
+/// "Notify me when it's published" (customer, per batch).
+model QaCoaWatch {
+  userId    String   @db.Uuid
+  batchId   String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@id([userId, batchId])
+  @@index([batchId])
+  @@map("quality_coa_watches")
+}
+
+/// A recall notice sent to one buyer (a buyer is told once per decision).
+model QaNotice {
+  decisionId String   @db.Uuid
+  userId     String   @db.Uuid
+  sentAt     DateTime @default(now())
+
+  @@id([decisionId, userId])
+  @@map("quality_notices")
+}
+
+/// Document numbers: SMP / COA / QD per year.
+model QaSequence {
+  kind   String @db.VarChar(8)
+  period Int
+  last   Int    @default(0)
+
+  @@id([kind, period])
+  @@map("quality_sequences")
+}
+
+/// Append-only audit (UPDATE / DELETE blocked by a trigger in the migration SQL). Written in
+/// the same transaction as the change it describes.
+model QaAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  actorUserId String?  @db.Uuid
+  /// STAFF · SYSTEM · CUSTOMER
+  actorType   String   @db.VarChar(12)
+  action      String   @db.VarChar(60)
+  targetType  String   @db.VarChar(30)
+  targetId    String   @db.Uuid
+  warehouseId String?  @db.Uuid
+  before      Json?
+  after       Json?
+  reason      String?  @db.VarChar(500)
+  requestId   String?  @db.VarChar(64)
+  ip          String?  @db.VarChar(45)
+  at          DateTime @default(now())
+
+  @@index([targetType, targetId, at])
+  @@index([actorUserId, at])
+  @@index([at])
+  @@map("quality_audit_logs")
+}

@@ -520,6 +520,29 @@ export class FulfilmentDelivery {
 
   // ── reads ──
 
+  /**
+   * D-61 print: the GST invoice PDF of ONE shipment for the gate copy. A shipment outside the
+   * caller's warehouses answers 404 exactly like a missing one (no enumeration); before gate-out
+   * there is no invoice (404 NO_INVOICE). Every print is audited.
+   */
+  async invoicePdf(caller: Caller, shipmentId: string) {
+    const s = await this.repo.shipment(shipmentId);
+    if (s === null || !caller.access.can('fulfilment.view', s.warehouseId))
+      throw new NotFoundError('Shipment');
+    const pdf = await this.deps.orderClient.shipmentInvoicePdf(s.orderId, s.id);
+    if (pdf === null)
+      throw new NotFoundError('Invoice', {
+        details: { reason: 'NO_INVOICE', status: s.status },
+      });
+    await this.deps.runInTransaction((tx) =>
+      this.audit(tx, caller, 'fulfilment.invoice_printed', s.id, {
+        shipmentNo: s.shipmentNo,
+        docNo: pdf.docNo,
+      }),
+    );
+    return { file: pdf.file, fileName: `${pdf.docNo.replaceAll('/', '-') || s.shipmentNo}.pdf` };
+  }
+
   /** W3.09 View POD: signed media, received quantities, OTP verified time (never the code). */
   async pod(caller: Caller, shipmentId: string) {
     const s = await this.repo.shipment(shipmentId);

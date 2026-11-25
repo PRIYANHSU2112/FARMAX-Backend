@@ -7,27 +7,27 @@ Logistics PRD §8.5, and the admin-panel mock resources (`admin-panel/src/resour
 
 ## Screen map
 
-| Screen                                                                   | Backend                                                                                                 | Phase     |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | --------- |
-| C-07c Cart, Empty cart, C-13b Offers, Coupon View                        | `/v1/cart`, `/v1/orders/offers` (built, D-31/D-32)                                                      | done      |
-| address / Farm Location ("served from Mother WH, backup Tanuku C&F")     | user-service addresses; serving node = inventory allocation; promise = farm `pin_codes.deliveryPromise` | P3        |
-| Billing Details & Tax Invoice (step 3 of 4)                              | `/v1/orders/preview` (built), re-run at checkout                                                        | done / P3 |
-| Payment Method (step 4 of 4, UPI apps)                                   | `POST /v1/orders/checkout` → payment intent → Razorpay Checkout → `POST /v1/payments/{id}/verify`       | P2–P3     |
-| "Use Farm Wallet ₹1,200" toggle, Wallet, Add money                       | wallet (deferred, D-42)                                                                                 | later     |
-| C-14a Card Details ("Save card", "Upload image")                         | **Razorpay tokenization only; card data never reaches FarmX** (FR-PAY-09)                               | app       |
-| pending (countdown, TXN ref, "Check Status Now")                         | `GET /v1/payments/{id}`; reconcile job                                                                  | P2        |
-| Retry payment / failed                                                   | `POST /v1/orders/{id}/pay` (allowed until `paymentDueAt`)                                               | P3        |
-| Order confirmed / Success                                                | order PENDING_ADMIN_CONFIRMATION + paid → copy must say "awaiting confirmation" (C-1)                   | P3        |
-| C-17a Orders (tabs; "Stock hold 01:14:32 · Pay Now")                     | `GET /v1/orders?tab=`; countdown = `paymentDueAt`                                                       | P3        |
-| C-17b Order detail (timeline, "Cancellations locked at picking", Cancel) | `GET /v1/orders/{id}` (timeline from `order_status_events`, allowed `actions`)                          | P3        |
-| Cancellation (item-level, reasons, free window, fee)                     | `cancellation-quote`, `cancel`                                                                          | P4        |
-| C-17c Live tracking, C-17d Delivery OTP, Details (gate photo)            | shipments + OTP + proof                                                                                 | **F1**    |
-| C-18a Shipment delivered (Confirm receipt)                               | shipment confirm receipt                                                                                | F1        |
-| C-18b Report a problem, C-18c Return RT-…                                | returns                                                                                                 | later     |
-| C-18d Scheduled & recurring                                              | recurring orders                                                                                        | later     |
-| Invoices / Consignment Status ("Download Combined Invoices")             | invoice-service (per shipment, at dispatch)                                                             | later     |
-| Warehouse W1.03 Order Fulfilment, Shipments                              | WMS events → shipment states                                                                            | F1        |
-| Admin Orders / Payments / Refunds / Returns mocks                        | `/v1/admin/orders*`, `/v1/admin/payments`, `/v1/admin/refunds`                                          | P2–P4     |
+| Screen                                                                                               | Backend                                                                                                              | Phase     |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------- |
+| C-07c Cart, Empty cart, C-13b Offers, Coupon View                                                    | `/v1/cart`, `/v1/orders/offers` (built, D-31/D-32)                                                                   | done      |
+| address / Farm Location ("served from Mother WH, backup Tanuku C&F")                                 | user-service addresses; serving node = inventory allocation; promise = farm `pin_codes.deliveryPromise`              | P3        |
+| Billing Details & Tax Invoice (step 3 of 4)                                                          | `/v1/orders/preview` (built), re-run at checkout                                                                     | done / P3 |
+| Payment Method (step 4 of 4, UPI apps)                                                               | `POST /v1/orders/checkout` → payment intent → Razorpay Checkout → `POST /v1/payments/{id}/verify`                    | P2–P3     |
+| "Use Farm Wallet ₹1,200" toggle, Wallet, Add money                                                   | wallet (deferred, D-42)                                                                                              | later     |
+| C-14a Card Details ("Save card", "Upload image")                                                     | **Razorpay tokenization only; card data never reaches FarmX** (FR-PAY-09)                                            | app       |
+| pending (countdown, TXN ref, "Check Status Now")                                                     | `GET /v1/payments/{id}`; reconcile job                                                                               | P2        |
+| Retry payment / failed                                                                               | `POST /v1/orders/{id}/pay` (allowed until `paymentDueAt`)                                                            | P3        |
+| Order confirmed / Success                                                                            | order PENDING_ADMIN_CONFIRMATION + paid → copy must say "awaiting confirmation" (C-1)                                | P3        |
+| C-17a Orders (tabs; "Stock hold 01:14:32 · Pay Now")                                                 | `GET /v1/orders?tab=`; countdown = `paymentDueAt`                                                                    | P3        |
+| C-17b Order detail (timeline, "Cancellations locked at picking", Cancel)                             | `GET /v1/orders/{id}` (timeline from `order_status_events`, allowed `actions`)                                       | P3        |
+| Cancellation (item-level, reasons, free window, fee)                                                 | `cancellation-quote`, `cancel`                                                                                       | P4        |
+| C-17c Live tracking, C-17d Delivery OTP, Details (gate photo)                                        | shipments + OTP + proof                                                                                              | **F1**    |
+| C-18a Shipment delivered (Confirm receipt)                                                           | shipment confirm receipt                                                                                             | F1        |
+| C-18b Report a problem, C-18c Return RT-…                                                            | returns                                                                                                              | later     |
+| C-18d Scheduled & recurring                                                                          | recurring orders                                                                                                     | later     |
+| Invoices / Consignment Status ("Download Combined Invoices"), Order confirmed "Download tax invoice" | order-service invoices (D-61): `/v1/orders/{id}/invoices`, `/download`, `/combined`; issued per shipment at gate-out | **built** |
+| Warehouse W1.03 Order Fulfilment, Shipments                                                          | WMS events → shipment states                                                                                         | F1        |
+| Admin Orders / Payments / Refunds / Returns mocks                                                    | `/v1/admin/orders*`, `/v1/admin/payments`, `/v1/admin/refunds`                                                       | P2–P4     |
 
 ## Conflicts and resolutions
 

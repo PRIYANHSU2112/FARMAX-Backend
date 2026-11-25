@@ -64,3 +64,25 @@ describe('allowlist (extension + declared MIME + signature must agree)', () => {
     ).toThrow(/not a JPEG/);
   });
 });
+
+describe('D-62 gate documents: TIFF only for purpose gate_document', () => {
+  const tiffLE = Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]);
+  const tiffBE = Buffer.from([0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08]);
+
+  it('sniffs both TIFF byte orders', () => {
+    expect(sniffMime(tiffLE)).toBe('image/tiff');
+    expect(sniffMime(tiffBE)).toBe('image/tiff');
+  });
+
+  it('accepts .tif/.tiff for gate_document and refuses it everywhere else', () => {
+    expect(typeForExtension('rc-book.tiff', 'gate_document')).toMatchObject({ mime: 'image/tiff' });
+    expect(() => typeForExtension('rc-book.tiff')).toThrow(/not allowed/);
+    expect(() => typeForExtension('rc-book.tif', 'support')).toThrow(/not allowed/);
+    expect(
+      resolveAllowedType(
+        { filename: 'scan.tif', mimetype: 'image/tiff', head: tiffLE },
+        'gate_document',
+      ),
+    ).toMatchObject({ kind: 'image', mime: 'image/tiff' });
+  });
+});

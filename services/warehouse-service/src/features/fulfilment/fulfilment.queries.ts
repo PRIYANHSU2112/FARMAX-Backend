@@ -798,4 +798,34 @@ export class FulfilmentQueries {
   defaults() {
     return FULFILMENT_SETTINGS;
   }
+
+  /**
+   * D-60 unit trace (quality-service QR scan): the shipment a unit left in, its order and buyer
+   * (user id only) and the delivery proof flags. Vehicle number is Future (null).
+   */
+  async shipmentTrace(shipmentId: string) {
+    const { fulfilmentRepository: repo, warehousesService } = this.deps;
+    const s = await repo.shipment(shipmentId);
+    if (s === null) return null;
+    const [order, pod, warehouses] = await Promise.all([
+      repo.order(s.orderId),
+      repo.pod(shipmentId),
+      warehousesService.findMany([s.warehouseId]),
+    ]);
+    if (order?.userId == null) return null;
+    return {
+      shipmentId: s.id,
+      shipmentNo: s.shipmentNo,
+      orderId: s.orderId,
+      orderNo: order.orderNo,
+      customerUserId: order.userId,
+      warehouseId: s.warehouseId,
+      warehouseName: warehouses[0]?.name ?? '',
+      dispatchedAt: s.dispatchedAt?.toISOString() ?? null,
+      vehicleNo: null,
+      deliveredAt: (pod?.deliveredAt ?? s.deliveredAt)?.toISOString() ?? null,
+      otpVerified: pod?.otpVerifiedAt != null,
+      hasPhotoProof: (pod?.mediaKeys.length ?? 0) > 0,
+    };
+  }
 }

@@ -3,12 +3,28 @@ import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 
 import { emitWarehouseEvent } from '../../adapters/events.js';
+import type { ShipmentInvoice } from '../../adapters/order-client.js';
 import { uuidv7 } from '../../adapters/uuid.js';
 import type { Caller } from '../../middleware/guards.js';
 import type { StockMove } from '../stock/index.js';
 import type { FlowActor } from './fulfilment.flow.js';
 import type { JsonInput, ShipmentRow, TaskRow } from './fulfilment.repository.js';
-import { type ChecklistItem, istDay } from './fulfilment.rules.js';
+import {
+  type ChecklistItem,
+  invoiceLinesHash,
+  invoiceLinesOf,
+  istDay,
+} from './fulfilment.rules.js';
+
+/** D-61: the invoice issued for one shipment before gate-out (null fields: flag off in dev). */
+export interface GateInvoice {
+  shipmentId: string;
+  shipmentNo: string;
+  linesHash: string | null;
+  invoice: ShipmentInvoice | null;
+  /** Invoice value above EWAY_BILL_THRESHOLD_PAISE: an e-way bill must travel (warning). */
+  ewayBillRequired: boolean;
+}
 
 const actorOf = (c: Caller): FlowActor => ({
   type: 'STAFF',
@@ -40,6 +56,9 @@ export class FulfilmentFloor {
       | 'runInTransaction'
       | 'auditService'
       | 'fulfilmentExceptions'
+      | 'orderClient'
+      | 'config'
+      | 'logger'
     >,
   ) {}
 
@@ -596,7 +615,98 @@ export class FulfilmentFloor {
    * allocations ISSUED, lines dispatched, one `dispatchId`, and `shipment.dispatched.v1` so
    * inventory issues the reservation line exactly once (§2a.11).
    */
-  async dispatchInTx(tx: Tx, shipmentId: string, actor: FlowActor, note: string | null = null) {
+  /**
+   * D-61 gate-out step 1, OUTSIDE any transaction (no HTTP inside a DB transaction): issue (or
+   * replay) the GST invoice of every READY shipment, 4 calls in parallel. order-service is
+   * idempotent per shipment + lines hash, so a retry after any failure is safe. Refused →
+   * 409 INVOICE_BLOCKED (nothing departs); unreachable → 503. With DISPATCH_REQUIRE_INVOICE off
+   * (dev / test only) a failure is logged and the shipment goes without an invoice.
+   */
+  async prepareInvoices(
+    shipmentIds: readonly string[],
+    by: string | null,
+  ): Promise<Map<string, GateInvoice>> {
+    const { config, logger, orderClient } = this.deps;
+    const rows = await Promise.all(shipmentIds.map((id) => this.repo.shipment(id)));
+    const ready = rows.filter(
+      (s): s is ShipmentRow => s !== null && s.status === 'READY_TO_DISPATCH' && !s.holdActive,
+    );
+    const out = new Map<string, GateInvoice>();
+    const skip = (s: ShipmentRow, why: unknown) => {
+      logger.warn({ shipmentNo: s.shipmentNo, why }, 'dispatching WITHOUT invoice (flag off)');
+      out.set(s.id, {
+        shipmentId: s.id,
+        shipmentNo: s.shipmentNo,
+        linesHash: null,
+        invoice: null,
+        ewayBillRequired: false,
+      });
+    };
+    const one = async (s: ShipmentRow) => {
+      const lines = invoiceLinesOf(s.lines);
+      if (lines === null) {
+        const details = {
+          reason: 'INVOICE_BLOCKED',
+          shipmentNo: s.shipmentNo,
+          issues: [{ path: 'lines', message: 'a packed line has no order line' }],
+        };
+        if (!config.DISPATCH_REQUIRE_INVOICE) {
+          skip(s, details);
+          return;
+        }
+        throw new ConflictError(`${s.shipmentNo}: invoice cannot be issued`, { details });
+      }
+      const linesHash = invoiceLinesHash(lines);
+      let r: Awaited<ReturnType<typeof orderClient.issueShipmentInvoice>>;
+      try {
+        r = await orderClient.issueShipmentInvoice(s.orderId, s.id, { lines, linesHash, by });
+      } catch (err) {
+        if (!config.DISPATCH_REQUIRE_INVOICE) {
+          skip(s, err);
+          return;
+        }
+        throw err;
+      }
+      if (!r.ok) {
+        if (!config.DISPATCH_REQUIRE_INVOICE) {
+          skip(s, r.conflict);
+          return;
+        }
+        throw new ConflictError(`${s.shipmentNo}: ${r.conflict.message}`, {
+          details: {
+            reason: 'INVOICE_BLOCKED',
+            shipmentNo: s.shipmentNo,
+            invoice: r.conflict.details,
+          },
+        });
+      }
+      out.set(s.id, {
+        shipmentId: s.id,
+        shipmentNo: s.shipmentNo,
+        linesHash,
+        invoice: r.invoice,
+        ewayBillRequired: r.invoice.grandTotalPaise > config.EWAY_BILL_THRESHOLD_PAISE,
+      });
+    };
+    let next = 0;
+    const worker = async () => {
+      while (next < ready.length) {
+        const s = ready[next];
+        next += 1;
+        if (s !== undefined) await one(s);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, ready.length) }, worker));
+    return out;
+  }
+
+  async dispatchInTx(
+    tx: Tx,
+    shipmentId: string,
+    actor: FlowActor,
+    note: string | null = null,
+    invoice?: GateInvoice,
+  ) {
     const s = await this.repo.lockShipment(tx, shipmentId);
     if (s === null) throw new NotFoundError('Shipment');
     if (s.status !== 'READY_TO_DISPATCH')
@@ -607,6 +717,22 @@ export class FulfilmentFloor {
       throw new ConflictError(`${s.shipmentNo} is on hold`, {
         details: { reason: 'ON_HOLD', shipmentId },
       });
+    // D-61 gate-out step 2: the goods leaving must be exactly the goods invoiced (re-checked under
+    // the shipment row lock: an amendment between step 1 and now → INVOICE_STALE, retry re-issues).
+    if (invoice === undefined && this.deps.config.DISPATCH_REQUIRE_INVOICE)
+      throw new ConflictError(`${s.shipmentNo} has no invoice`, {
+        details: { reason: 'INVOICE_MISSING', shipmentId },
+      });
+    if (invoice?.linesHash != null) {
+      const now = invoiceLinesOf(s.lines);
+      if (now === null || invoiceLinesHash(now) !== invoice.linesHash)
+        throw new ConflictError(
+          `${s.shipmentNo} changed after its invoice was issued; depart again`,
+          {
+            details: { reason: 'INVOICE_STALE', shipmentId, docNo: invoice.invoice?.docNo ?? null },
+          },
+        );
+    }
     const packed = (await this.repo.allocations(s.id, tx)).filter((a) => a.status === 'PACKED');
     await this.deps.shipmentFlow.stock(
       tx,
@@ -637,7 +763,36 @@ export class FulfilmentFloor {
       { ...s, dispatchId },
       s.lines.map((l) => ({ variantId: l.variantId, qty: l.packedQty })),
     );
+    await this.publishShipmentBatches(tx, s, packed);
     return { shipmentId: s.id, shipmentNo: s.shipmentNo, dispatchId };
+  }
+
+  /**
+   * D-60: which batches left in this shipment and to whom (user id only), in the gate-out
+   * transaction. quality-service keeps the buyer list (customer certificates, recall notices).
+   */
+  private async publishShipmentBatches(
+    tx: Tx,
+    s: Pick<ShipmentRow, 'id' | 'shipmentNo' | 'orderId' | 'warehouseId'>,
+    packed: { variantId: string; batchId: string; qty: number }[],
+  ) {
+    const order = await this.repo.order(s.orderId, tx);
+    if (order?.userId == null || packed.length === 0) return;
+    await emitWarehouseEvent(
+      tx,
+      'warehouse.shipment_batches.v1',
+      {
+        shipmentId: s.id,
+        shipmentNo: s.shipmentNo,
+        orderId: s.orderId,
+        orderNo: order.orderNo,
+        customerUserId: order.userId,
+        warehouseId: s.warehouseId,
+        dispatchedAt: new Date().toISOString(),
+        lines: packed.map((a) => ({ variantId: a.variantId, batchId: a.batchId, qty: a.qty })),
+      },
+      s.orderId,
+    );
   }
 
   /** Re-sends `shipment.dispatched.v1` with the SAME dispatchId (reconcile dispatch check). */

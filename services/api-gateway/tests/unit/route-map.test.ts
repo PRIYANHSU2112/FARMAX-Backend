@@ -24,6 +24,7 @@ describe('route map', () => {
         WALLET_SERVICE_URL: 'http://wallet:3012',
         SUPPORT_SERVICE_URL: 'http://support:3013',
         WAREHOUSE_SERVICE_URL: 'http://warehouse:3014',
+        QUALITY_SERVICE_URL: 'http://quality:3015',
       }),
     ).toEqual([
       { prefix: '/v1/auth', upstream: 'http://auth:3001', rewritePrefix: '' },
@@ -80,6 +81,11 @@ describe('route map', () => {
         rewritePrefix: '/admin/promotions',
       },
       { prefix: '/v1/admin/orders', upstream: 'http://order:3007', rewritePrefix: '/admin/orders' },
+      {
+        prefix: '/v1/admin/invoices',
+        upstream: 'http://order:3007',
+        rewritePrefix: '/admin/invoices',
+      },
       {
         prefix: '/v1/order-service/health',
         upstream: 'http://order:3007',
@@ -166,6 +172,23 @@ describe('route map', () => {
       {
         prefix: '/v1/warehouse-service/health',
         upstream: 'http://warehouse:3014',
+        rewritePrefix: '/health',
+      },
+      {
+        prefix: '/v1/admin/quality',
+        upstream: 'http://quality:3015',
+        rewritePrefix: '/admin/quality',
+      },
+      { prefix: '/v1/quality', upstream: 'http://quality:3015', rewritePrefix: '/quality' },
+      {
+        prefix: '/v1/certificates',
+        upstream: 'http://quality:3015',
+        rewritePrefix: '/certificates',
+      },
+      { prefix: '/v1/verify', upstream: 'http://quality:3015', rewritePrefix: '/verify' },
+      {
+        prefix: '/v1/quality-service/health',
+        upstream: 'http://quality:3015',
         rewritePrefix: '/health',
       },
     ]);

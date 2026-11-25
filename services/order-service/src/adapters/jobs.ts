@@ -26,6 +26,7 @@ export const queueConnection = (url: string): ConnectionOptions => {
  *   review-sla        every 5 min  paid orders past the review SLA → alert once; auto-reject if set
  *   recovery-watch    every 5 min  release / refund decisions that did not land → re-send
  *   ledger-reconcile  every 15 min order ledger vs payment-service totals (settled rows) → mismatches
+ *   invoice-reconcile every 15 min invoices of CANCELLED shipments missed by the event → void (D-61)
  *   invoice-pdf       every 10 s   (own queue) render PENDING / due FAILED / stale invoice PDFs
  */
 export class JobsRuntime {
@@ -50,6 +51,7 @@ export class JobsRuntime {
     await every('review-sla', 5 * 60_000);
     await every('recovery-watch', 5 * 60_000);
     await every('ledger-reconcile', 15 * 60_000);
+    await every('invoice-reconcile', 15 * 60_000);
 
     this.worker = new Worker(
       JOBS_QUEUE,
@@ -63,6 +65,8 @@ export class JobsRuntime {
             return this.cradle.ordersAdminService.reviewSla();
           case 'ledger-reconcile':
             return this.cradle.transactionsService.reconcile();
+          case 'invoice-reconcile':
+            return this.cradle.ordersService.reconcileShipmentInvoices();
           case 'recovery-watch':
             return this.cradle.ordersAdminService.recoveryWatch();
           default:

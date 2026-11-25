@@ -2,6 +2,7 @@ import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/err
 import type { Tx } from '@farmx/database';
 import type { Cradle } from '@fastify/awilix';
 
+import { bumpGateVersion } from '../../adapters/gate-version.js';
 import type { Caller } from '../../middleware/guards.js';
 import { num } from '../../middleware/http.js';
 import { dayBounds, localDate } from '../../middleware/time.js';
@@ -145,12 +146,12 @@ export class DocksService {
   private readonly repo: Cradle['docksRepository'];
   private readonly runInTransaction: Cradle['runInTransaction'];
   private readonly auditService: Cradle['auditService'];
-  private readonly lazy: Pick<Cradle, 'warehousesService'>;
+  private readonly lazy: Pick<Cradle, 'warehousesService' | 'redis'>;
 
   constructor(
     deps: Pick<
       Cradle,
-      'docksRepository' | 'runInTransaction' | 'auditService' | 'warehousesService'
+      'docksRepository' | 'runInTransaction' | 'auditService' | 'warehousesService' | 'redis'
     >,
   ) {
     this.repo = deps.docksRepository;
@@ -358,7 +359,7 @@ export class DocksService {
         { path: 'body.plannedEnd', message: 'must be after plannedStart' },
       ]);
     try {
-      return await this.runInTransaction(async (tx) => {
+      const out = await this.runInTransaction(async (tx) => {
         const door = await this.repo.lockDoor(tx, warehouseId, doorId);
         if (door === null) throw new NotFoundError('Dock door');
         if (door.status !== 'ACTIVE')
@@ -396,6 +397,8 @@ export class DocksService {
         });
         return bookingView(b);
       });
+      if (out.direction === 'INBOUND') await bumpGateVersion(this.lazy.redis, warehouseId);
+      return out;
     } catch (error) {
       if (isOverlapViolation(error)) throw dockBusy();
       throw error;
@@ -410,7 +413,7 @@ export class DocksService {
     action: 'start' | 'complete' | 'cancel',
   ): Promise<BookingView> {
     await this.visible(caller, warehouseId, 'warehouse.operate');
-    return this.runInTransaction(async (tx) => {
+    const view = await this.runInTransaction(async (tx) => {
       const found = await this.repo.lockBooking(tx, warehouseId, bookingId);
       if (found === null) throw new NotFoundError('Dock booking');
       await this.repo.lockDoor(tx, warehouseId, found.dockDoorId);
@@ -443,6 +446,168 @@ export class DocksService {
         after: { status: after.status },
       });
       return bookingView(after);
+    });
+    if (view.direction === 'INBOUND') await bumpGateVersion(this.lazy.redis, warehouseId);
+    return view;
+  }
+
+  // ── D-62 gate: INBOUND appointments inside the gate's transaction ──
+
+  /** ACTIVE doors that take INBOUND (unloading / both). */
+  inboundDoors(warehouseId: string): Promise<DoorRow[]> {
+    return this.repo.inboundDoors(warehouseId);
+  }
+
+  /** INBOUND bookings planned to start in [from, to). */
+  inboundBookings(warehouseId: string, from: Date, to: Date): Promise<BookingRow[]> {
+    return this.repo.inboundBookingsBetween(warehouseId, from, to);
+  }
+
+  /** Bookings IN_USE now (actual dock occupancy). */
+  inUseNow(warehouseId: string): Promise<BookingRow[]> {
+    return this.repo.inUse(warehouseId);
+  }
+
+  booking(warehouseId: string, id: string, tx?: Tx): Promise<BookingRow | null> {
+    return this.repo.booking(warehouseId, id, tx);
+  }
+
+  /**
+   * Books an INBOUND slot for the gate (shipment wizard, appointment, rebooking). Door row lock +
+   * overlap pre-check; the exclusion constraint still guards a race (the caller maps it with
+   * `isOverlapViolation` to 409 DOCK_BUSY).
+   */
+  async gateBook(
+    tx: Tx,
+    warehouseId: string,
+    i: {
+      dockDoorId: string;
+      start: Date;
+      end: Date;
+      refNo: string;
+      loadQty: number;
+      inboundShipmentId?: string | null;
+      vendorId?: string | null;
+      asnId?: string | null;
+      userId: string;
+    },
+  ): Promise<BookingRow> {
+    const door = await this.repo.lockDoor(tx, warehouseId, i.dockDoorId);
+    if (door === null) throw new NotFoundError('Dock door');
+    if (door.status !== 'ACTIVE')
+      throw new ConflictError('The dock door is not active', {
+        details: { reason: 'DOOR_INACTIVE' },
+      });
+    if (door.type === 'LOADING')
+      throw new ValidationError([
+        { path: 'body.dockDoorId', message: 'is a loading door; pick an unloading door' },
+      ]);
+    if ((await this.repo.overlapping(tx, door.id, i.start, i.end)).length > 0) throw dockBusy();
+    return this.repo.createBooking(tx, {
+      warehouseId,
+      dockDoorId: door.id,
+      direction: 'INBOUND',
+      refNo: i.refNo.slice(0, 40),
+      loadQty: Math.max(i.loadQty, 0.01),
+      loadUnit: door.capacityUnit,
+      plannedStart: i.start,
+      plannedEnd: i.end,
+      inboundShipmentId: i.inboundShipmentId ?? null,
+      vendorId: i.vendorId ?? null,
+      asnId: i.asnId ?? null,
+      createdByUserId: i.userId,
+      updatedByUserId: i.userId,
+    });
+  }
+
+  /**
+   * Gate moves of an INBOUND booking (handover = start, unloaded = complete, turn-away / cancel =
+   * cancel). Idempotent: a booking already past the move is returned unchanged. The booking
+   * WINDOW never changes (actual dock times live on the gate entry).
+   */
+  async gateMove(
+    tx: Tx,
+    warehouseId: string,
+    bookingId: string,
+    action: 'start' | 'complete' | 'cancel',
+    userId: string,
+  ): Promise<BookingRow | null> {
+    const b = await this.repo.lockBooking(tx, warehouseId, bookingId);
+    if (b === null) return null;
+    const now = new Date();
+    if (action === 'start') {
+      if (b.status !== 'PLANNED') return b;
+      const busy = (await this.repo.inUse(warehouseId, tx)).some(
+        (x) => x.dockDoorId === b.dockDoorId && x.id !== b.id,
+      );
+      if (busy) throw dockBusy();
+      return this.repo.updateBooking(tx, b.id, {
+        status: 'IN_USE',
+        startedAt: now,
+        updatedByUserId: userId,
+      });
+    }
+    if (action === 'complete') {
+      if (b.status !== 'IN_USE') return b;
+      return this.repo.updateBooking(tx, b.id, {
+        status: 'DONE',
+        endedAt: now,
+        updatedByUserId: userId,
+      });
+    }
+    if (b.status !== 'PLANNED' && b.status !== 'IN_USE') return b;
+    return this.repo.updateBooking(tx, b.id, {
+      status: 'CANCELLED',
+      endedAt: now,
+      updatedByUserId: userId,
+    });
+  }
+
+  /** Moves a PLANNED INBOUND booking to another time / door (W5.11 reschedule). */
+  async gateReschedule(
+    tx: Tx,
+    warehouseId: string,
+    bookingId: string,
+    i: { dockDoorId: string; start: Date; end: Date; userId: string },
+  ): Promise<BookingRow> {
+    const b = await this.repo.lockBooking(tx, warehouseId, bookingId);
+    if (b === null) throw new NotFoundError('Dock appointment');
+    if (b.status !== 'PLANNED') throw invalidTransition(b.status);
+    const door = await this.repo.lockDoor(tx, warehouseId, i.dockDoorId);
+    if (door === null) throw new NotFoundError('Dock door');
+    if (door.status !== 'ACTIVE' || door.type === 'LOADING')
+      throw new ValidationError([
+        { path: 'body.dockDoorId', message: 'is not an active unloading door' },
+      ]);
+    const clash = (await this.repo.overlapping(tx, door.id, i.start, i.end)).some(
+      (x) => x.id !== b.id,
+    );
+    if (clash) throw dockBusy();
+    return this.repo.updateBooking(tx, b.id, {
+      dockDoorId: door.id,
+      loadUnit: door.capacityUnit,
+      plannedStart: i.start,
+      plannedEnd: i.end,
+      updatedByUserId: i.userId,
+    });
+  }
+
+  /** Vendor confirmed the slot / links it to a shipment (W5.11 "Confirmed"). */
+  async gateUpdate(
+    tx: Tx,
+    warehouseId: string,
+    bookingId: string,
+    data: { confirmedAt?: Date; inboundShipmentId?: string; refNo?: string; userId: string },
+  ): Promise<BookingRow> {
+    const b = await this.repo.lockBooking(tx, warehouseId, bookingId);
+    if (b === null) throw new NotFoundError('Dock appointment');
+    return this.repo.updateBooking(tx, b.id, {
+      ...(data.confirmedAt === undefined ? {} : { confirmedAt: data.confirmedAt }),
+      ...(data.inboundShipmentId === undefined
+        ? {}
+        : { inboundShipmentId: data.inboundShipmentId }),
+      ...(data.refNo === undefined ? {} : { refNo: data.refNo.slice(0, 40) }),
+      updatedByUserId: data.userId,
     });
   }
 

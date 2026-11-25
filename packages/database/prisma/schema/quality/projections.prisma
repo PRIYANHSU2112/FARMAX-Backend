@@ -1,0 +1,75 @@
+// quality-service (D-60) projections: facts owned by warehouse-service, fed by its events
+// (`warehouse.receipt_created.v1`, `warehouse.shipment_batches.v1`). Never written by staff.
+
+/// Variant facts (from receipt events, or fetched once from product-service for a new spec).
+model QaVariant {
+  variantId        String   @id @db.Uuid
+  productId        String   @db.Uuid
+  sku              String   @db.VarChar(40)
+  name             String   @db.VarChar(250)
+  variantName      String   @db.VarChar(250)
+  brandName        String?  @db.VarChar(80)
+  packLabel        String?  @db.VarChar(60)
+  imageUrl         String?  @db.VarChar(500)
+  temperatureClass String   @default("AMB") @db.VarChar(10)
+  updatedAt        DateTime @updatedAt
+
+  @@index([sku])
+  @@map("quality_variants")
+}
+
+/// A manufacturer batch (id = warehouse_batches.id).
+model QaBatch {
+  batchId    String    @id @db.Uuid
+  variantId  String    @db.Uuid
+  batchNo    String    @db.VarChar(40)
+  mfgDate    DateTime? @db.Date
+  expiryDate DateTime? @db.Date
+  vendorId   String?   @db.Uuid
+  vendorName String?   @db.VarChar(120)
+  serialized Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([batchNo])
+  @@index([variantId])
+  @@map("quality_batches")
+}
+
+/// One batch line of a goods receipt (CN). CN number → batches; batch → receiving warehouses.
+model QaReceiptLine {
+  receiptId     String   @db.Uuid
+  lineNo        Int
+  cnNo          String   @db.VarChar(20)
+  warehouseId   String   @db.Uuid
+  warehouseName String   @db.VarChar(120)
+  batchId       String   @db.Uuid
+  variantId     String   @db.Uuid
+  qty           Int
+  initialStatus String   @db.VarChar(20)
+  receivedAt    DateTime
+
+  @@id([receiptId, lineNo])
+  @@index([cnNo])
+  @@index([batchId])
+  @@map("quality_receipt_lines")
+}
+
+/// Who received units of a batch (shipment gate-out). The ownership table for customer reads
+/// and the buyer list of a recall.
+model QaBatchBuyer {
+  shipmentId     String   @db.Uuid
+  batchId        String   @db.Uuid
+  customerUserId String   @db.Uuid
+  orderId        String   @db.Uuid
+  orderNo        String   @db.VarChar(30)
+  variantId      String   @db.Uuid
+  warehouseId    String   @db.Uuid
+  qty            Int
+  dispatchedAt   DateTime
+
+  @@id([shipmentId, batchId])
+  @@index([customerUserId, dispatchedAt(sort: Desc)])
+  @@index([batchId])
+  @@map("quality_batch_buyers")
+}

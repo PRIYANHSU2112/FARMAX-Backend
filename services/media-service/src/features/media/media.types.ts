@@ -26,6 +26,19 @@ export const ALLOWED_TYPES: readonly AllowedType[] = [
   { kind: 'document', mime: 'application/pdf', extensions: ['.pdf'] },
 ];
 
+/** D-62 gate documents (RC book, permits, e-way bill scans): up to 25 MB; TIFF scans allowed. */
+export const GATE_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Types accepted ONLY for these private purposes (never for public uploads). */
+export const PRIVATE_ONLY_TYPES: readonly (AllowedType & { purposes: readonly string[] })[] = [
+  {
+    kind: 'image',
+    mime: 'image/tiff',
+    extensions: ['.tif', '.tiff'],
+    purposes: ['gate_document'],
+  },
+];
+
 /** A received file, already on local disk (multipart streamed to a temp file). */
 export interface IncomingFile {
   path: string;

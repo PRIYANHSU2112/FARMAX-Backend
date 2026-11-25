@@ -1,0 +1,273 @@
+// quality-service (D-60, W16 Sampling & COA): labs, SKU specification limits, samples and
+// certificates of analysis. Every row that people change carries `version` (optimistic lock).
+
+enum QaLabType {
+  IN_HOUSE
+  EXTERNAL
+}
+
+enum QaResourceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// MANUFACTURER_COA: release after QA approves the manufacturer COA (independent test runs in
+/// parallel). INDEPENDENT_COA: release only after the independent COA is approved as PASS.
+enum QaReleaseMode {
+  MANUFACTURER_COA
+  INDEPENDENT_COA
+}
+
+enum QaSpecRule {
+  MIN
+  MAX
+  RANGE
+  TEXT
+}
+
+enum QaSampleStatus {
+  PENDING
+  COLLECTED
+  SENT
+  ACKNOWLEDGED
+  TESTING
+  RESULTS_RECEIVED
+  PASSED
+  FAILED
+  CANCELLED
+}
+
+enum QaSampleSource {
+  AUTO
+  MANUAL
+}
+
+enum QaCoaSource {
+  MANUFACTURER
+  INDEPENDENT
+}
+
+enum QaCoaStatus {
+  UPLOADED
+  LINKED
+  RESULTS_ENTERED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum QaVerdict {
+  PENDING
+  PASS
+  FAIL
+}
+
+enum QaParamVerdict {
+  CONFORMS
+  FAILS
+  REVIEW
+}
+
+/// W16.08: laboratories (manual result entry; the LIMS connector is Future).
+model QaLab {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  code          String           @unique @db.VarChar(20)
+  name          String           @db.VarChar(120)
+  /// e.g. "NABL ISO 17025".
+  accreditation String?          @db.VarChar(120)
+  type          QaLabType
+  /// Typical turnaround: expected result date = sent + tatDays.
+  tatDays       Int              @default(5) @db.SmallInt
+  contactName   String?          @db.VarChar(120)
+  contactPhone  String?          @db.VarChar(16)
+  contactEmail  String?          @db.VarChar(254)
+  address       String?          @db.VarChar(300)
+  status        QaResourceStatus @default(ACTIVE)
+  version       Int              @default(0)
+  createdBy     String?          @db.Uuid
+  updatedBy     String?          @db.Uuid
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("quality_labs")
+}
+
+/// W16.09: the quality policy + acceptance limits of one SKU.
+model QaSkuSpec {
+  variantId       String        @id @db.Uuid
+  releaseMode     QaReleaseMode @default(MANUFACTURER_COA)
+  /// New stock lands in QC_HOLD and a sample is created automatically.
+  sampleOnReceipt Boolean       @default(true)
+  sampleQty       Int           @default(3)
+  sampleUnit      String        @default("units") @db.VarChar(20)
+  defaultLabId    String?       @db.Uuid
+  /// valid-until default for new COAs (null = taken from the certificate).
+  coaValidityDays Int?
+  isActive        Boolean       @default(true)
+  version         Int           @default(1)
+  updatedBy       String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  params QaSkuSpecParam[]
+
+  @@map("quality_sku_specs")
+}
+
+model QaSkuSpecParam {
+  variantId    String     @db.Uuid
+  code         String     @db.VarChar(40)
+  name         String     @db.VarChar(120)
+  unit         String?    @db.VarChar(30)
+  rule         QaSpecRule
+  min          Float?
+  max          Float?
+  /// TEXT rule: the expected answer (e.g. "Conforms", "Negative").
+  expectedText String?    @db.VarChar(120)
+  /// A failed critical parameter makes a mismatch HIGH severity.
+  critical     Boolean    @default(false)
+  sortOrder    Int        @default(0)
+
+  spec QaSkuSpec @relation(fields: [variantId], references: [variantId], onDelete: Cascade)
+
+  @@id([variantId, code])
+  @@map("quality_sku_spec_params")
+}
+
+/// Every saved spec version (results keep the version they were judged against).
+model QaSkuSpecHistory {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  variantId String   @db.Uuid
+  version   Int
+  snapshot  Json
+  changedBy String   @db.Uuid
+  reason    String?  @db.VarChar(500)
+  changedAt DateTime @default(now())
+
+  @@unique([variantId, version])
+  @@map("quality_sku_spec_history")
+}
+
+/// W16.01–W16.04: a sample of one batch sent to a lab. One AUTO sample per (receipt, batch)
+/// (partial unique index in the migration SQL).
+model QaSample {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  sampleNo         String         @unique @db.VarChar(20)
+  batchId          String         @db.Uuid
+  variantId        String         @db.Uuid
+  warehouseId      String         @db.Uuid
+  receiptId        String?        @db.Uuid
+  cnNo             String?        @db.VarChar(20)
+  qty              Int
+  qtyUnit          String         @default("units") @db.VarChar(20)
+  labId            String         @db.Uuid
+  source           QaSampleSource
+  status           QaSampleStatus @default(PENDING)
+  collectedAt      DateTime?
+  collectedBy      String?        @db.Uuid
+  sentAt           DateTime?
+  sentBy           String?        @db.Uuid
+  /// The lab's own reference (e.g. IFN-26-08455).
+  labRef           String?        @db.VarChar(40)
+  acknowledgedAt   DateTime?
+  testingAt        DateTime?
+  resultsAt        DateTime?
+  expectedResultAt DateTime?
+  closedAt         DateTime?
+  createdBy        String?        @db.Uuid
+  version          Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([warehouseId, status, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([batchId])
+  @@map("quality_samples")
+}
+
+/// Timeline of a sample (status steps, flags), shown on W16.03 / W16.04 and to customers.
+model QaSampleEvent {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  sampleId    String          @db.Uuid
+  type        String          @db.VarChar(30)
+  fromStatus  QaSampleStatus?
+  toStatus    QaSampleStatus?
+  note        String?         @db.VarChar(500)
+  actorUserId String?         @db.Uuid
+  at          DateTime        @default(now())
+
+  @@index([sampleId, at])
+  @@map("quality_sample_events")
+}
+
+/// W16.05 / W16.06 / W16.10: a certificate of analysis (manufacturer or independent).
+model QaCoa {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  coaNo              String      @unique @db.VarChar(24)
+  /// null until linked to a batch (W16.10).
+  batchId            String?     @db.Uuid
+  variantId          String?     @db.Uuid
+  source             QaCoaSource
+  labId              String?     @db.Uuid
+  /// Independent COA of a sample (one COA per sample).
+  sampleId           String?     @unique @db.Uuid
+  /// Certificate number printed on the document (may differ from coaNo).
+  certificateRef     String?     @db.VarChar(60)
+  /// Batch number as printed on the document (auto-link input).
+  batchNoOnDocument  String?     @db.VarChar(40)
+  issuerName         String?     @db.VarChar(160)
+  analystName        String?     @db.VarChar(120)
+  signatoryName      String?     @db.VarChar(120)
+  issuedAt           DateTime?   @db.Date
+  validUntil         DateTime?   @db.Date
+  mediaKey           String?     @db.VarChar(300)
+  fileName           String?     @db.VarChar(200)
+  status             QaCoaStatus
+  verdict            QaVerdict   @default(PENDING)
+  /// Spec version the results were judged against.
+  specVersion        Int?
+  mappingConfirmedBy String?     @db.Uuid
+  mappingConfirmedAt DateTime?
+  enteredBy          String?     @db.Uuid
+  enteredAt          DateTime?
+  reviewedBy         String?     @db.Uuid
+  reviewedAt         DateTime?
+  reviewNote         String?     @db.VarChar(500)
+  /// Independent COA approved → visible to customers.
+  publishedAt        DateTime?
+  uploadedBy         String?     @db.Uuid
+  version            Int         @default(0)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  results QaCoaResult[]
+
+  @@index([batchId, source])
+  @@index([status, validUntil])
+  @@index([batchNoOnDocument])
+  @@map("quality_coas")
+}
+
+/// One measured parameter of a COA, with the spec limits it was judged against (snapshot).
+model QaCoaResult {
+  coaId        String         @db.Uuid
+  paramCode    String         @db.VarChar(40)
+  paramName    String         @db.VarChar(120)
+  unit         String?        @db.VarChar(30)
+  rule         QaSpecRule
+  min          Float?
+  max          Float?
+  expectedText String?        @db.VarChar(120)
+  critical     Boolean        @default(false)
+  valueNum     Float?
+  valueText    String?        @db.VarChar(120)
+  verdict      QaParamVerdict
+  sortOrder    Int            @default(0)
+  enteredBy    String         @db.Uuid
+  enteredAt    DateTime       @default(now())
+
+  coa QaCoa @relation(fields: [coaId], references: [id], onDelete: Cascade)
+
+  @@id([coaId, paramCode])
+  @@map("quality_coa_results")
+}

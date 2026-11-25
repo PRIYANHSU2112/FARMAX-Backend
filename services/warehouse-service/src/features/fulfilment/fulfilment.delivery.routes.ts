@@ -184,6 +184,21 @@ export const deliveryRoutes =
           .send(Readable.from(svc(req).download(callerOf(req), id(req))));
       },
     );
+    app.get(
+      '/fulfilment/shipments/:id/invoice.pdf',
+      {
+        schema: { ...V.idParams, ...routeDocs(D.invoicePdf) },
+        preHandler: [...audRead(aud, 'fulfilment.view'), rateLimit('invoice-print', 30, 60)],
+      },
+      async (req, reply) => {
+        const pdf = await svc(req).invoicePdf(callerOf(req), id(req));
+        return reply
+          .header('content-type', 'application/pdf')
+          .header('content-disposition', `attachment; filename="${pdf.fileName}"`)
+          .header('cache-control', 'private, no-store')
+          .send(pdf.file);
+      },
+    );
     post(
       '/dispatch/trips/:id/driver-link',
       V.driverLinkSchema,

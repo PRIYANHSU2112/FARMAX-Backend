@@ -26,6 +26,14 @@ export const receiptSchema = {
     sourceType: Joi.string().valid('VENDOR', 'RETURN').default('VENDOR'),
     vendorId: ID.allow(null),
     restockRequestId: ID.allow(null).when('sourceType', { is: 'RETURN', then: Joi.forbidden() }),
+    gateEntryId: ID.allow(null).description(
+      'D-62: the inbound truck (gate entry) this CN unloads. The receipt ALWAYS posts; it is linked only while the truck is between UNLOADING and its outward pass (else `warnings[GATE_LINK_SKIPPED]`).',
+    ),
+    finalForGate: Joi.boolean()
+      .default(false)
+      .description(
+        'D-62: the LAST receipt of the truck — moves the gate entry UNLOADING → UNLOADED.',
+      ),
     notes: Joi.string().trim().max(500).allow(null, ''),
     lines: Joi.array()
       .items(
@@ -57,23 +65,6 @@ export const batchParam = { params: Joi.object({ batchId: ID.required() }) };
 export const generateUnitsSchema = {
   ...batchParam,
   body: Joi.object({ warehouseId: ID.required() }),
-};
-
-export const coaSchema = {
-  ...batchParam,
-  body: Joi.object({
-    warehouseId: ID.required(),
-    coaRef: Joi.string().trim().max(60).allow(null),
-    receipt: Joi.string().max(2048).allow(null),
-    certificateStatus: Joi.string().valid(
-      'NONE',
-      'SAMPLE_REFERENCE',
-      'VALID',
-      'EXPIRED',
-      'REJECTED',
-    ),
-    qualityNote: Joi.string().trim().max(500).allow(null),
-  }).min(2),
 };
 
 export const releaseSchema = {

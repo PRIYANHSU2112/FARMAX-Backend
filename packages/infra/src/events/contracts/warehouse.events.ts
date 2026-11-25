@@ -25,6 +25,16 @@ export const WAREHOUSE_EVENTS = {
   shipmentSplitPlanned: 'shipment.split_planned.v1',
   /** D-57b W3.12: full routing snapshot (rules, fallback, throttles); inventory applies it at checkout. */
   routingRulesReplaced: 'warehouse.routing_rules_replaced.v1',
+  /** D-60: a goods receipt (CN) was posted; quality-service projects batches + auto-samples. */
+  receiptCreated: 'warehouse.receipt_created.v1',
+  /** D-60: batches that left in a shipment (gate-out); quality-service keeps the buyer list. */
+  shipmentBatches: 'warehouse.shipment_batches.v1',
+  /** D-60: warehouse expanded a quality decision into one task per warehouse holding the batch. */
+  qualityTasksPlanned: 'warehouse.quality_tasks_planned.v1',
+  /** D-60: one warehouse task of a quality decision finished (done / no stock / failed / superseded). */
+  qualityTaskUpdated: 'warehouse.quality_task_updated.v1',
+  /** D-62: an inbound gate entry changed status (W6 receiving, analytics, alerts consume later). */
+  gateEntryStatusChanged: 'gate_entry.status_changed.v1',
 } as const;
 
 export type WarehouseEventType = (typeof WAREHOUSE_EVENTS)[keyof typeof WAREHOUSE_EVENTS];
@@ -209,7 +219,109 @@ export interface RoutingRulesReplacedV1 {
   }[];
 }
 
+/** Variant facts carried on quality events (so the consumer needs no product lookup). */
+export interface QualityVariantFactsV1 {
+  variantId: string;
+  productId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  brandName: string | null;
+  packLabel: string;
+  imageUrl: string | null;
+  temperatureClass: string;
+}
+
+/** D-60: a goods receipt (CN) and its batch lines. */
+export interface WarehouseReceiptCreatedV1 {
+  receiptId: string;
+  cnNo: string;
+  warehouseId: string;
+  warehouseName: string;
+  /** VENDOR · TRANSFER · RETURN · OPENING */
+  sourceType: string;
+  vendorId: string | null;
+  vendorName: string | null;
+  receivedAt: string;
+  receivedBy: string | null;
+  lines: {
+    lineNo: number;
+    variant: QualityVariantFactsV1;
+    batchId: string;
+    batchNo: string;
+    mfgDate: string | null;
+    expiryDate: string | null;
+    serialized: boolean;
+    qty: number;
+    /** QC_HOLD when the SKU has a quality policy, QUARANTINED for a blocked batch. */
+    initialStatus: string;
+  }[];
+}
+
+/** D-60: what left in one shipment, per batch (gate-out). No PII: user id only. */
+export interface WarehouseShipmentBatchesV1 {
+  shipmentId: string;
+  shipmentNo: string;
+  orderId: string;
+  orderNo: string;
+  customerUserId: string;
+  warehouseId: string;
+  dispatchedAt: string;
+  lines: { variantId: string; batchId: string; qty: number }[];
+}
+
+/** D-60: the warehouses that will apply a quality decision (empty = nobody holds the batch). */
+export interface WarehouseQualityTasksPlannedV1 {
+  decisionId: string;
+  batchId: string;
+  warehouseIds: string[];
+}
+
+export type QualityTaskStatusV1 = 'PENDING' | 'DONE' | 'FAILED' | 'NO_STOCK' | 'SUPERSEDED';
+
+/** D-60: one warehouse task of a quality decision changed state. */
+export interface WarehouseQualityTaskUpdatedV1 {
+  decisionId: string;
+  batchId: string;
+  warehouseId: string;
+  status: QualityTaskStatusV1;
+  qtyMoved: number;
+  attempts: number;
+  error: string | null;
+}
+
+/**
+ * D-62: gate entry status change (inbound truck at the warehouse gate). Ids and codes only — no
+ * driver PII. `debitNoteRequired` / `noReceipt` flag W6 follow-ups (debit note W6.12, receipt
+ * missing).
+ */
+export interface GateEntryStatusChangedV1 {
+  gateEntryId: string;
+  entryNo: string;
+  shipmentId: string;
+  shipmentNo: string;
+  warehouseId: string;
+  vendorId: string | null;
+  restockRequestId: string | null;
+  vehicleRegNo: string;
+  /** ARRIVED · WEIGHED_IN · APPROVED · UNLOADING · UNLOADED · WEIGHED_OUT · PASS_OUT · BLOCKED · HELD · REJECTED · EXITED · CANCELLED */
+  status: string;
+  previousStatus: string | null;
+  /** COMPLETED · REJECTED (set at REJECTED / EXITED). */
+  outcome: string | null;
+  netKg: string | null;
+  varianceKg: string | null;
+  debitNoteRequired: boolean;
+  noReceipt: boolean;
+  at: string;
+}
+
 export interface WarehouseEventMap {
+  'gate_entry.status_changed.v1': GateEntryStatusChangedV1;
+  'warehouse.receipt_created.v1': WarehouseReceiptCreatedV1;
+  'warehouse.shipment_batches.v1': WarehouseShipmentBatchesV1;
+  'warehouse.quality_tasks_planned.v1': WarehouseQualityTasksPlannedV1;
+  'warehouse.quality_task_updated.v1': WarehouseQualityTaskUpdatedV1;
   'warehouse.routing_rules_replaced.v1': RoutingRulesReplacedV1;
   'shipment.status_changed.v1': ShipmentStatusChangedV1;
   'shipment.dispatched.v1': ShipmentDispatchedV1;

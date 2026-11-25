@@ -38,12 +38,15 @@ export const projectionRow = (v: VariantFactsV1) => ({
 /** product-service variant facts → `warehouse_variant_projection` (version-guarded). */
 export const createStockEventHandlers = ({
   stockRepository: repo,
-}: Pick<Cradle, 'stockRepository'>): EventHandlerMap => {
+  stockQuality,
+}: Pick<Cradle, 'stockRepository' | 'stockQuality'>): EventHandlerMap => {
   const upsert: NonNullable<EventHandlerMap[string]> = async (e, tx) => {
     const v = e.data as VariantFactsV1;
     await repo.upsertVariant(tx, projectionRow(v));
   };
   return {
+    // D-60: quality policy, batch read copy, decisions → per-warehouse tasks.
+    ...stockQuality.handlers(),
     'product.variant_created.v1': upsert,
     'product.variant_updated.v1': upsert,
     'product.variant_deactivated.v1': async (e, tx) => {

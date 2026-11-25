@@ -124,11 +124,6 @@ export const stockDocs = (aud: 'panel' | 'admin') => {
       description:
         'One label per physical unit of the batch at this warehouse (codes `FX-<batchNo>-<seq>`, e.g. FX-LF-2608-0001; the SKU is inserted only when another SKU already uses that batch number); marks the batch serialized so later moves keep unit statuses in step. 409 `QR_ALREADY_GENERATED`.',
     }),
-    coa: d(STOCK_AREA, 'Set COA / certificate of a batch', 'quality.hold_create', {
-      data: Joi.object().unknown(true),
-      description:
-        'COA reference, certificate status and the PDF (media-service upload receipt, purpose `wms_document`).',
-    }),
     release: d(
       STOCK_AREA,
       'Quality release (QC hold / quarantine / returned → available)',

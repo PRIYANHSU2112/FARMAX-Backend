@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 export interface AuditEntry {
   actorUserId: string;
   action: string;
-  targetType: 'promotion' | 'order' | 'order_settings';
+  targetType: 'promotion' | 'order' | 'order_settings' | 'tax_document';
   targetId: string;
   before?: object | null;
   after?: object | null;

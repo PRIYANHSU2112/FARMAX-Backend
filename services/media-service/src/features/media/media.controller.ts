@@ -17,7 +17,7 @@ import type { Cradle } from '@fastify/awilix';
 import type { MultipartFile } from '@fastify/multipart';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import type { PrivatePurpose } from './media.support.js';
+import { type PrivatePurpose, privateMaxBytes } from './media.support.js';
 import { MAX_BYTES, type MediaKind, PARSER_MAX_BYTES } from './media.types.js';
 import { typeForExtension } from './processing/detect.js';
 
@@ -78,26 +78,29 @@ export class MediaController {
     }
     let allowedKind: MediaKind;
     try {
-      allowedKind = typeForExtension(file.filename).kind;
+      allowedKind = typeForExtension(file.filename, request.query.purpose).kind;
     } catch (error) {
       file.file.resume();
       throw error;
     }
 
+    // Private purposes have their own limit (gate documents: 25 MB scans).
+    const limit =
+      request.query.purpose === 'gate_document'
+        ? privateMaxBytes('gate_document')
+        : MAX_BYTES[allowedKind];
     const tempPath = join(tmpdir(), `farmx-upload-${randomUUID()}`);
     let size = 0;
     try {
       await pipeline(
         file.file,
-        byteLimit(MAX_BYTES[allowedKind], allowedKind, (n) => {
+        byteLimit(limit, allowedKind, (n) => {
           size = n;
         }),
         createWriteStream(tempPath, { flags: 'wx', mode: 0o600 }),
       );
       if (file.file.truncated) {
-        throw new PayloadTooLargeError(
-          `${allowedKind} files must be at most ${megabytes(MAX_BYTES[allowedKind])}`,
-        );
+        throw new PayloadTooLargeError(`${allowedKind} files must be at most ${megabytes(limit)}`);
       }
       if (size === 0) throw new BadRequestError('The file is empty');
 
@@ -113,9 +116,7 @@ export class MediaController {
       return await reply.code(201).send(ok(uploaded));
     } catch (error) {
       if (isFileTooLarge(error)) {
-        throw new PayloadTooLargeError(
-          `${allowedKind} files must be at most ${megabytes(MAX_BYTES[allowedKind])}`,
-        );
+        throw new PayloadTooLargeError(`${allowedKind} files must be at most ${megabytes(limit)}`);
       }
       throw error;
     } finally {

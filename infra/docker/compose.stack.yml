@@ -39,12 +39,18 @@ x-env: &env
   WALLET_SERVICE_URL: http://wallet-service:3012
   SUPPORT_SERVICE_URL: http://support-service:3013
   WAREHOUSE_SERVICE_URL: http://warehouse-service:3014
+  QUALITY_SERVICE_URL: http://quality-service:3015
 
 x-service: &service
   env_file: ../../.env
   restart: unless-stopped
   stop_grace_period: 30s
   init: false # tini is the image entrypoint
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m' # per-file cap
+      max-file: '3' # keep last 3 files → max 30 MB per container
 
 # Readiness probe: GET /health/ready on the service's own port (checks its DB/Redis too).
 x-health: &health
@@ -216,6 +222,7 @@ services:
       wallet-service: { condition: service_healthy }
       support-service: { condition: service_healthy }
       warehouse-service: { condition: service_healthy }
+      quality-service: { condition: service_healthy }
     healthcheck:
       <<: *health
       test:
@@ -371,4 +378,25 @@ services:
           'node',
           '-e',
           "fetch('http://127.0.0.1:3014/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+
+  quality-service:
+    <<: *service
+    build: { <<: *build, args: { SERVICE: quality-service } }
+    image: farmx/quality-service:local
+    environment: { <<: *env, QUALITY_SERVICE_PORT: 3015 }
+    # Sampling & COA (D-60): outbox publishes quality.* (warehouse executes stock moves, notification
+    # tells buyers); consumes warehouse receipt / shipment / quality-move events; expiry + sweep jobs.
+    depends_on:
+      <<: *db-deps
+      rabbitmq: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3015/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
         ]

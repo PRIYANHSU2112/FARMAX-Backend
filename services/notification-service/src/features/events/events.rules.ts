@@ -24,6 +24,7 @@ import type { OrderRef } from '../audience/index.js';
 import type { NotificationPriority } from '../../domain.js';
 import type { ContentAudienceScope } from '../../adapters/farm-directory.js';
 import type { NotificationDraft } from '../notifications/index.js';
+import { QUALITY_RULES } from './events.quality.js';
 import { SUPPORT_RULES } from './events.support.js';
 
 /**
@@ -443,6 +444,7 @@ export const RULES: Readonly<Record<string, Rule>> = {
   ...CORE_RULES,
   ...CONTENT_RULES,
   ...SUPPORT_RULES,
+  ...QUALITY_RULES,
 };
 
 /** Routing keys the consumer queue binds. */

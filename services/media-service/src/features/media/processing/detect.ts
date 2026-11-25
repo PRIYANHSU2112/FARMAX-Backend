@@ -3,7 +3,7 @@ import { extname } from 'node:path';
 
 import { UnsupportedMediaTypeError } from '@farmx/common/errors';
 
-import { ALLOWED_TYPES, type AllowedType } from '../media.types.js';
+import { ALLOWED_TYPES, type AllowedType, PRIVATE_ONLY_TYPES } from '../media.types.js';
 
 /** ISO-BMFF brands accepted as MP4 (not QuickTime `qt  `, not HEIC/AVIF images). */
 const MP4_BRANDS = new Set([
@@ -37,13 +37,25 @@ export function sniffMime(head: Buffer): string | null {
   if (head.length >= 12 && ascii(head, 4, 8) === 'ftyp' && MP4_BRANDS.has(ascii(head, 8, 12)))
     return 'video/mp4';
   if (head.length >= 5 && ascii(head, 0, 5) === '%PDF-') return 'application/pdf';
+  if (
+    head.length >= 4 &&
+    ((head[0] === 0x49 && head[1] === 0x49 && head[2] === 0x2a && head[3] === 0x00) ||
+      (head[0] === 0x4d && head[1] === 0x4d && head[2] === 0x00 && head[3] === 0x2a))
+  )
+    return 'image/tiff';
   return null;
 }
 
 /** Allowlist entry for a file name's extension, or 415. Checked before the body is stored. */
-export function typeForExtension(filename: string): AllowedType {
+export function typeForExtension(filename: string, purpose?: string): AllowedType {
   const extension = extname(filename).toLowerCase();
-  const allowed = ALLOWED_TYPES.find((type) => type.extensions.includes(extension));
+  const allowed =
+    ALLOWED_TYPES.find((type) => type.extensions.includes(extension)) ??
+    (purpose === undefined
+      ? undefined
+      : PRIVATE_ONLY_TYPES.find(
+          (type) => type.extensions.includes(extension) && type.purposes.includes(purpose),
+        ));
   if (allowed === undefined) {
     throw new UnsupportedMediaTypeError(
       `File extension "${extension || '(none)'}" is not allowed. Allowed: .jpg .jpeg .png .webp .mp4 .pdf`,
@@ -67,12 +79,15 @@ export async function readHead(path: string, bytes = 32): Promise<Buffer> {
  * Extension, declared MIME type and the detected signature must ALL agree with one allowlist entry.
  * A renamed executable, a PNG declared as JPEG or a PDF named `.jpg` are refused (415).
  */
-export function resolveAllowedType(input: {
-  filename: string;
-  mimetype: string;
-  head: Buffer;
-}): AllowedType {
-  const byExtension = typeForExtension(input.filename);
+export function resolveAllowedType(
+  input: {
+    filename: string;
+    mimetype: string;
+    head: Buffer;
+  },
+  purpose?: string,
+): AllowedType {
+  const byExtension = typeForExtension(input.filename, purpose);
   const declared = input.mimetype.split(';')[0]?.trim().toLowerCase() ?? '';
   const detected = sniffMime(input.head);
   if (detected === null) {

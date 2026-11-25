@@ -1,7 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import { STATE_NAMES, isValidGstin, isValidHsn } from './invoices.tax-ids.js';
 import { amountInWords } from './invoices.words.js';
 import type {
+  ActiveInvoice,
   AlreadyInvoiced,
+  CreditDraft,
+  CreditLines,
   DraftLine,
   HsnSummaryRow,
   InvoiceDraft,
@@ -11,6 +16,35 @@ import type {
   ShipmentRequest,
   Totals,
 } from './invoices.types.js';
+
+/**
+ * Fingerprint of what a shipment dispatches: sorted `orderLineNo:qty` pairs, SHA-256, first 16
+ * hex characters. warehouse-service computes the SAME value (shared test vector in both suites)
+ * and re-checks it under the shipment row lock at gate-out, so goods and invoice always match.
+ * Lines with qty 0 are ignored (nothing dispatched).
+ */
+export const linesHash = (lines: readonly { lineNo: number; qty: number }[]): string =>
+  createHash('sha256')
+    .update(
+      lines
+        .filter((l) => l.qty > 0)
+        .map((l) => [l.lineNo, l.qty] as const)
+        .sort((a, b) => a[0] - b[0])
+        .map(([n, q]) => `${String(n)}:${String(q)}`)
+        .join(','),
+    )
+    .digest('hex')
+    .slice(0, 16);
+
+/**
+ * Last instant a credit note may be issued against an invoice of financial year `fy` (CGST Act
+ * s.34(2)): 30 November following the end of that financial year, 23:59:59.999 IST.
+ * "2627" (Apr 2026 – Mar 2027) → 2027-11-30 23:59:59.999 IST.
+ */
+export const creditNoteDeadline = (fy: string): Date => {
+  const endYear = 2000 + Number(fy.slice(2, 4));
+  return new Date(Date.UTC(endYear, 10, 30, 18, 29, 59, 999));
+};
 
 /**
  * Pure invoice builder (no I/O). The order already carries GST computed half-up per line on the
@@ -155,6 +189,110 @@ export function buildInvoice(
       hsnSummary: hsnSummary(lines),
       totals,
       amountInWords: amountInWords(totals.grandTotalPaise),
+    },
+    issues,
+  };
+}
+
+/**
+ * Pure credit-note builder (no I/O). Credits a share of each INVOICE line with the same
+ * cumulative rule as the invoice itself:
+ *   credit(k) = cumulative(lineAmount, c + k, invoicedQty) − cumulative(lineAmount, c, invoicedQty)
+ * where c = units already credited on that line. Every component (gross, taxable, CGST, SGST,
+ * IGST) uses it, so however a line is credited (one note or many), the notes add up to the
+ * invoice line EXACTLY when it is fully credited: zero paise drift, never more than invoiced.
+ * Supply type and tax split come from the invoice line (never recomputed). Freight is credited
+ * only by `'ALL'` (a full void / remainder credit).
+ */
+export function buildCreditNote(
+  invoice: Pick<ActiveInvoice, 'lines' | 'creditedQty' | 'buyerGstin' | 'snapshot'>,
+  request: CreditLines,
+): { draft: CreditDraft | null; issues: Issue[] } {
+  const issues: Issue[] = [];
+  const add = (path: string, message: string) => issues.push({ path, message });
+  const lines: DraftLine[] = [];
+
+  const credit = (inv: (typeof invoice.lines)[number], k: number) => {
+    const done = invoice.creditedQty.get(inv.lineNo) ?? 0;
+    const part = (amount: bigint) =>
+      cumulative(amount, done + k, inv.qty) - cumulative(amount, done, inv.qty);
+    const gross = part(inv.grossPaise);
+    const taxable = part(inv.taxablePaise);
+    const cgst = part(inv.cgstPaise);
+    const sgst = part(inv.sgstPaise);
+    const igst = part(inv.igstPaise);
+    lines.push({
+      lineNo: lines.length + 1,
+      kind: inv.kind,
+      orderLineNo: inv.orderLineNo,
+      variantId: inv.variantId,
+      sku: inv.sku,
+      description: inv.description,
+      hsnSac: inv.hsnSac,
+      qty: k,
+      unitPricePaise: inv.unitPricePaise,
+      grossPaise: gross,
+      discountPaise: gross - taxable,
+      taxablePaise: taxable,
+      gstRateBp: inv.gstRateBp,
+      cgstPaise: cgst,
+      sgstPaise: sgst,
+      igstPaise: igst,
+      totalPaise: taxable + cgst + sgst + igst,
+    });
+  };
+
+  if (request === 'ALL') {
+    for (const inv of invoice.lines) {
+      const open = inv.qty - (invoice.creditedQty.get(inv.lineNo) ?? 0);
+      if (open > 0) credit(inv, open);
+    }
+    if (lines.length === 0) add('invoice', 'the invoice is already fully credited');
+  } else {
+    if (request.length === 0) add('lines', 'nothing to credit');
+    const seen = new Set<number>();
+    for (const [i, req] of request.entries()) {
+      const path = `lines[${String(i)}]`;
+      if (seen.has(req.orderLineNo)) add(path, `order line ${String(req.orderLineNo)} twice`);
+      seen.add(req.orderLineNo);
+      const inv = invoice.lines.find(
+        (l) => l.kind === 'GOODS' && l.orderLineNo === req.orderLineNo,
+      );
+      if (inv === undefined) {
+        add(path, `the invoice does not bill order line ${String(req.orderLineNo)}`);
+        continue;
+      }
+      const open = inv.qty - (invoice.creditedQty.get(inv.lineNo) ?? 0);
+      if (!Number.isInteger(req.qty) || req.qty < 1 || req.qty > open) {
+        add(
+          path,
+          `qty must be 1..${String(Math.max(open, 0))} for order line ${String(req.orderLineNo)}`,
+        );
+        continue;
+      }
+      credit(inv, req.qty);
+    }
+  }
+  if (issues.length > 0) return { draft: null, issues };
+
+  const after = new Map(invoice.creditedQty);
+  for (const l of lines) {
+    const inv = invoice.lines.find((x) =>
+      l.kind === 'FREIGHT' ? x.kind === 'FREIGHT' : x.orderLineNo === l.orderLineNo,
+    );
+    if (inv !== undefined) after.set(inv.lineNo, (after.get(inv.lineNo) ?? 0) + l.qty);
+  }
+  const fullyCredited = invoice.lines.every((l) => (after.get(l.lineNo) ?? 0) >= l.qty);
+  const totals = totalsOf(lines);
+  const section = invoice.snapshot.document.gstr1Section;
+  return {
+    draft: {
+      lines,
+      hsnSummary: hsnSummary(lines),
+      totals,
+      amountInWords: amountInWords(totals.grandTotalPaise),
+      gstr1Section: invoice.buyerGstin !== null ? 'CDNR' : section === 'B2CL' ? 'CDNUR' : 'B2CS',
+      fullyCredited,
     },
     issues,
   };

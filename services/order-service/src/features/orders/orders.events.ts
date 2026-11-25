@@ -19,7 +19,8 @@ import type { EventHandlerMap } from '../../adapters/events.js';
 export const createOrderEventHandlers = ({
   orderLifecycle: life,
   transactionsService: ledger,
-}: Pick<Cradle, 'orderLifecycle' | 'transactionsService'>): EventHandlerMap => {
+  invoicesService: invoices,
+}: Pick<Cradle, 'orderLifecycle' | 'transactionsService' | 'invoicesService'>): EventHandlerMap => {
   const ctx = (e: EventEnvelope) => ({ correlationId: e.correlationId, causationId: e.id });
   return {
     // Money events: the ledger row is written first (idempotent by key, same transaction), so it
@@ -43,8 +44,16 @@ export const createOrderEventHandlers = ({
       life.onReservationRejected(tx, e.data as ReservationRejectedV1, ctx(e)),
     'inventory.reservation_released.v1': (e, tx) =>
       life.onReservationReleased(tx, e.data as ReservationReleasedV1),
-    // F1 (D-57b): the order status follows its shipments.
-    'shipment.status_changed.v1': (e, tx) =>
-      life.onShipmentStatus(tx, e.data as ShipmentStatusChangedV1, ctx(e)),
+    // F1 (D-57b): the order status follows its shipments. D-61: a CANCELLED shipment's active
+    // invoice is voided by a full credit note in the same transaction (order row already locked
+    // by onShipmentStatus; idempotent, so repeated snapshots are harmless).
+    'shipment.status_changed.v1': async (e, tx) => {
+      const d = e.data as ShipmentStatusChangedV1;
+      await life.onShipmentStatus(tx, d, ctx(e));
+      const cancelled = d.orderShipments
+        .filter((s) => s.status === 'CANCELLED')
+        .map((s) => s.shipmentId);
+      if (cancelled.length > 0) await invoices.voidCancelledShipments(tx, d.orderId, cancelled);
+    },
   };
 };

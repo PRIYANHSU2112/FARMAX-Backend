@@ -24,7 +24,19 @@ export const MODULES = {
 const PIN = /^[1-9]\d{5}$/;
 
 export interface SearchResult {
-  type: 'warehouse' | 'pin' | 'bin' | 'sku' | 'batch' | 'unit' | 'receipt' | 'restock' | 'transfer';
+  type:
+    | 'warehouse'
+    | 'pin'
+    | 'bin'
+    | 'sku'
+    | 'batch'
+    | 'unit'
+    | 'receipt'
+    | 'restock'
+    | 'transfer'
+    | 'gate_shipment'
+    | 'gate_entry'
+    | 'gate_pass';
   id: string;
   title: string;
   subtitle: string;
@@ -37,7 +49,12 @@ export class PortalService {
   constructor(
     private readonly deps: Pick<
       Cradle,
-      'warehousesService' | 'serviceAreasService' | 'authClient' | 'stockQueries' | 'storageService'
+      | 'warehousesService'
+      | 'serviceAreasService'
+      | 'authClient'
+      | 'stockQueries'
+      | 'storageService'
+      | 'gateEntries'
     >,
   ) {}
 
@@ -97,11 +114,13 @@ export class PortalService {
   async search(caller: Caller, q: string): Promise<SearchResult[]> {
     const { warehousesService, serviceAreasService, stockQueries, storageService } = this.deps;
     const scope = caller.access.scope('warehouse.view');
-    const [warehouses, coverage, bins, stock] = await Promise.all([
+    const [warehouses, coverage, bins, stock, gate] = await Promise.all([
       warehousesService.search(q, scope, 10),
       PIN.test(q) ? serviceAreasService.coverage(caller, q) : Promise.resolve([]),
       q.length >= 2 ? storageService.binsByCode(scope, q, 5) : Promise.resolve([]),
       q.length >= 2 ? stockQueries.search(caller, q) : Promise.resolve([]),
+      // D-62: inbound shipments, vehicles at the gate, gate passes.
+      this.deps.gateEntries.search(caller, q),
     ]);
     return [
       ...warehouses.map((w) => ({
@@ -126,6 +145,7 @@ export class PortalService {
         warehouseId: b.warehouseId,
       })),
       ...stock.map((h) => ({ ...h, type: h.type as SearchResult['type'] })),
+      ...gate,
     ];
   }
 }

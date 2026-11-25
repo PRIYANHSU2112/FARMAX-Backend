@@ -19,6 +19,8 @@ export const ORDER_PERMISSIONS = new Set([
   'orders.configure',
   'refunds.initiate',
   'refunds.approve',
+  'invoices.view',
+  'invoices.export',
 ]);
 
 /** preHandler: valid, non-revoked access token with FULL scope; optionally a persona. */

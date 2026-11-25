@@ -83,12 +83,15 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
     upstream: config.USER_SERVICE_URL,
     rewritePrefix: '/health',
   },
-  // order-service: cart (guests + customers), offers / price preview (customers), promotions admin.
-  ...(['/cart', '/orders', '/admin/promotions', '/admin/orders'] as const).map((path) => ({
-    prefix: '/v1' + path,
-    upstream: config.ORDER_SERVICE_URL,
-    rewritePrefix: path,
-  })),
+  // order-service: cart (guests + customers), offers / price preview (customers), promotions
+  // admin, orders admin, invoice register (D-61).
+  ...(['/cart', '/orders', '/admin/promotions', '/admin/orders', '/admin/invoices'] as const).map(
+    (path) => ({
+      prefix: '/v1' + path,
+      upstream: config.ORDER_SERVICE_URL,
+      rewritePrefix: path,
+    }),
+  ),
   {
     prefix: '/v1/order-service/health',
     upstream: config.ORDER_SERVICE_URL,
@@ -179,6 +182,18 @@ export const createRouteMap = (config: ServiceUrls): ProxyRoute[] => [
   {
     prefix: '/v1/warehouse-service/health',
     upstream: config.WAREHOUSE_SERVICE_URL,
+    rewritePrefix: '/health',
+  },
+  // quality-service (D-60, W16 Sampling & COA): /quality = warehouse panel (scoped),
+  // /admin/quality = admin panel (GLOBAL), /certificates = customer app, /verify = public.
+  ...(['/admin/quality', '/quality', '/certificates', '/verify'] as const).map((path) => ({
+    prefix: '/v1' + path,
+    upstream: config.QUALITY_SERVICE_URL,
+    rewritePrefix: path,
+  })),
+  {
+    prefix: '/v1/quality-service/health',
+    upstream: config.QUALITY_SERVICE_URL,
     rewritePrefix: '/health',
   },
 ];

@@ -59,7 +59,9 @@
 - RabbitMQ `events` exchange (outbox → inbox). Docker Compose only, no Kubernetes.
 - OpenAPI 3.0.3 via `@fastify/swagger`. **ONE Swagger UI for all services** at gateway
   `/api-docs` (D-29); services only publish `/api-docs.json`. New service → add it to
-  `api-gateway/src/features/docs/docs.module.ts`.
+  `api-gateway/src/features/docs/docs.module.ts`, `infra/docker/compose.stack.yml` (local) **and
+  the PRODUCTION `docker-compose.yml`** (service block + `*_SERVICE_URL` in `x-env` + gateway
+  `depends_on`). `api-gateway/tests/unit/compose.test.ts` fails until all are done.
 
 ## Folder structure
 
@@ -75,7 +77,7 @@ services/<svc>/tests/{unit,integration}     services/_template = copy for a new 
                     · catalog-service :3004 · product-service :3005 · user-service :3006
                     · order-service :3007 · inventory-service :3008 · payment-service :3009
                     · notification-service :3010 · call-service :3011 · wallet-service :3012
-                    · support-service :3013 · warehouse-service :3014
+                    · support-service :3013 · warehouse-service :3014 · quality-service :3015
 infra/docker        compose.yml (+ compose.prod.yml)     docs/ · implementation-plan/
 ```
 
@@ -128,7 +130,8 @@ details?, requestId } }`.
 
 ```
 pnpm install            pnpm infra:up / infra:down [-v]     pnpm dev   (gateway :3000, auth :3001)
-pnpm docker:up          (whole stack in Docker: infra + migrate + 10 services, gateway :3000)
+pnpm docker:up          (LOCAL whole stack: infra/docker/compose.stack.yml, gateway :3000)
+docker compose --env-file .env -f docker-compose.prod.yml up -d --build   (PRODUCTION server: all 15 services)
 pnpm docker:down        pnpm docker:logs        pnpm docker:seed   (first run: permissions + super admin)
 pnpm typecheck          pnpm lint        pnpm test        pnpm build        pnpm check (all)
 pnpm db:generate        pnpm db:migrate [--name x]        pnpm db:deploy    pnpm db:seed    pnpm db:studio

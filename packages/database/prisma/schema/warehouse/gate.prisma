@@ -1,0 +1,636 @@
+// warehouse-service feature: gate (D-62, W5 Gate & Weighbridge). Inbound shipments (INB), gate
+// entries (GE, one vehicle visit), manual weighments, gate documents, inward / outward passes
+// (GPI / GPO, signed QR), the gate timeline, vendor ASNs, visitors, outward material and security
+// checks. Partial unique keys, CHECKs and the trigram search index live in the migration SQL.
+
+enum WmsGatePurpose {
+  INBOUND_CONSIGNMENT
+  STOCK_TRANSFER
+  CUSTOMER_RETURN
+  OTHER
+}
+
+enum WmsGateVehicleType {
+  MINI_TRUCK
+  LCV
+  TRUCK
+  HEAVY_TRUCK
+  MULTI_AXLE
+  REEFER
+  TRACTOR_TRAILER
+  OTHER
+}
+
+/// Shipment stage = the active entry's status while a truck is inside; COMPLETED after exit.
+enum WmsInboundStage {
+  EXPECTED
+  ARRIVED
+  WEIGHED_IN
+  APPROVED
+  UNLOADING
+  UNLOADED
+  WEIGHED_OUT
+  PASS_OUT
+  BLOCKED
+  HELD
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum WmsGateEntryStatus {
+  ARRIVED
+  WEIGHED_IN
+  APPROVED
+  UNLOADING
+  UNLOADED
+  WEIGHED_OUT
+  PASS_OUT
+  BLOCKED
+  HELD
+  REJECTED
+  EXITED
+  CANCELLED
+}
+
+enum WmsGateOutcome {
+  COMPLETED
+  REJECTED
+}
+
+/// What happens to the shipment when a turned-away truck EXITS.
+enum WmsGateShipmentAction {
+  REEXPECT
+  CANCEL
+}
+
+enum WmsGateReconResult {
+  WITHIN
+  BREACH
+  NO_DECLARED_WEIGHT
+}
+
+enum WmsGateExitCheckResult {
+  WITHIN
+  MISMATCH
+}
+
+enum WmsGateBlockReason {
+  MISSING_DOCUMENT
+  INVALID_DOCUMENT
+  EWAY_BILL_EXPIRED
+  VEHICLE_MISMATCH
+  DRIVER_UNVERIFIED
+  SECURITY_CONCERN
+  OTHER
+}
+
+enum WmsGateHoldReason {
+  BREACH
+  NO_DECLARED_WEIGHT
+  MANUAL
+}
+
+enum WmsGateHoldResolution {
+  ACCEPT_VARIANCE
+  REWEIGH
+  ACCEPT_WITH_DEBIT_NOTE
+}
+
+enum WmsWeighKind {
+  GROSS
+  TARE
+  EXIT_CHECK
+}
+
+enum WmsWeighMethod {
+  MANUAL
+  OVERRIDE
+  REWEIGH
+}
+
+enum WmsWeighStatus {
+  ACTIVE
+  SUPERSEDED
+  PENDING_APPROVAL
+  REJECTED
+}
+
+/// DEVICE is reserved for the live weighbridge feed (Future).
+enum WmsScaleCapture {
+  MANUAL
+  DEVICE
+}
+
+enum WmsGateDocType {
+  PURCHASE_ORDER
+  DELIVERY_CHALLAN
+  INVOICE
+  EWAY_BILL
+  RC_BOOK
+  PERMIT
+  INSURANCE
+  DRIVER_LICENCE
+  OTHER
+}
+
+enum WmsGateDocStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXEMPTED
+}
+
+enum WmsGatePassType {
+  INWARD
+  OUTWARD
+}
+
+enum WmsGatePassStatus {
+  ISSUED
+  USED
+  VOID
+}
+
+enum WmsAsnStatus {
+  RECEIVED
+  PENDING
+  MATCHED
+  UNMATCHED
+  PARTIALLY_CONVERTED
+  CONVERTED
+  CANCELLED
+}
+
+enum WmsAsnSource {
+  STAFF
+  VENDOR_API
+}
+
+enum WmsVisitorStatus {
+  PENDING
+  ON_SITE
+  CHECKED_OUT
+  DENIED
+}
+
+enum WmsOutwardStatus {
+  PENDING_AUTH
+  AUTHORIZED
+  EXITED
+  REJECTED
+}
+
+enum WmsSecuritySubject {
+  ENTRY
+  VISITOR
+  OUTWARD
+}
+
+enum WmsSecurityResult {
+  CLEAR
+  HOLD
+}
+
+enum WmsCheckOutcome {
+  PASS
+  FAIL
+  NA
+}
+
+enum WmsSecuritySource {
+  MANUAL
+  AUTO
+}
+
+/// Expected inbound consignment (W5.02–W5.04). List fields are snapshotted here so the gate
+/// dashboard reads ONE table (no joins).
+model WmsInboundShipment {
+  id                  String             @id @default(uuid(7)) @db.Uuid
+  /// INB-YYMM-#### (SHP is the outbound shipment series).
+  shipmentNo          String             @unique @db.VarChar(20)
+  warehouseId         String             @db.Uuid
+  purpose             WmsGatePurpose     @default(INBOUND_CONSIGNMENT)
+  vendorId            String?            @db.Uuid
+  vendorCode          String?            @db.VarChar(20)
+  vendorName          String?            @db.VarChar(120)
+  /// PO = approved PROCUREMENT restock request (D-62 decision).
+  restockRequestId    String?            @db.Uuid
+  restockRequestNo    String?            @db.VarChar(20)
+  /// The vendor's own PO number (printed on passes).
+  vendorPoNo          String?            @db.VarChar(40)
+  transferId          String?            @db.Uuid
+  asnId               String?            @db.Uuid
+  sourceLocation      String?            @db.VarChar(160)
+  transportType       WmsGateVehicleType
+  plannedVehicleRegNo String?            @db.VarChar(16)
+  plannedDriverName   String?            @db.VarChar(120)
+  plannedDriverMobile String?            @db.VarChar(16)
+  /// Current vehicle (active entry) or the planned one.
+  vehicleRegNo        String?            @db.VarChar(16)
+  etaAt               DateTime
+  dockDoorId          String?            @db.Uuid
+  bayCode             String?            @db.VarChar(20)
+  dockBookingId       String?            @db.Uuid
+  totalUnits          Int                @default(0)
+  declaredNetKg       Decimal?           @db.Decimal(12, 2)
+  invoiceNetKg        Decimal?           @db.Decimal(12, 2)
+  invoiceGrossKg      Decimal?           @db.Decimal(12, 2)
+  palletCount         Int?
+  /// e.g. "100 Bags · 25 Drums".
+  payloadLabel        String             @default("") @db.VarChar(80)
+  stage               WmsInboundStage    @default(EXPECTED)
+  activeEntryId       String?            @db.Uuid
+  /// Set when a turned-away truck exits with REEXPECT: gate-in is refused until a new slot.
+  rebookingRequired   Boolean            @default(false)
+  attemptNo           Int                @default(1) @db.SmallInt
+  notes               String?            @db.VarChar(500)
+  /// Lower-case "shipmentNo vehicle vendor po" for the trigram search.
+  searchText          String             @default("") @db.VarChar(400)
+  idempotencyKey      String?            @unique @db.VarChar(64)
+  cancelledAt         DateTime?
+  cancelReason        String?            @db.VarChar(500)
+  createdBy           String             @db.Uuid
+  updatedBy           String?            @db.Uuid
+  version             Int                @default(0)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  lines WmsInboundLine[]
+
+  @@index([warehouseId, stage, etaAt])
+  @@index([warehouseId, etaAt])
+  @@index([restockRequestId])
+  @@index([asnId])
+  @@map("warehouse_inbound_shipments")
+}
+
+model WmsInboundLine {
+  shipmentId      String   @db.Uuid
+  lineNo          Int
+  variantId       String   @db.Uuid
+  sku             String?  @db.VarChar(60)
+  name            String?  @db.VarChar(200)
+  packLabel       String?  @db.VarChar(60)
+  expectedQty     Int
+  /// Product weight per pack (grams) at creation; null = unknown.
+  unitWeightGrams Int?
+  declaredNetKg   Decimal? @db.Decimal(12, 2)
+
+  shipment WmsInboundShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@id([shipmentId, lineNo])
+  @@index([variantId])
+  @@map("warehouse_inbound_lines")
+}
+
+/// One vehicle visit (GE-YYMM-####). Status machine: see gate.rules.ts (§1a of D-62).
+model WmsGateEntry {
+  id                      String                  @id @default(uuid(7)) @db.Uuid
+  entryNo                 String                  @unique @db.VarChar(20)
+  warehouseId             String                  @db.Uuid
+  shipmentId              String                  @db.Uuid
+  vehicleRegNo            String                  @db.VarChar(16)
+  vehicleType             WmsGateVehicleType
+  driverName              String                  @db.VarChar(120)
+  driverMobile            String                  @db.VarChar(16)
+  driverLicenceNo         String?                 @db.VarChar(30)
+  driverVerified          Boolean                 @default(false)
+  plateMatched            Boolean
+  plateNote               String?                 @db.VarChar(300)
+  arrivedAt               DateTime
+  dockDoorId              String?                 @db.Uuid
+  bayCode                 String?                 @db.VarChar(20)
+  status                  WmsGateEntryStatus      @default(ARRIVED)
+  /// Status before BLOCKED / HELD (resume point; the step bar shows it).
+  pausedFromStatus        WmsGateEntryStatus?
+  outcome                 WmsGateOutcome?
+  grossKg                 Decimal?                @db.Decimal(12, 2)
+  tareKg                  Decimal?                @db.Decimal(12, 2)
+  netKg                   Decimal?                @db.Decimal(12, 2)
+  expectedLoadKg          Decimal?                @db.Decimal(12, 2)
+  packagingAllowanceKg    Decimal?                @db.Decimal(12, 2)
+  varianceKg              Decimal?                @db.Decimal(12, 2)
+  toleranceKg             Decimal?                @db.Decimal(12, 2)
+  /// INVOICE_GROSS · NET_PLUS_PACKAGING
+  reconBasis              String?                 @db.VarChar(20)
+  reconResult             WmsGateReconResult?
+  exitCheckKg             Decimal?                @db.Decimal(12, 2)
+  exitCheckResult         WmsGateExitCheckResult?
+  blockReason             WmsGateBlockReason?
+  blockHoldLocation       String?                 @db.VarChar(120)
+  blockRemarks            String?                 @db.VarChar(500)
+  blockedAt               DateTime?
+  blockedBy               String?                 @db.Uuid
+  holdReason              WmsGateHoldReason?
+  holdNote                String?                 @db.VarChar(500)
+  heldAt                  DateTime?
+  heldBy                  String?                 @db.Uuid
+  holdResolution          WmsGateHoldResolution?
+  holdResolvedAt          DateTime?
+  holdResolvedBy          String?                 @db.Uuid
+  approvedAt              DateTime?
+  approvedBy              String?                 @db.Uuid
+  approvalRemarks         String?                 @db.VarChar(500)
+  rejectionReason         String?                 @db.VarChar(500)
+  pendingShipmentAction   WmsGateShipmentAction?
+  rejectedAt              DateTime?
+  rejectedBy              String?                 @db.Uuid
+  shipmentActionAppliedAt DateTime?
+  debitNoteRequired       Boolean                 @default(false)
+  noReceipt               Boolean                 @default(false)
+  noReceiptReason         String?                 @db.VarChar(500)
+  /// RCV-YYMM-#### (receiving handover reference).
+  rcvNo                   String?                 @db.VarChar(20)
+  handoverAt              DateTime?
+  handoverBy              String?                 @db.Uuid
+  unloadedAt              DateTime?
+  unloadedBy              String?                 @db.Uuid
+  /// Actual dock times (the booking window is never changed).
+  dockInAt                DateTime?
+  dockOutAt               DateTime?
+  grossAt                 DateTime?
+  tareAt                  DateTime?
+  passOutAt               DateTime?
+  exitedAt                DateTime?
+  exitedBy                String?                 @db.Uuid
+  cancelledAt             DateTime?
+  cancelReason            String?                 @db.VarChar(500)
+  piiRedactedAt           DateTime?
+  idempotencyKey          String?                 @unique @db.VarChar(64)
+  createdBy               String                  @db.Uuid
+  version                 Int                     @default(0)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  receipts WmsGateEntryReceipt[]
+
+  @@index([shipmentId])
+  @@index([warehouseId, vehicleRegNo])
+  @@index([warehouseId, arrivedAt(sort: Desc)])
+  @@index([warehouseId, status])
+  @@map("warehouse_gate_entries")
+}
+
+/// CN receipts linked to a gate entry (several per truck; only `finalForGate` unloads).
+model WmsGateEntryReceipt {
+  gateEntryId  String   @db.Uuid
+  receiptId    String   @unique @db.Uuid
+  cnNo         String   @db.VarChar(20)
+  finalForGate Boolean  @default(false)
+  attachedAt   DateTime @default(now())
+  attachedBy   String?  @db.Uuid
+
+  entry WmsGateEntry @relation(fields: [gateEntryId], references: [id], onDelete: Cascade)
+
+  @@id([gateEntryId, receiptId])
+  @@map("warehouse_gate_entry_receipts")
+}
+
+model WmsWeighScale {
+  id                    String            @id @default(uuid(7)) @db.Uuid
+  warehouseId           String            @db.Uuid
+  /// e.g. WB-01, unique per warehouse.
+  code                  String            @db.VarChar(20)
+  name                  String            @db.VarChar(80)
+  maxCapacityKg         Decimal           @db.Decimal(12, 2)
+  divisionKg            Decimal           @default(10) @db.Decimal(8, 2)
+  captureMethod         WmsScaleCapture   @default(MANUAL)
+  calibratedAt          DateTime?         @db.Date
+  calibrationValidUntil DateTime?         @db.Date
+  certificateMediaKey   String?           @db.VarChar(300)
+  status                WmsResourceStatus @default(ACTIVE)
+  lastWeighedAt         DateTime?
+  createdBy             String?           @db.Uuid
+  updatedBy             String?           @db.Uuid
+  version               Int               @default(0)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@unique([warehouseId, code])
+  @@map("warehouse_weigh_scales")
+}
+
+/// Append-only readings. One ACTIVE and one PENDING_APPROVAL per (entry, kind) (partial uniques).
+model WmsWeighment {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  gateEntryId  String         @db.Uuid
+  warehouseId  String         @db.Uuid
+  kind         WmsWeighKind
+  scaleId      String?        @db.Uuid
+  weightKg     Decimal        @db.Decimal(12, 2)
+  method       WmsWeighMethod @default(MANUAL)
+  slipNo       String?        @db.VarChar(40)
+  slipMediaKey String?        @db.VarChar(300)
+  status       WmsWeighStatus @default(ACTIVE)
+  reason       String?        @db.VarChar(500)
+  capturedBy   String         @db.Uuid
+  capturedAt   DateTime       @default(now())
+  reviewedBy   String?        @db.Uuid
+  reviewedAt   DateTime?
+  reviewNote   String?        @db.VarChar(500)
+  supersedesId String?        @db.Uuid
+
+  @@index([gateEntryId, kind])
+  @@index([warehouseId, status])
+  @@map("warehouse_weighments")
+}
+
+model WmsGateDocument {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  shipmentId     String           @db.Uuid
+  warehouseId    String           @db.Uuid
+  gateEntryId    String?          @db.Uuid
+  docType        WmsGateDocType
+  refNo          String?          @db.VarChar(60)
+  validUntil     DateTime?        @db.Date
+  mediaKey       String?          @db.VarChar(300)
+  fileName       String?          @db.VarChar(160)
+  sizeBytes      Int?
+  contentType    String?          @db.VarChar(60)
+  status         WmsGateDocStatus @default(PENDING)
+  required       Boolean          @default(false)
+  expired        Boolean          @default(false)
+  carriedForward Boolean          @default(false)
+  note           String?          @db.VarChar(500)
+  uploadedBy     String?          @db.Uuid
+  uploadedAt     DateTime         @default(now())
+  verifiedBy     String?          @db.Uuid
+  verifiedAt     DateTime?
+  mediaPurgedAt  DateTime?
+  version        Int              @default(0)
+  updatedAt      DateTime         @updatedAt
+
+  @@index([shipmentId, docType])
+  @@index([docType, uploadedAt])
+  @@map("warehouse_gate_documents")
+}
+
+/// Inward (GPI) / outward (GPO) pass. One non-VOID pass per (entry, type) (partial unique).
+model WmsGatePass {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  passNo       String            @unique @db.VarChar(20)
+  type         WmsGatePassType
+  gateEntryId  String            @db.Uuid
+  warehouseId  String            @db.Uuid
+  outcome      WmsGateOutcome?
+  /// QR signing key id (rotation).
+  kid          String            @db.VarChar(20)
+  expiresAt    DateTime
+  /// Immutable print data (mobile masked, no DL number).
+  snapshot     Json
+  status       WmsGatePassStatus @default(ISSUED)
+  issuedBy     String            @db.Uuid
+  issuedAt     DateTime          @default(now())
+  usedAt       DateTime?
+  usedBy       String?           @db.Uuid
+  voidedAt     DateTime?
+  voidReason   String?           @db.VarChar(300)
+  replacedById String?           @db.Uuid
+  reissueOfId  String?           @db.Uuid
+
+  @@index([gateEntryId, type])
+  @@map("warehouse_gate_passes")
+}
+
+/// Gate timeline (append-only, ids / codes only — no PII).
+model WmsGateEvent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  warehouseId String   @db.Uuid
+  shipmentId  String   @db.Uuid
+  gateEntryId String?  @db.Uuid
+  type        String   @db.VarChar(40)
+  at          DateTime @default(now())
+  byUserId    String?  @db.Uuid
+  data        Json     @default("{}")
+
+  @@index([shipmentId, at])
+  @@index([warehouseId, at(sort: Desc)])
+  @@map("warehouse_gate_events")
+}
+
+/// Vendor advance shipping notice (W5.12). One ASN may become several shipments (one per truck).
+model WmsAsn {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  vendorAsnRef     String       @db.VarChar(40)
+  warehouseId      String       @db.Uuid
+  vendorId         String       @db.Uuid
+  vendorName       String?      @db.VarChar(120)
+  restockRequestId String?      @db.Uuid
+  restockRequestNo String?      @db.VarChar(20)
+  vehicleRegNo     String?      @db.VarChar(16)
+  etaAt            DateTime
+  expectedUnits    Int          @default(0)
+  declaredNetKg    Decimal?     @db.Decimal(12, 2)
+  dockBookingId    String?      @db.Uuid
+  status           WmsAsnStatus @default(RECEIVED)
+  /// [{code, message, variantId?}]
+  matchIssues      Json         @default("[]")
+  source           WmsAsnSource @default(STAFF)
+  notes            String?      @db.VarChar(500)
+  createdBy        String?      @db.Uuid
+  version          Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  lines WmsAsnLine[]
+
+  @@unique([vendorId, vendorAsnRef])
+  @@index([warehouseId, etaAt])
+  @@index([warehouseId, status])
+  @@index([restockRequestId])
+  @@map("warehouse_asns")
+}
+
+model WmsAsnLine {
+  asnId         String   @db.Uuid
+  lineNo        Int
+  variantId     String   @db.Uuid
+  sku           String?  @db.VarChar(60)
+  name          String?  @db.VarChar(200)
+  packLabel     String?  @db.VarChar(60)
+  qty           Int
+  declaredNetKg Decimal? @db.Decimal(12, 2)
+  convertedQty  Int      @default(0)
+
+  asn WmsAsn @relation(fields: [asnId], references: [id], onDelete: Cascade)
+
+  @@id([asnId, lineNo])
+  @@map("warehouse_asn_lines")
+}
+
+model WmsGateVisitor {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  visitorNo    String           @unique @db.VarChar(20)
+  warehouseId  String           @db.Uuid
+  name         String           @db.VarChar(120)
+  mobile       String?          @db.VarChar(16)
+  company      String?          @db.VarChar(120)
+  purpose      String           @db.VarChar(80)
+  hostLabel    String?          @db.VarChar(120)
+  hostUserId   String?          @db.Uuid
+  status       WmsVisitorStatus @default(PENDING)
+  entryAt      DateTime?
+  exitAt       DateTime?
+  gateEntryId  String?          @db.Uuid
+  createdBy    String           @db.Uuid
+  anonymizedAt DateTime?
+  version      Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([warehouseId, createdAt(sort: Desc)])
+  @@index([warehouseId, status])
+  @@map("warehouse_gate_visitors")
+}
+
+model WmsGateOutwardMaterial {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  omNo         String           @unique @db.VarChar(20)
+  warehouseId  String           @db.Uuid
+  material     String           @db.VarChar(160)
+  qty          Decimal          @db.Decimal(12, 2)
+  unit         String           @db.VarChar(20)
+  vehicleRegNo String?          @db.VarChar(16)
+  receiver     String?          @db.VarChar(120)
+  remarks      String?          @db.VarChar(500)
+  status       WmsOutwardStatus @default(PENDING_AUTH)
+  createdBy    String           @db.Uuid
+  authorizedBy String?          @db.Uuid
+  authorizedAt DateTime?
+  exitedBy     String?          @db.Uuid
+  exitedAt     DateTime?
+  version      Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([warehouseId, createdAt(sort: Desc)])
+  @@index([warehouseId, status])
+  @@map("warehouse_gate_outward_materials")
+}
+
+model WmsGateSecurityCheck {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  warehouseId    String             @db.Uuid
+  subjectType    WmsSecuritySubject
+  subjectId      String             @db.Uuid
+  /// GE / VIS / OM number shown on the card.
+  subjectRef     String             @db.VarChar(40)
+  identityCheck  WmsCheckOutcome    @default(NA)
+  plateCheck     WmsCheckOutcome    @default(NA)
+  outwardCheck   WmsCheckOutcome    @default(NA)
+  source         WmsSecuritySource  @default(MANUAL)
+  /// AUTO reason, e.g. EXIT_WEIGHT_MISMATCH.
+  reason         String?            @db.VarChar(60)
+  remarks        String?            @db.VarChar(500)
+  result         WmsSecurityResult
+  createdBy      String?            @db.Uuid
+  createdAt      DateTime           @default(now())
+  resolvedBy     String?            @db.Uuid
+  resolvedAt     DateTime?
+  resolutionNote String?            @db.VarChar(500)
+
+  @@index([warehouseId, createdAt(sort: Desc)])
+  @@index([subjectId])
+  @@map("warehouse_gate_security_checks")
+}

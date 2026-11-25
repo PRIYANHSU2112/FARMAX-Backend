@@ -199,6 +199,11 @@ model WmsBatch {
   isOpening         Boolean              @default(false)
   /// Unit QR rows exist for this batch.
   serialized        Boolean              @default(false)
+  /// D-60 read copy from quality-service: quarantined / recalled batch → later receipts land in
+  /// QUARANTINED and FEFO never allocates it.
+  qualityBlocked    Boolean              @default(false)
+  /// Highest quality decision version seen (older decisions' tasks become SUPERSEDED).
+  qualityVersion    Int                  @default(0)
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
@@ -418,6 +423,53 @@ model WmsTransitionProposal {
 
   @@index([status, createdAt(sort: Desc)])
   @@map("warehouse_transition_proposals")
+}
+
+/// D-60: quality policy of a SKU (fed by `quality.spec_changed.v1`, highest version wins).
+/// holdOnReceipt → new stock lands in QC_HOLD and only quality-service releases it.
+model WmsQualityPolicy {
+  variantId     String   @id @db.Uuid
+  holdOnReceipt Boolean
+  releaseMode   String   @db.VarChar(20)
+  isActive      Boolean  @default(true)
+  version       Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@map("warehouse_quality_policies")
+}
+
+enum WmsQualityTaskStatus {
+  PENDING
+  DONE
+  FAILED
+  NO_STOCK
+  SUPERSEDED
+}
+
+/// D-60: one warehouse's part of a quality decision. Each task runs in its own transaction
+/// (key = decisionId × warehouseId), so one warehouse failing never undoes another.
+model WmsQualityTask {
+  decisionId    String               @db.Uuid
+  warehouseId   String               @db.Uuid
+  batchId       String               @db.Uuid
+  decisionNo    String               @db.VarChar(20)
+  /// RELEASE · QUARANTINE · RECALL
+  kind          String               @db.VarChar(12)
+  stateVersion  Int
+  actorUserId   String?              @db.Uuid
+  reason        String?              @db.VarChar(500)
+  status        WmsQualityTaskStatus @default(PENDING)
+  qtyMoved      Int                  @default(0)
+  attempts      Int                  @default(0)
+  nextAttemptAt DateTime             @default(now())
+  lastError     String?              @db.VarChar(500)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@id([decisionId, warehouseId])
+  @@index([status, nextAttemptAt])
+  @@index([batchId])
+  @@map("warehouse_quality_tasks")
 }
 
 /// Thresholds per warehouse × SKU. Owned by the WMS; published one way to inventory.

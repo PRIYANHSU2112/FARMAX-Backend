@@ -1,4 +1,4 @@
-import { UnauthorizedError } from '@farmx/common/errors';
+import { ConflictError, UnauthorizedError } from '@farmx/common/errors';
 import { internalAuth } from '@farmx/common/middleware';
 import { ok, paginated } from '@farmx/common/response';
 import { routeDocs } from '@farmx/common/server';
@@ -7,6 +7,8 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import { rateLimit, requireAuth } from '../../middleware/guards.js';
 import { idempotencyKeyOf } from '../../middleware/http.js';
+import { linesHash } from '../invoices/index.js';
+import { fromPaise } from '../pricing/index.js';
 import { ORDER_DOCS, ORDERS_TAG } from './orders.docs.js';
 import { ledgerDocs } from './orders.ledger.docs.js';
 import type { CancelInput, CheckoutInput, DeliveryInput, OrderListQuery } from './orders.types.js';
@@ -20,6 +22,8 @@ import {
   listOrdersSchema,
   orderIdSchema,
   quoteSchema,
+  shipmentInvoiceSchema,
+  shipmentPdfSchema,
   statusesSchema,
 } from './orders.validation.js';
 
@@ -145,6 +149,55 @@ export const ordersInternalRoutes: FastifyPluginAsync = async (app) => {
     '/:id/fulfilment-facts',
     { schema: { hide: true, ...orderIdSchema }, onRequest: [guard] },
     async (req) => ok(await svc(req).fulfilmentFacts(req.params.id)),
+  );
+  // D-61: invoice BEFORE gate-out (the warehouse dispatches only after this answers 200, then
+  // re-checks `linesHash` under its shipment row lock). Idempotent per shipment + lines.
+  app.post<{
+    Params: { id: string; shipmentId: string };
+    Body: { lines: { lineNo: number; qty: number }[]; linesHash: string; by: string | null };
+  }>(
+    '/:id/shipments/:shipmentId/invoice',
+    { schema: { hide: true, ...shipmentInvoiceSchema }, onRequest: [guard] },
+    async (req) => {
+      const { lines, linesHash: theirs, by } = req.body;
+      const ours = linesHash(lines);
+      if (ours !== theirs)
+        throw new ConflictError('Lines hash mismatch', {
+          details: { reason: 'LINES_HASH_MISMATCH', expected: ours },
+        });
+      const d = await svc(req).issueShipmentInvoice(
+        req.params.id,
+        { shipmentId: req.params.shipmentId, lines },
+        by,
+      );
+      return ok({
+        docId: d.id,
+        docNo: d.docNo,
+        docType: d.docType,
+        grandTotalPaise: Number(d.grandTotalPaise),
+        grandTotal: fromPaise(Number(d.grandTotalPaise)),
+        issuedAt: d.issuedAt,
+        linesHash: d.linesHash ?? ours,
+        replayed: d.replayed,
+        voidedDocNo: d.voidedDocNo ?? null,
+      });
+    },
+  );
+  // D-61 warehouse print: the active invoice PDF of one shipment (the warehouse checked scope).
+  app.get<{ Params: { id: string; shipmentId: string } }>(
+    '/:id/invoices/by-shipment/:shipmentId/pdf',
+    { schema: { hide: true, ...shipmentPdfSchema }, onRequest: [guard] },
+    async (req, reply) => {
+      const pdf = await req.diScope
+        .resolve('invoicesService')
+        .shipmentPdf(req.params.id, req.params.shipmentId);
+      return reply
+        .header('content-type', 'application/pdf')
+        .header('content-disposition', `attachment; filename="${pdf.fileName}"`)
+        .header('x-document-no', pdf.docNo)
+        .header('cache-control', 'private, no-store')
+        .send(pdf.file);
+    },
   );
   app.post<{
     Params: IdParams;

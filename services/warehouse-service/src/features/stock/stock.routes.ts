@@ -5,7 +5,6 @@ import { type Audience, audRead, audWrite, callerOf } from '../../middleware/gua
 import { stockDocs } from './stock.docs.js';
 import type {
   AdjustmentInput,
-  CoaInput,
   MoveInput,
   OwnerFixInput,
   ProposalDecision,
@@ -81,11 +80,6 @@ export const stockRoutes =
               await svc(req).generateUnits(callerOf(req), req.params.batchId, req.body.warehouseId),
             ),
           ),
-    );
-    app.put<{ Params: { batchId: string }; Body: CoaInput }>(
-      '/stock/batches/:batchId/coa',
-      { schema: { ...V.coaSchema, ...routeDocs(D.coa) }, preHandler: w('quality.hold_create') },
-      async (req) => ok(await svc(req).setCoa(callerOf(req), req.params.batchId, req.body)),
     );
     app.post<{ Body: QualityInput }>(
       '/stock/quality/release',

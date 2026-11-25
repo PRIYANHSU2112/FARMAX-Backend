@@ -16,6 +16,8 @@ import {
   randomCode,
   staff,
 } from './harness.js';
+import { FulfilmentFloor } from '../../src/features/fulfilment/fulfilment.floor.js';
+import { invoiceLinesHash } from '../../src/features/fulfilment/index.js';
 
 /** D-57b Phase 4a: route master, fleet, trips, weighbridge, gate-out (issue), pings, W3.08, W3.19. */
 let app: FastifyInstance;
@@ -470,5 +472,132 @@ describe.skipIf(DB_URL === undefined)('D-57b dispatch against Postgres', () => {
     expect(
       await app.diContainer.resolve('dispatchRepository').downsamplePings(),
     ).toBeGreaterThanOrEqual(0);
+  });
+
+  it('D-61 gate-out saga: invoice first; blocked / unavailable leave the trip untouched; stale + missing refused; print is scoped', async () => {
+    const carrier = data<{ id: string }>(
+      await call(app, 'POST', '/wms/dispatch/carriers', admin, {
+        name: 'Invoice Fleet',
+        type: 'OWN_FLEET',
+      }),
+    );
+    const v = data<{ id: string }>(
+      await call(app, 'POST', '/wms/dispatch/vehicles', admin, {
+        regNo: `AP39 IV ${TAG}`,
+        carrierId: carrier.id,
+        warehouseId: W,
+        vehicleClass: 'TRUCK',
+        capacityKg: 5000,
+      }),
+    );
+    const driver = data<{ id: string }>(
+      await call(app, 'POST', '/wms/dispatch/drivers', admin, {
+        name: 'Invoice Driver',
+        phone: `+9198${String(Math.floor(Math.random() * 90_000_000) + 10_000_000)}`,
+        warehouseId: W,
+        carrierId: carrier.id,
+      }),
+    );
+    const s1 = await readyShipment(3);
+    const trip = data<{ id: string }>(
+      await call(app, 'POST', '/wms/dispatch/trips', admin, {
+        warehouseId: W,
+        shipmentIds: [s1.shipmentId],
+        vehicleId: v.id,
+        driverId: driver.id,
+      }),
+    );
+    const shipmentStatus = async () =>
+      (await app.diContainer.resolve('fulfilmentRepository').shipment(s1.shipmentId))?.status;
+
+    // 1. order-service refuses → 409 INVOICE_BLOCKED, nothing moved.
+    orderService.invoiceAnswer = {
+      ok: false,
+      conflict: {
+        message: 'Invoice cannot be issued',
+        details: {
+          reason: 'INVOICE_INVALID',
+          issues: [{ path: 'seller', message: 'missing GSTIN' }],
+        },
+      },
+    };
+    const depart = () => call(app, 'POST', `/wms/dispatch/trips/${trip.id}/depart`, admin, {});
+    const blocked = await depart();
+    expect(blocked.statusCode).toBe(409);
+    expect(errorOf(blocked).details?.reason).toBe('INVOICE_BLOCKED');
+    expect(await shipmentStatus()).toBe('READY_TO_DISPATCH');
+
+    // 2. order-service down → 503, nothing moved.
+    orderService.invoiceAnswer = 'UNAVAILABLE';
+    const down = await depart();
+    expect(down.statusCode).toBe(503);
+    expect(await shipmentStatus()).toBe('READY_TO_DISPATCH');
+
+    // 3. Issued → departs; the invoice billed exactly the packed lines (shared hash vector).
+    orderService.invoiceAnswer = null;
+    const ok = await depart();
+    expect(ok.statusCode, ok.body).toBe(200);
+    const out = data<{
+      status: string;
+      invoices: { invoiceNo: string; ewayBillRequired: boolean }[];
+    }>(ok);
+    expect(out.status).toBe('DEPARTED');
+    expect(out.invoices[0]?.invoiceNo).toMatch(/^FX\/2627\//);
+    expect(out.invoices[0]?.ewayBillRequired).toBe(true);
+    const sent = orderService.invoiceCalls.filter((c) => c.shipmentId === s1.shipmentId).at(-1);
+    expect(sent?.lines).toEqual([{ lineNo: 1, qty: 3 }]);
+    expect(sent?.linesHash).toBe(invoiceLinesHash([{ lineNo: 1, qty: 3 }]));
+    expect(await shipmentStatus()).toBe('DISPATCHED');
+
+    // 4. Under the row lock: a stale hash or a missing invoice never dispatches.
+    const s2 = await readyShipment(2);
+    const floor = app.diContainer.resolve('fulfilmentFloor');
+    const tx = app.diContainer.resolve('runInTransaction');
+    const actor = { type: 'SYSTEM' as const, id: null };
+    await expect(
+      tx((t) =>
+        floor.dispatchInTx(t, s2.shipmentId, actor, null, {
+          shipmentId: s2.shipmentId,
+          shipmentNo: 'X',
+          linesHash: invoiceLinesHash([{ lineNo: 1, qty: 1 }]),
+          invoice: null,
+          ewayBillRequired: false,
+        }),
+      ),
+    ).rejects.toMatchObject({ details: { reason: 'INVOICE_STALE' } });
+    await expect(
+      tx((t) => floor.dispatchInTx(t, s2.shipmentId, actor, null)),
+    ).rejects.toMatchObject({
+      details: { reason: 'INVOICE_MISSING' },
+    });
+
+    // 5. Print: own warehouse → PDF; another warehouse's staff → 404 (no enumeration).
+    const print = (shipmentId: string, user: string) =>
+      call(app, 'GET', `/wms/fulfilment/shipments/${shipmentId}/invoice.pdf`, user);
+    const pdf = await print(s1.shipmentId, admin);
+    expect(pdf.statusCode, pdf.body).toBe(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    const outsider = staff([], { [randomUUID()]: ['fulfilment.view'] });
+    const hidden = await print(s1.shipmentId, outsider);
+    expect(hidden.statusCode).toBe(404);
+    const before = await print(s2.shipmentId, admin);
+    expect(before.statusCode).toBe(404);
+    expect(errorOf(before).details?.reason).toBe('NO_INVOICE');
+    const audits = await app.diContainer.resolve('db').wmsAuditLog.findMany({
+      where: { targetId: s1.shipmentId, action: 'fulfilment.invoice_printed' },
+    });
+    expect(audits).toHaveLength(1);
+  });
+
+  it('D-61 flag off (dev / test only): an unreachable invoice service is logged and the shipment goes', async () => {
+    const s = await readyShipment(1);
+    const c = app.diContainer.cradle;
+    const floor = new FulfilmentFloor({
+      ...c,
+      config: { ...c.config, DISPATCH_REQUIRE_INVOICE: false },
+      orderClient: { issueShipmentInvoice: () => Promise.reject(new Error('down')) } as never,
+    });
+    const gate = await floor.prepareInvoices([s.shipmentId], null);
+    expect(gate.get(s.shipmentId)).toMatchObject({ linesHash: null, invoice: null });
   });
 });

@@ -54,6 +54,8 @@ const heartbeatKey = (job: string) => `warehouse:job:${job}:lastSuccess`;
  *   ping-retention           daily 03:00 IST  next months' ping partitions; > 90 days dropped
  *   ping-downsample          daily 03:30 IST  pings older than 7 days → 1 per 5 min
  *   exports-run              every 30 s    queued exports (POD archive, delivered / fulfilled CSV)
+ *   D-62 gate:
+ *   gate-pii-retention       daily 02:30 IST  visitors / drivers anonymised; DL + RC scans deleted
  */
 export class JobsRuntime {
   private queue: Queue | undefined;
@@ -84,6 +86,10 @@ export class JobsRuntime {
       'exports-run': { every: 30_000, staleAfterSec: 600 },
       'routing-cap-watch': { every: 300_000, staleAfterSec: 1800 },
       'backorder-allocator': { every: 300_000, staleAfterSec: 900 },
+      // D-60: per-warehouse tasks of quality decisions (release / quarantine / recall).
+      'quality-tasks': { every: 30_000, staleAfterSec: 600 },
+      // D-62: gate PII retention (visitors, drivers, DL / RC scans).
+      'gate-pii-retention': { pattern: '0 21 * * *', staleAfterSec: 26 * 3600 },
     };
   }
 
@@ -167,6 +173,10 @@ export class JobsRuntime {
         return c.routingService.capWatch();
       case 'backorder-allocator':
         return c.fulfilmentSplit.allocateBackorders();
+      case 'quality-tasks':
+        return c.stockQuality.runDue();
+      case 'gate-pii-retention':
+        return c.gateJobs.retention();
       default:
         c.logger.warn({ job: name }, 'unknown warehouse job');
         return undefined;
