@@ -12,9 +12,7 @@ coverage/
 !**/src/generated/.gitkeep
 
 # env (keep examples)
-.env
-.env.*
-!.env.example
+
 
 # logs / OS / editor
 *.log
