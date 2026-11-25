@@ -100,7 +100,7 @@ services:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_started
+        condition: service_completed_successfully
 
   media-service:
     container_name: farmx-media-service
@@ -132,12 +132,16 @@ services:
       FARM_SERVICE_PORT: 3003
       DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
       REDIS_CACHE_URL: redis://redis-cache:6379
+      # BullMQ jobs (.env.example points at localhost:6380, which is the container itself here)
+      REDIS_QUEUE_URL: redis://redis-queue:6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+      # Service-to-service calls must use compose service names, never localhost.
+      AUTH_SERVICE_URL: http://auth-service:3001
     depends_on:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_started
+        condition: service_completed_successfully
 
   catalog-service:
     container_name: farmx-catalog-service
@@ -153,11 +157,14 @@ services:
       CATALOG_SERVICE_PORT: 3004
       DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
       REDIS_CACHE_URL: redis://redis-cache:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3005
     depends_on:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_started
+        condition: service_completed_successfully
 
   product-service:
     container_name: farmx-product-service
@@ -174,11 +181,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
       REDIS_CACHE_URL: redis://redis-cache:6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3001
+      CATALOG_SERVICE_URL: http://catalog-service:3004
     depends_on:
       postgres:
         condition: service_healthy
       db-migrate:
-        condition: service_started
+        condition: service_completed_successfully
 
   # ── Public API Gateway (Exposed on Port 3090) ──
   api-gateway:
