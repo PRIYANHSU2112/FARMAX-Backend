@@ -14,13 +14,14 @@ import type {
   OrderStatus,
   OrderWithLines,
   RefundRequestRow,
+  ShipmentStates,
   StatusEventRow,
   StatusField,
 } from './orders.types.js';
 
 const TABS: Record<OrderListQuery['tab'], OrderStatus[]> = {
-  active: ['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED'],
-  completed: [],
+  active: ['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED', 'IN_FULFILMENT', 'PARTIALLY_DELIVERED'],
+  completed: ['DELIVERED', 'COMPLETED'],
   cancelled: ['REJECTED', 'CANCELLED', 'FAILED'],
 };
 
@@ -75,6 +76,25 @@ export class OrdersRepository {
       SELECT "id" FROM "orders" WHERE "id" = ${id}::uuid FOR UPDATE`;
     if (rows.length === 0) return null;
     return await tx.order.findUnique({ where: { id } });
+  }
+
+  /**
+   * F1 projection. A new `stage` bumps the order version (it changes who may cancel); states
+   * alone do not, so they never invalidate a staff edit in progress.
+   */
+  async setShipmentStates(
+    tx: Tx,
+    id: string,
+    states: ShipmentStates,
+    stage?: string,
+  ): Promise<void> {
+    await tx.order.update({
+      where: { id },
+      data: {
+        shipmentStates: states as unknown as Prisma.InputJsonValue,
+        ...(stage === undefined ? {} : { fulfilmentStage: stage, version: { increment: 1 } }),
+      },
+    });
   }
 
   async update(tx: Tx, id: string, data: Prisma.OrderUncheckedUpdateInput): Promise<OrderRow> {
@@ -136,6 +156,14 @@ export class OrdersRepository {
       }),
     );
     return toPage(rows as OrderWithLines[], query.limit);
+  }
+
+  /** Orders per status (D-57 backfill check: warehouse read model vs order-service). */
+  async countsByStatus(): Promise<Record<string, number>> {
+    const rows = await withPrismaErrors(() =>
+      this.db.order.groupBy({ by: ['status'], _count: { _all: true } }),
+    );
+    return Object.fromEntries(rows.map((r) => [r.status, r._count._all]));
   }
 
   statuses(ids: readonly string[]): Promise<{ id: string; status: string }[]> {

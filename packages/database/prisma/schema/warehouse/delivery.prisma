@@ -1,0 +1,96 @@
+// warehouse-service feature: delivery (D-57b Phase 4b, D-40). Delivery OTP (HMAC to verify,
+// AES-GCM so only the customer app can show it; never logged, evented or shown to staff), proof of
+// delivery, 3PL driver trip links (hashed token, one trip) and async exports (POD archive).
+
+enum WmsDeliveredVia {
+  STAFF
+  DRIVER_LINK
+}
+
+enum WmsExportType {
+  POD_ARCHIVE
+  DELIVERED_CSV
+  FULFILLED_CSV
+}
+
+enum WmsExportStatus {
+  QUEUED
+  RUNNING
+  READY
+  FAILED
+}
+
+/// One active OTP per shipment (regenerated on resend).
+model WmsDeliveryOtp {
+  shipmentId  String    @id @db.Uuid
+  otpHmac     String    @db.Char(64)
+  otpEnc      String    @db.VarChar(200)
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  lockedAt    DateTime?
+  resendCount Int       @default(0)
+  lastSentAt  DateTime  @default(now())
+  verifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("warehouse_delivery_otps")
+}
+
+model WmsPod {
+  shipmentId         String          @id @db.Uuid
+  receiverName       String          @db.VarChar(120)
+  /// [{lineNo, variantId, dispatched, delivered}]
+  receivedLines      Json
+  mediaKeys          String[]
+  signatureMediaKey  String?         @db.VarChar(300)
+  lat                Decimal?        @db.Decimal(9, 6)
+  lng                Decimal?        @db.Decimal(9, 6)
+  byOtp              Boolean
+  otpVerifiedAt      DateTime?
+  overrideBy         String?         @db.Uuid
+  overrideReason     String?         @db.VarChar(500)
+  overrideApprovedBy String?         @db.Uuid
+  overrideApprovedAt DateTime?
+  onTime             Boolean?
+  deliveredBy        String?         @db.Uuid
+  deliveredVia       WmsDeliveredVia @default(STAFF)
+  deliveredAt        DateTime        @default(now())
+
+  @@index([deliveredAt])
+  @@map("warehouse_pods")
+}
+
+/// 3PL driver link (§2a.8): random 32-byte token, stored hashed, one trip, revocable.
+model WmsDriverLink {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tripId     String    @db.Uuid
+  tokenHash  String    @unique @db.Char(64)
+  phone      String    @db.VarChar(20)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdBy  String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+
+  @@index([tripId])
+  @@map("warehouse_dispatch_driver_links")
+}
+
+model WmsExport {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  type        WmsExportType
+  filters     Json            @default("{}")
+  status      WmsExportStatus @default(QUEUED)
+  /// Built rows (POD archive manifest); links are signed again at download time.
+  rows        Json?
+  rowCount    Int             @default(0)
+  error       String?         @db.VarChar(500)
+  requestedBy String          @db.Uuid
+  createdAt   DateTime        @default(now())
+  completedAt DateTime?
+
+  @@index([requestedBy, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("warehouse_exports")
+}

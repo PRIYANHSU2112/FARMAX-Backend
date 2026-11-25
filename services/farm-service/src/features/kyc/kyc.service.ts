@@ -14,7 +14,7 @@ import { Guarded } from '../../adapters/kyc-providers.js';
 import type { Actor } from '../audit/index.js';
 import type { FarmContext, FarmView } from '../farms/index.js';
 import type { Issue } from '../review/index.js';
-import { isValidGstin, maskPan, namesMatch } from './kyc.checks.js';
+import { isValidGstin, maskPan, namesMatch, sameBusinessName } from './kyc.checks.js';
 import type {
   AadhaarTxn,
   BillingInput,
@@ -120,6 +120,11 @@ export class KycService {
 
   async setPan(actor: Actor, farmId: string, pan: string) {
     const ctx = await this.deps.farmsService.ownedContext(actor.userId, farmId);
+    // Lock icon on the Documents screen: an accepted PAN card freezes the number.
+    if (ctx.farm.owner.panVerified)
+      throw new ConflictError('Your PAN is verified and locked. Contact support to change it.', {
+        details: { reason: 'PAN_LOCKED' },
+      });
     const { pii } = this.deps;
     const panMasked = maskPan(pan);
     const status = await this.inTx(
@@ -183,8 +188,8 @@ export class KycService {
     ]);
     const farmName = ctx.farm.name;
     const nameMatchesFarm =
-      namesMatch(record.tradeName ?? record.legalName, farmName) ||
-      namesMatch(record.legalName, farmName);
+      sameBusinessName(record.tradeName ?? record.legalName, farmName) ||
+      sameBusinessName(record.legalName, farmName);
     return {
       verificationId: saved.id,
       gstin,
@@ -233,19 +238,50 @@ export class KycService {
           message: `GSTIN is registered in state ${v.stateCode}, but this farm is in state ${farmState}`,
         },
       ]);
-    const invoiceName =
-      input.invoiceNameSource === 'GST_TRADE_NAME' ? (v.tradeName ?? v.legalName) : ctx.farm.name;
+    const gstName = v.tradeName ?? v.legalName;
+    const farmName = ctx.farm.name;
+    const review = ctx.farm.billing.invoiceNameReview;
+    // "Keep farm name & send for review": the GST names differ from the farm name, so a FARM_NAME
+    // invoice needs staff approval first (an approval for the same GSTIN + name stays valid).
+    const wantsFarmName = input.invoiceNameSource === 'FARM_NAME';
+    // Same rule as `nameMatchesFarm` in the GSTIN check, so the banner and the review agree.
+    const namesDiffer =
+      !sameBusinessName(gstName, farmName) && !sameBusinessName(v.legalName, farmName);
+    const alreadyApproved =
+      review?.status === 'APPROVED' &&
+      ctx.farm.billing.gstin === v.gstin &&
+      ctx.farm.billing.invoiceName === farmName;
+    const needsReview = wantsFarmName && namesDiffer && !alreadyApproved;
+    const useFarmName = wantsFarmName && !needsReview;
     const view = await this.deps.runInTransaction(async (tx) => {
       await farmsService.patchInTx(tx, ctx.farm, {
         gstin: v.gstin,
         gstVerificationId: v.id,
-        invoiceNameSource: input.invoiceNameSource,
-        invoiceName,
+        // While the review is pending, invoices carry the GST trade name (valid for ITC).
+        invoiceNameSource: useFarmName ? 'FARM_NAME' : 'GST_TRADE_NAME',
+        invoiceName: useFarmName ? farmName : gstName,
         gstBusinessName: v.legalName,
         gstTradeName: v.tradeName,
         gstVerifiedAt: v.checkedAt,
         registrationStep: Math.max(ctx.farm.registrationStep, 4),
+        ...(alreadyApproved && wantsFarmName
+          ? {}
+          : {
+              invoiceNameReview: needsReview ? 'PENDING' : null,
+              invoiceNameRequestedAt: needsReview ? new Date() : null,
+              invoiceNameReviewedById: null,
+              invoiceNameReviewedAt: null,
+              invoiceNameReviewNote: null,
+            }),
       });
+      if (needsReview)
+        await this.deps.auditService.record(tx, actor, {
+          action: 'farm.invoice_name_review_requested',
+          targetType: 'farm',
+          targetId: farmId,
+          before: { invoiceName: ctx.farm.billing.invoiceName },
+          after: { requestedInvoiceName: farmName, gstTradeName: gstName },
+        });
       return { ...ctx.farm };
     });
     await this.deps.farmsService.invalidate(view);

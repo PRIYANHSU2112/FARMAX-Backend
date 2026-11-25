@@ -1,5 +1,6 @@
 import type {
   EventEnvelope,
+  SupportApplicationStatusChangedV1,
   SupportSlaBreachedV1,
   SupportTicketCreatedV1,
   SupportTicketEscalatedV1,
@@ -131,6 +132,36 @@ export const SUPPORT_RULES: Readonly<Record<string, Rule>> = {
           }),
         );
       return drafts;
+    },
+  },
+  /** Dealer / partner application approved or rejected: push to the applicant (customer app). */
+  'support.application_status_changed.v1': {
+    needsOrder: false,
+    build: (event) => {
+      const d = event.data as SupportApplicationStatusChangedV1;
+      if (d.to !== 'APPROVED' && d.to !== 'REJECTED') return [];
+      return [
+        {
+          source: 'event',
+          sourceEventId: event.id,
+          category: 'ACCOUNT',
+          priority: 'NORMAL',
+          channels: ['PUSH'],
+          dedupeKey: `support.application:${event.id}`,
+          templateKey:
+            d.to === 'APPROVED' ? 'support.application_approved' : 'support.application_rejected',
+          vars: { type: d.applicationType.toLowerCase() },
+          app: 'CUSTOMER',
+          audience: { kind: 'users', userIds: [d.applicantUserId] },
+          entityType: 'company_application',
+          entityId: d.applicationId,
+          data: {
+            entityType: 'company_application',
+            entityId: d.applicationId,
+            status: d.to,
+          },
+        },
+      ];
     },
   },
   /** SLA missed: the assignee (or the whole desk when unassigned). Once per ticket and clock. */

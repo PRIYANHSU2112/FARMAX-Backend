@@ -24,8 +24,18 @@ export interface WarehouseConfig extends BaseConfig {
   MEDIA_SERVICE_URL: string;
   /** inventory-service: per-warehouse stock figures (`/internal/inventory/warehouse-stats`). */
   INVENTORY_SERVICE_URL: string;
+  /** product-service: variant facts for SKUs missing from the stock projection (D-57). */
+  PRODUCT_SERVICE_URL: string;
+  /** order-service: fulfilment facts of an order (D-57b). */
+  ORDER_SERVICE_URL: string;
+  /** payment-service: capture SLA stats for the payments view (D-57b W3.18). */
+  PAYMENT_SERVICE_URL: string;
   /** Shared service-to-service token (≥ 32 chars). Unset → `/internal/*` calls are off. */
   INTERNAL_SERVICE_TOKEN?: string;
+  /** D-57b delivery OTP key (≥ 32 chars); unset → derived from INTERNAL_SERVICE_TOKEN (dev). */
+  DELIVERY_OTP_KEY?: string;
+  /** Public base URL of 3PL driver trip links (e.g. https://app.farmx.in/driver). */
+  DRIVER_LINK_BASE_URL?: string;
   RABBITMQ_URL: string;
   /** Outbox relay + order event consumer (off in tests). */
   EVENTS_ENABLED: boolean;
@@ -67,7 +77,18 @@ const schema = Joi.object<WarehouseConfig>({
   INVENTORY_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3008'),
+  PRODUCT_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3005'),
+  ORDER_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3007'),
+  PAYMENT_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3009'),
   INTERNAL_SERVICE_TOKEN: Joi.string().min(32),
+  DELIVERY_OTP_KEY: Joi.string().min(32),
+  DRIVER_LINK_BASE_URL: Joi.string().uri(),
   RABBITMQ_URL: Joi.string()
     .uri({ scheme: ['amqp', 'amqps'] })
     .default('amqp://farmx:farmx@localhost:5672'),

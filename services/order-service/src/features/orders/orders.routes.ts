@@ -9,10 +9,14 @@ import { rateLimit, requireAuth } from '../../middleware/guards.js';
 import { idempotencyKeyOf } from '../../middleware/http.js';
 import { ORDER_DOCS, ORDERS_TAG } from './orders.docs.js';
 import { ledgerDocs } from './orders.ledger.docs.js';
-import type { CancelInput, CheckoutInput, OrderListQuery } from './orders.types.js';
+import type { CancelInput, CheckoutInput, DeliveryInput, OrderListQuery } from './orders.types.js';
 import {
   buyerCancelSchema,
   checkoutSchema,
+  complianceRejectSchema,
+  shortageRefundSchema,
+  cancelLinesSchema,
+  internalDeliverySchema,
   listOrdersSchema,
   orderIdSchema,
   quoteSchema,
@@ -132,5 +136,67 @@ export const ordersInternalRoutes: FastifyPluginAsync = async (app) => {
     '/:id',
     { schema: { hide: true, ...orderIdSchema }, onRequest: [guard] },
     async (req) => ok(await svc(req).getInternal(req.params.id)),
+  );
+  // F1 / D-57 (warehouse-service): orders per status, fulfilment facts, compliance rejection.
+  app.get('/counts', { schema: { hide: true }, onRequest: [guard] }, async (req) =>
+    ok(await svc(req).counts()),
+  );
+  app.get<{ Params: IdParams }>(
+    '/:id/fulfilment-facts',
+    { schema: { hide: true, ...orderIdSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).fulfilmentFacts(req.params.id)),
+  );
+  app.post<{
+    Params: IdParams;
+    Body: { shipmentId: string; lines: { lineNo: number; qty: number }[] };
+  }>(
+    '/:id/shortage-refund',
+    { schema: { hide: true, ...shortageRefundSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).shortageRefund(req.params.id, req.body, ctx(req))),
+  );
+  app.post<{
+    Params: IdParams;
+    Body: {
+      lines: { variantId: string; qty: number }[];
+      reasonCode: string;
+      note: string;
+      by?: string | null;
+    };
+  }>(
+    '/:id/cancel-lines',
+    { schema: { hide: true, ...cancelLinesSchema }, onRequest: [guard] },
+    async (req) => {
+      const row = await req.diScope
+        .resolve('orderCancelService')
+        .cancel(
+          req.params.id,
+          { lines: req.body.lines, reasonCode: req.body.reasonCode, note: req.body.note },
+          { type: 'SERVICE', id: req.body.by ?? null },
+          { ctx: ctx(req) },
+        );
+      return ok({ orderId: row.id, status: row.status });
+    },
+  );
+  app.patch<{ Params: IdParams; Body: DeliveryInput & { by: string } }>(
+    '/:id/delivery',
+    { schema: { hide: true, ...internalDeliverySchema }, onRequest: [guard] },
+    async (req) => {
+      const { by, ...input } = req.body;
+      return ok(
+        await req.diScope
+          .resolve('ordersAdminService')
+          .updateDelivery(
+            { userId: by, ip: req.ip, requestId: req.id },
+            req.params.id,
+            input,
+            ctx(req),
+          ),
+      );
+    },
+  );
+  app.post<{ Params: IdParams; Body: { reason: string } }>(
+    '/:id/compliance-reject',
+    { schema: { hide: true, ...complianceRejectSchema }, onRequest: [guard] },
+    async (req) => ok(await svc(req).complianceReject(req.params.id, req.body.reason, ctx(req))),
   );
 };

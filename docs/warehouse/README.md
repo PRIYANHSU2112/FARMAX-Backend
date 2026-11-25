@@ -14,6 +14,8 @@ Warehouse Team**, **Warehouse Portal**.
 | P1    | warehouse-service, warehouse master + wizard step 1 + status, service areas, portal shell | ✅    |
 | P2    | Storage (zones/racks/bins), dock & yard, calendar & shifts, storage rules, team           | ✅    |
 | P3    | Stock / capacity numbers, W2.03 overview, active orders                                   | ✅    |
+| D-57a | Stock W4.00–W4.11, interim inbound, restock / transfers, cutover (Phases 1–2)            | ✅    |
+| D-57b | Fulfilment W3.01–W3.16, W3.18 prepaid, W3.19 views, dispatch, delivery, routing, ATP, split (Phases 3–5) | ✅    |
 
 `GET /v1/admin/wms/me` → `modules` tells the UI which screens have a backend today.
 
@@ -203,3 +205,408 @@ see SETUP drafts.
 - Imported PINs keep their exact old priority in an "Unassigned (imported)" area until an admin
   moves them to a district; imported warehouses list unknown data in `reviewFields`.
 - Districts: there is no official district master yet; the lookup suggests names already used.
+
+## D-57 · Order Fulfilment (W3) + In-stock Management (W4)
+
+Generated from the Swagger spec (2026-11-24). Paths are relative: prefix `/v1/admin/wms` (admin panel, GLOBAL)
+or `/v1/wms` (warehouse panel, scoped; ✓ in the Panel column). Request / response schemas, permissions and
+error codes: gateway `/api-docs`, tags "WMS Admin · <area>" / "WMS Panel · <area>". Every list takes `cursor` or
+`page` + `limit`; KPI endpoints take `fresh=true`. Writes on both panels need the permission at that warehouse.
+
+### Stock — W4.00–W4.06, W4.09, W4.10 + interim inbound (receipts, QR, COA, quality, moves, adjustments, thresholds)
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/stock/adjustments` | Adjustments | ✓ |
+| POST | `/stock/adjustments` | Adjust quantities (count correction) | ✓ |
+| POST | `/stock/adjustments/{id}/approve` | Approve adjustment | ✓ |
+| POST | `/stock/adjustments/{id}/reject` | Reject adjustment | ✓ |
+| GET | `/stock/alerts` | W4.06 SKU depletion alerts (all / low / out) | ✓ |
+| GET | `/stock/alerts/count` | Header badge "Alerts · n" | ✓ |
+| GET | `/stock/alerts/kpis` | W4.06 Depletion KPIs | ✓ |
+| GET | `/stock/batches/{batchId}` | W4.04 Batch header (CN, warehouse, mfg, expiry, bins, ownership, quality) | ✓ |
+| PUT | `/stock/batches/{batchId}/coa` | Set COA / certificate of a batch | ✓ |
+| GET | `/stock/batches/{batchId}/kpis` | W4.04 Batch KPIs | ✓ |
+| GET | `/stock/batches/{batchId}/movements` | W4.04 Batch movement history | ✓ |
+| GET | `/stock/batches/{batchId}/quality` | W4.04 COA & quality tab | ✓ |
+| GET | `/stock/batches/{batchId}/traceability` | W4.04 Batch overview / traceability | ✓ |
+| GET | `/stock/batches/{batchId}/units` | W4.04 QR units tab | ✓ |
+| POST | `/stock/batches/{batchId}/units/generate` | Generate unit QR for a batch | ✓ |
+| GET | `/stock/category-matrix` | Inspect matrix (category × warehouse) | ✓ |
+| GET | `/stock/filter-options` | Filter dropdown options (typeahead) | ✓ |
+| GET | `/stock/landing/by-category` | W4.00 Stock by category (+ location text, top mover) | ✓ |
+| GET | `/stock/landing/kpis` | W4.00 In-stock KPIs (total, available, reserved, on hold) | ✓ |
+| GET | `/stock/landing/status-mix` | W4.00 Stock by status + fulfilment readiness | ✓ |
+| GET | `/stock/movements` | W4.09 Movement ledger | ✓ |
+| GET | `/stock/movements/{id}` | W4.09 Movement details | ✓ |
+| GET | `/stock/movements/export.csv` | W4.09 Export ledger CSV | ✓ |
+| POST | `/stock/moves` | Move stock to another bin | ✓ |
+| POST | `/stock/opening/{positionId}/relabel` | Relabel opening stock into real batches | ✓ |
+| GET | `/stock/overview/kpis` | W4.01 KPIs (on hand, available, reserved, QC hold, damaged, quarantined) | ✓ |
+| GET | `/stock/overview/status-mix` | W4.01 Stock status donut | ✓ |
+| GET | `/stock/overview/warehouses` | W4.01 Warehouse stock table (+ share of stock) | ✓ |
+| GET | `/stock/ownership` | W4.10 Stock by ownership | ✓ |
+| GET | `/stock/ownership/kpis` | W4.10 Ownership KPIs (SOR, FarmX, JIT) | ✓ |
+| POST | `/stock/positions/{id}/owner` | Fix the owner of a stock position | ✓ |
+| GET | `/stock/products` | Product list (one row per SKU) | ✓ |
+| GET | `/stock/products/{variantId}` | W4.03 Product header (image, SKU, brand, category, vendor) | ✓ |
+| GET | `/stock/products/{variantId}/availability` | W4.03 Availability tab | ✓ |
+| GET | `/stock/products/{variantId}/batches` | W4.03 Batches tab | ✓ |
+| GET | `/stock/products/{variantId}/kpis` | W4.03 Product KPIs | ✓ |
+| GET | `/stock/products/{variantId}/movements` | W4.03 Movement history | ✓ |
+| GET | `/stock/products/{variantId}/units` | Unit QR records of a product | ✓ |
+| GET | `/stock/products/{variantId}/warehouses` | W4.03 Stock by warehouse | ✓ |
+| GET | `/stock/products/search` | Product list (one row per SKU) | ✓ |
+| POST | `/stock/quality/hold` | Quality hold / quarantine | ✓ |
+| POST | `/stock/quality/release` | Quality release (QC hold / quarantine / returned → available) | ✓ |
+| GET | `/stock/receipts` | Receipts (CN list) | ✓ |
+| POST | `/stock/receipts` | Receive stock (CN) / customer return (RT) | ✓ |
+| GET | `/stock/receipts/{id}` | Receipt detail | ✓ |
+| GET | `/stock/records` | W4.02 All stock (warehouse × batch × bin × owner) | ✓ |
+| GET | `/stock/records/export.csv` | W4.02 Export CSV (same filters) | ✓ |
+| GET | `/stock/restock-plan` | W4.07 Monthly restock plan | ✓ |
+| GET | `/stock/restock-plan/item` | W4.07 Review one plan line | ✓ |
+| GET | `/stock/settings` | Stock settings | admin only |
+| PUT | `/stock/settings` | Change stock settings | admin only |
+| POST | `/stock/status-changes` | Change stock status (lifecycle move) | ✓ |
+| GET | `/stock/thresholds/{warehouseId}/{variantId}` | Thresholds of one SKU at a warehouse | ✓ |
+| PUT | `/stock/thresholds/{warehouseId}/{variantId}` | Set thresholds (min, safety, target) | ✓ |
+| PUT | `/stock/thresholds/bulk` | Set thresholds for many SKUs | ✓ |
+| GET | `/stock/units/{qrCode}` | View one unit (QR) | ✓ |
+
+### Stock lifecycle — W4.11
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/stock/lifecycle` | Lifecycle overview (journey + side states) | ✓ |
+| GET | `/stock/lifecycle/proposals` | Rule change history (proposals) | ✓ |
+| POST | `/stock/lifecycle/proposals` | Propose a transition rule | ✓ |
+| POST | `/stock/lifecycle/proposals/{id}/approve` | Approve a transition proposal | admin only |
+| POST | `/stock/lifecycle/proposals/{id}/reject` | Reject a transition proposal | admin only |
+| GET | `/stock/lifecycle/transitions` | Allowed transitions | ✓ |
+
+### Vendors — W4.08 vendors
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/vendors` | Vendors | ✓ |
+| POST | `/vendors` | Add vendor | admin only |
+| GET | `/vendors/{id}` | Vendor detail (+ supplied SKUs) | ✓ |
+| PATCH | `/vendors/{id}` | Edit vendor | admin only |
+| PUT | `/vendors/{id}/variants` | Set supplied SKUs (ownership, lead time, MOQ, preferred, unit QR) | admin only |
+
+### Restock & transfers — W4.07, W4.08
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/stock/restock-requests` | Restock requests (W4.07 Submitted) | ✓ |
+| POST | `/stock/restock-requests` | Create a restock request (draft) | ✓ |
+| GET | `/stock/restock-requests/{id}` | Restock request + approval summary (W4.08) | ✓ |
+| PATCH | `/stock/restock-requests/{id}` | Edit a draft request | ✓ |
+| POST | `/stock/restock-requests/{id}/approve` | Approve a restock request | admin only |
+| POST | `/stock/restock-requests/{id}/cancel` | Cancel a request | ✓ |
+| POST | `/stock/restock-requests/{id}/dispatch` | Dispatch an approved transfer (source warehouse) | ✓ |
+| POST | `/stock/restock-requests/{id}/reject` | Reject a restock request | admin only |
+| POST | `/stock/restock-requests/{id}/submit` | Submit for approval (confirm modal) | ✓ |
+| GET | `/stock/restock-requests/prefill` | Prefill products to replenish (W4.01 Plan restock / W4.08) | ✓ |
+| GET | `/stock/transfers` | Transfers (in / out) | ✓ |
+| GET | `/stock/transfers/{id}` | Transfer detail | ✓ |
+| POST | `/stock/transfers/{id}/receive` | Receive a transfer (destination) | ✓ |
+
+### Stock cutover — D-57a cutover (§2a.1)
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/stock/cutover` | Cutover status (inventory → warehouse) | admin only |
+| POST | `/stock/cutover/abort` | Abort the freeze | admin only |
+| POST | `/stock/cutover/freeze` | Freeze stock writes (cutover step 2) | admin only |
+| POST | `/stock/cutover/rollback` | Roll back to inventory (≤ 72 h) | admin only |
+| POST | `/stock/cutover/run` | Run the cutover (steps 3–6) | admin only |
+
+### Ops — jobs, DLQ, reconcile
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/ops/jobs` | Background jobs | admin only |
+| POST | `/ops/jobs/dlq/{id}/replay` | Replay a dead-lettered job | admin only |
+| GET | `/ops/maintenance` | Maintenance banner | ✓ |
+| GET | `/ops/reconcile` | Latest reconcile report | admin only |
+
+### Order fulfilment — W3.01–W3.04, W3.15 hold
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/fulfilment/dashboard/fulfilment-rate` | Dashboard: fulfilment-rate donut | ✓ |
+| GET | `/fulfilment/dashboard/kpis` | Dashboard: 5 KPI cards | ✓ |
+| GET | `/fulfilment/dashboard/ops-status` | Dashboard: ops footer | ✓ |
+| GET | `/fulfilment/dashboard/recent-orders` | Dashboard: recent orders | ✓ |
+| GET | `/fulfilment/dashboard/status-mix` | Dashboard: order status donut | ✓ |
+| GET | `/fulfilment/dashboard/status-strip` | Dashboard: 8-status strip | ✓ |
+| GET | `/fulfilment/dashboard/trend` | Dashboard: orders vs fulfilled trend | ✓ |
+| GET | `/fulfilment/dashboard/warehouse-performance` | Dashboard: warehouse performance | ✓ |
+| GET | `/fulfilment/nav-counts` | Sidebar badges | ✓ |
+| GET | `/fulfilment/orders` | New Orders: list | ✓ |
+| GET | `/fulfilment/orders/{orderId}` | Order details (header, totals, actions) | ✓ |
+| GET | `/fulfilment/orders/{orderId}/activity` | Order activity timeline | ✓ |
+| POST | `/fulfilment/orders/{orderId}/allocate` | Assign to a warehouse (reallocate) | ✓ |
+| GET | `/fulfilment/orders/{orderId}/allocation-candidates` | Warehouse allocation candidates | ✓ |
+| GET | `/fulfilment/orders/{orderId}/allocation-map` | Warehouse allocation map | ✓ |
+| GET | `/fulfilment/orders/{orderId}/audit` | Order audit trail (W3.15) | ✓ |
+| GET | `/fulfilment/orders/{orderId}/customer` | Order customer & farm | ✓ |
+| GET | `/fulfilment/orders/{orderId}/hold` | Hold parameters | ✓ |
+| PATCH | `/fulfilment/orders/{orderId}/hold` | Update hold (override expiration) | ✓ |
+| POST | `/fulfilment/orders/{orderId}/hold` | Hold order | ✓ |
+| GET | `/fulfilment/orders/{orderId}/items` | Order items | ✓ |
+| POST | `/fulfilment/orders/{orderId}/release-hold` | Release hold (back to picking) | ✓ |
+| GET | `/fulfilment/orders/{orderId}/shelf-life-check` | Shelf-life check (W3.15) | ✓ |
+| GET | `/fulfilment/orders/filter-options` | New Orders: PIN / customer filter options | ✓ |
+| GET | `/fulfilment/orders/kpis` | New Orders: KPIs + tab counts | ✓ |
+| GET | `/fulfilment/reallocations/{id}` | Reallocation status | ✓ |
+| GET | `/fulfilment/settings` | Fulfilment settings | admin only |
+| PUT | `/fulfilment/settings` | Change fulfilment settings | admin only |
+| GET | `/fulfilment/shelf-life-rules` | Shelf-life rules | ✓ |
+| POST | `/fulfilment/shelf-life-rules` | Create shelf-life rule | admin only |
+| DELETE | `/fulfilment/shelf-life-rules/{id}` | Delete shelf-life rule | admin only |
+| PATCH | `/fulfilment/shelf-life-rules/{id}` | Update shelf-life rule | admin only |
+| GET | `/ops/reconcile/allocation` | Allocation reconcile report | admin only |
+| GET | `/stock/reservations` | Reserved stock list (W4.05) | ✓ |
+| GET | `/stock/reservations/{allocationId}` | Reservation detail | ✓ |
+| GET | `/stock/reservations/kpis` | Reserved stock KPIs (W4.05) | ✓ |
+| GET | `/sync-status` | Sync status (Live / SYNC) | ✓ |
+
+### Fulfilment floor — W3.05–W3.07
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/fulfilment/operators` | Operators (with open-task load) | ✓ |
+| GET | `/fulfilment/processing` | Processing list | ✓ |
+| POST | `/fulfilment/processing/bulk` | Processing bulk update | ✓ |
+| GET | `/fulfilment/processing/counts` | Processing stage tabs + live batch | ✓ |
+| GET | `/fulfilment/processing/kpis` | Processing footer KPIs | ✓ |
+| GET | `/fulfilment/shipments/{id}` | Shipment header (FEFO / assign) | ✓ |
+| GET | `/fulfilment/shipments/{id}/allocation-summary` | Allocation summary | ✓ |
+| DELETE | `/fulfilment/shipments/{id}/allocations` | Release allocations | ✓ |
+| GET | `/fulfilment/shipments/{id}/allocations` | Pick list (allocated lots + bins) | ✓ |
+| POST | `/fulfilment/shipments/{id}/allocations` | Reserve stock (FEFO) | ✓ |
+| POST | `/fulfilment/shipments/{id}/allocations/change-batch` | Change batch | ✓ |
+| GET | `/fulfilment/shipments/{id}/lines` | Shipment lines (allocated x/y) | ✓ |
+| GET | `/fulfilment/shipments/{id}/lines/{lineNo}/lots` | FEFO lots of a line | ✓ |
+| POST | `/fulfilment/shipments/{id}/pack` | Pack | ✓ |
+| POST | `/fulfilment/shipments/{id}/pick` | Pick units | ✓ |
+| POST | `/fulfilment/shipments/{id}/pick/complete` | Pick complete | ✓ |
+| POST | `/fulfilment/shipments/{id}/qc` | QC result | ✓ |
+| POST | `/fulfilment/shipments/{id}/stage` | Stage (ready to dispatch) | ✓ |
+| POST | `/fulfilment/shipments/{id}/tasks` | Assign pick-pack task | ✓ |
+| GET | `/fulfilment/task-templates/{type}` | Checklist template | ✓ |
+| GET | `/fulfilment/tasks` | Tasks (my tasks) | ✓ |
+| GET | `/fulfilment/tasks/{taskId}` | Task detail | ✓ |
+| PATCH | `/fulfilment/tasks/{taskId}` | Reassign / reprioritise / cancel task | ✓ |
+| PUT | `/fulfilment/tasks/{taskId}/checklist/{key}` | Tick checklist item | ✓ |
+| POST | `/fulfilment/tasks/batch` | Create pick batch (waves-lite) | ✓ |
+
+### Order exceptions — W3.11
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/fulfilment/exceptions` | Exceptions list | ✓ |
+| POST | `/fulfilment/exceptions` | Raise an exception | ✓ |
+| GET | `/fulfilment/exceptions/{id}` | Exception detail | ✓ |
+| PATCH | `/fulfilment/exceptions/{id}` | Update exception | ✓ |
+| POST | `/fulfilment/exceptions/{id}/resolve` | Resolve exception | ✓ |
+| POST | `/fulfilment/exceptions/bulk` | Mass re-route / hold / close / assign | ✓ |
+| GET | `/fulfilment/exceptions/export.csv` | Export exceptions (CSV) | ✓ |
+| GET | `/fulfilment/exceptions/kpis` | Exceptions KPIs + tabs | ✓ |
+| GET | `/settings/sop` | SOP card | ✓ |
+| PUT | `/settings/sop` | Edit SOP card | admin only |
+
+### Delivery & settlement — W3.09, W3.10
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| DELETE | `/dispatch/trips/{id}/driver-link` | Revoke driver trip link | ✓ |
+| POST | `/dispatch/trips/{id}/driver-link` | Create 3PL driver trip link | ✓ |
+| GET | `/exports` | My exports | ✓ |
+| POST | `/exports` | Request an export (POD archive / CSV) | ✓ |
+| GET | `/exports/{id}` | Export status | ✓ |
+| GET | `/exports/{id}/download` | Download export (CSV) | ✓ |
+| GET | `/fulfilment/delivered` | Delivered orders (W3.09) | ✓ |
+| GET | `/fulfilment/delivered/kpis` | Delivered KPIs | ✓ |
+| GET | `/fulfilment/fulfilled` | Fulfilled orders (W3.10) | ✓ |
+| GET | `/fulfilment/fulfilled/kpis` | Fulfilled KPIs + tabs (W3.10) | ✓ |
+| POST | `/fulfilment/shipments/{id}/deliver` | Deliver with OTP + POD | ✓ |
+| POST | `/fulfilment/shipments/{id}/deliver-override` | Deliver without OTP (override) | ✓ |
+| POST | `/fulfilment/shipments/{id}/delivery-failed` | Delivery failed | ✓ |
+| POST | `/fulfilment/shipments/{id}/fulfil` | Confirm final quantities (fulfil) | ✓ |
+| POST | `/fulfilment/shipments/{id}/otp/resend` | Send a new delivery code | ✓ |
+| POST | `/fulfilment/shipments/{id}/out-for-delivery` | Out for delivery (issue OTP) | ✓ |
+| GET | `/fulfilment/shipments/{id}/pod` | View POD | ✓ |
+| POST | `/fulfilment/shipments/{id}/return-to-warehouse` | Return to warehouse | ✓ |
+| POST | `/fulfilment/shipments/{id}/settle` | Settle now (prepaid reconciliation) | ✓ |
+
+### Dispatch & trips — W3.08, dispatch layer
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/dispatch/carriers` | Carriers | ✓ |
+| POST | `/dispatch/carriers` | Create carrier | ✓ |
+| PATCH | `/dispatch/carriers/{id}` | Update carrier | ✓ |
+| GET | `/dispatch/drivers` | Drivers | ✓ |
+| POST | `/dispatch/drivers` | Create driver | ✓ |
+| PATCH | `/dispatch/drivers/{id}` | Update driver | ✓ |
+| GET | `/dispatch/routes` | Route master | ✓ |
+| POST | `/dispatch/routes` | Create route | ✓ |
+| PATCH | `/dispatch/routes/{id}` | Update route | ✓ |
+| GET | `/dispatch/trips` | Trips | ✓ |
+| POST | `/dispatch/trips` | Plan a trip | ✓ |
+| GET | `/dispatch/trips/{id}` | Trip detail | ✓ |
+| POST | `/dispatch/trips/{id}/cancel` | Cancel trip (before departure) | ✓ |
+| POST | `/dispatch/trips/{id}/complete` | Complete trip | ✓ |
+| POST | `/dispatch/trips/{id}/depart` | Depart (gate-out) | ✓ |
+| POST | `/dispatch/trips/{id}/loading` | Gate-in / loading progress | ✓ |
+| POST | `/dispatch/trips/{id}/pings` | Update tracking (ping) | ✓ |
+| POST | `/dispatch/trips/{id}/reassign` | Reassign vehicle / driver | ✓ |
+| GET | `/dispatch/trips/{id}/route` | Trip route (stops + breadcrumb) | ✓ |
+| POST | `/dispatch/trips/{id}/shipments` | Add shipments to a trip | ✓ |
+| DELETE | `/dispatch/trips/{id}/shipments/{shipmentId}` | Remove a shipment from a trip | ✓ |
+| GET | `/dispatch/trips/{id}/tracking` | Trip live tracking | ✓ |
+| GET | `/dispatch/trips/{id}/weighbridge` | Weighbridge slip | ✓ |
+| POST | `/dispatch/trips/{id}/weighbridge` | Record weighbridge (manual) | ✓ |
+| GET | `/dispatch/vehicles` | Vehicles | ✓ |
+| POST | `/dispatch/vehicles` | Create vehicle | ✓ |
+| PATCH | `/dispatch/vehicles/{id}` | Update vehicle | ✓ |
+| GET | `/dispatch/weighbridge/recent` | Weighbridge recent | ✓ |
+| GET | `/fulfilment/dispatched` | Dispatched orders (W3.08 list) | ✓ |
+| GET | `/fulfilment/shipments/{shipmentId}/dispatch-info` | Dispatched order: dispatch info + route path | ✓ |
+| GET | `/fulfilment/shipments/{shipmentId}/dispatch-summary` | Dispatched order: top strip | ✓ |
+| GET | `/fulfilment/shipments/{shipmentId}/tracking` | Dispatched order: live tracking | ✓ |
+| GET | `/fulfilment/shipments/{shipmentId}/vehicle` | Dispatched order: partner & vehicle | ✓ |
+
+### Bulk & direct-to-farm — W3.19
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/bulk/bays` | Heavy bay utilisation | ✓ |
+| GET | `/bulk/corridors` | Corridor map | ✓ |
+| GET | `/bulk/kpis` | Bulk KPIs + tabs | ✓ |
+| GET | `/bulk/orders` | Bulk / direct-to-farm consignments | ✓ |
+| GET | `/bulk/orders/export.csv` | Export bulk manifest (CSV) | ✓ |
+
+### Routing rules — W3.12
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/routing/audit` | Audit Logs tab | ✓ |
+| GET | `/routing/condition-catalog` | Condition builder options | ✓ |
+| GET | `/routing/fallback` | Fallback Rules tab / W3.04 fallback policy | ✓ |
+| PUT | `/routing/fallback` | Save the fallback policy | admin only |
+| GET | `/routing/history` | Rule History tab | ✓ |
+| GET | `/routing/node-load` | Node Load Factor | ✓ |
+| POST | `/routing/republish` | Re-publish the routing snapshot | admin only |
+| GET | `/routing/rules` | Rule table (priority order) | ✓ |
+| POST | `/routing/rules` | Add a rule | admin only |
+| DELETE | `/routing/rules/{id}` | Delete a rule (soft; history kept) | admin only |
+| GET | `/routing/rules/{id}` | One rule | ✓ |
+| PATCH | `/routing/rules/{id}` | Edit a rule (also publish / unpublish a draft, move priority) | admin only |
+| POST | `/routing/rules/{id}/disable` | Disable a rule (toggle off) | admin only |
+| POST | `/routing/rules/{id}/duplicate` | Duplicate a rule (row ⋮) | admin only |
+| POST | `/routing/rules/{id}/enable` | Enable a rule (toggle on) | admin only |
+| GET | `/routing/rules/{id}/history` | Rule history (row ⋮) | ✓ |
+| GET | `/routing/rules/export.csv` | Export rules (CSV) | ✓ |
+| PUT | `/routing/rules/order` | Drag reorder | admin only |
+| POST | `/routing/simulate` | Rule Simulation (decision tree) | ✓ |
+| POST | `/routing/simulate-matrix` | Test Matrix | ✓ |
+| GET | `/routing/summary` | Header counts (active, inactive, draft, routed %) | ✓ |
+| PUT | `/routing/throttles/{warehouseId}` | Adjust throttle of a node | admin only |
+
+### Available-to-promise — W3.13
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/atp/categories` | Category tabs with SKU counts | ✓ |
+| GET | `/atp/items` | ATP table | ✓ |
+| GET | `/atp/items/export.csv` | Export ATP (CSV) | ✓ |
+| GET | `/atp/kpis` | 6 KPI cards (+ availability rate) | ✓ |
+| GET | `/atp/node-distribution` | Node distribution + transfer pipeline | ✓ |
+| GET | `/atp/settings` | Formula, health bands, buffer floor, cart-hold lease | ✓ |
+| PUT | `/atp/settings` | Save ATP settings | admin only |
+| POST | `/atp/sync` | Sync Now (re-send storefront availability) | ✓ |
+
+### Split, partial & backorder — W3.14
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/fulfilment/backorders` | Backorder queue | ✓ |
+| PATCH | `/fulfilment/backorders/{id}` | Change promise date / note | ✓ |
+| POST | `/fulfilment/backorders/{id}/cancel` | Cancel a backorder (refund) | ✓ |
+| GET | `/fulfilment/dispatch-slots` | Dispatch slots of a node | ✓ |
+| POST | `/fulfilment/orders/{orderId}/partial` | Partial fulfilment | ✓ |
+| POST | `/fulfilment/orders/{orderId}/reroute` | Cancel & re-route the whole order | ✓ |
+| POST | `/fulfilment/orders/{orderId}/split` | Save & Execute the split | ✓ |
+| GET | `/fulfilment/orders/{orderId}/split-context` | Order header, shortage banner, node fit | ✓ |
+| GET | `/fulfilment/orders/{orderId}/split-map` | Corridors map | ✓ |
+| POST | `/fulfilment/orders/{orderId}/split-preview` | Plan summary, freight policy, customer notice, SOP checks | ✓ |
+| GET | `/fulfilment/orders/{orderId}/split-proposal` | Proposed legs for a strategy | ✓ |
+
+### Order hold & edit — W3.15
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| POST | `/fulfilment/orders/{orderId}/amendments` | Save & update order changes | ✓ |
+| POST | `/fulfilment/orders/{orderId}/amendments/quote` | Amendment quote (what a save would do) | ✓ |
+| GET | `/fulfilment/shipments/{id}/manifest` | Shipment manifest | ✓ |
+
+### Compliance check — W3.16
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/compliance/audit/export.csv` | Export compliance audit log (CSV) | ✓ |
+| GET | `/compliance/cases` | Compliance cases | ✓ |
+| GET | `/compliance/cases/{id}` | Case detail (checklist, inspector, notes, documents) | ✓ |
+| POST | `/compliance/cases/{id}/checks/{checkId}/decision` | Verify / reject one check | ✓ |
+| POST | `/compliance/cases/{id}/checks/{checkId}/request` | Request a document from the customer | ✓ |
+| POST | `/compliance/cases/{id}/decision` | Approve & release / Hold / Reject | ✓ |
+| POST | `/compliance/cases/{id}/documents` | Attach a document to a check | ✓ |
+| GET | `/compliance/cases/{id}/evidence` | Case evidence | ✓ |
+| POST | `/compliance/cases/{id}/evidence` | Add extra evidence (scan slip, declaration) | ✓ |
+| PUT | `/compliance/cases/{id}/inspector` | Assign inspector | ✓ |
+| POST | `/compliance/cases/{id}/notes` | Add a note | ✓ |
+| GET | `/compliance/cases/{id}/restricted-ledger` | Restricted drug ledger | ✓ |
+| POST | `/compliance/cases/{id}/waiver` | Waive checks (Form 19) | ✓ |
+| GET | `/compliance/inspectors` | Inspectors | ✓ |
+| PUT | `/compliance/inspectors/{userId}` | Save an inspector | admin only |
+| GET | `/compliance/kpis` | Compliance tab counts + KPI chips | ✓ |
+| GET | `/compliance/registry` | Regulatory registry | ✓ |
+| PUT | `/compliance/registry/{key}` | Save a registry rule | admin only |
+
+### Payments (prepaid) — W3.18
+
+| Method | Path | What | Panel |
+| --- | --- | --- | --- |
+| GET | `/payments-view/customers/{userId}` | Customer panel | ✓ |
+| GET | `/payments-view/kpis` | KPI cards | ✓ |
+| GET | `/payments-view/orders` | Payment ledger | ✓ |
+| GET | `/payments-view/orders/export.csv` | Export ledger (CSV) | ✓ |
+| GET | `/payments-view/sla` | Reconciliation SLA (payment clearance) | ✓ |
+
+### Driver (3PL link)
+
+| Method | Path | What |
+| --- | --- | --- |
+| GET | `/v1/driver/trips/{token}` | Driver: trip stops and drops |
+| POST | `/v1/driver/trips/{token}/pings` | Driver: send position |
+| POST | `/v1/driver/trips/{token}/shipments/{id}/deliver` | Driver: deliver with the customer OTP |
+| POST | `/v1/driver/trips/{token}/shipments/{id}/delivery-failed` | Driver: delivery failed |
+| POST | `/v1/driver/trips/{token}/shipments/{id}/out-for-delivery` | Driver: out for delivery |
+
+### Customer shipments
+
+| Method | Path | What |
+| --- | --- | --- |
+| GET | `/v1/shipments` | My shipments |
+
+### Not built (modules flags)
+
+- W3.17 Scheduled & repeat orders, W3.18 credit, W3.19 "Create bulk order": later phase (prepaid only today; `modules.credit=false`).
+- W3.15 quantity increase: needs a balance payment (`modules.balancePayment=false`; place an add-on order).
+- Driver-link SMS (`modules.sms=false`, the link is returned to the dispatcher), state portal, OCR, RFID / Fastag, Shopify.
+- Per-leg planned trips for a split: legs return a dispatch slot + fleet suggestion; trips are created with `POST /dispatch/trips`.

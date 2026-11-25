@@ -9,6 +9,7 @@ import type {
   ReservationCommittedV1,
   ReservationRejectedV1,
   ReservationReleasedV1,
+  ShipmentStatusChangedV1,
 } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
@@ -42,5 +43,8 @@ export const createOrderEventHandlers = ({
       life.onReservationRejected(tx, e.data as ReservationRejectedV1, ctx(e)),
     'inventory.reservation_released.v1': (e, tx) =>
       life.onReservationReleased(tx, e.data as ReservationReleasedV1),
+    // F1 (D-57b): the order status follows its shipments.
+    'shipment.status_changed.v1': (e, tx) =>
+      life.onShipmentStatus(tx, e.data as ShipmentStatusChangedV1, ctx(e)),
   };
 };

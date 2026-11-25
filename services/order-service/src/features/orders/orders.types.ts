@@ -1,5 +1,21 @@
 export type OrderStatus =
-  'PENDING_ADMIN_CONFIRMATION' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'FAILED';
+  | 'PENDING_ADMIN_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'IN_FULFILMENT'
+  | 'PARTIALLY_DELIVERED'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'FAILED';
+
+/** F1 (D-57b): statuses after admin confirmation, derived from shipment events. */
+export const FULFILMENT_STATUSES: readonly OrderStatus[] = [
+  'IN_FULFILMENT',
+  'PARTIALLY_DELIVERED',
+  'DELIVERED',
+  'COMPLETED',
+];
 export type PaymentStatus =
   'PENDING' | 'FAILED' | 'PAID' | 'EXPIRED' | 'PARTIALLY_REFUNDED' | 'REFUNDED';
 export type StockStatus =
@@ -20,7 +36,9 @@ export type RefundSource =
   | 'STOCK_REJECTED'
   | 'LATE_PAYMENT'
   | 'AUTO_REJECT'
-  | 'AMOUNT_MISMATCH';
+  | 'AMOUNT_MISMATCH'
+  /** F1 (D-57b W3.10): delivered less than dispatched (prepaid settlement). */
+  | 'SHORTAGE';
 export type ActorType = 'CUSTOMER' | 'STAFF' | 'SYSTEM' | 'SERVICE';
 /** ITEMS = a partial cancel (lines changed, order status unchanged). */
 export type StatusField = 'STATUS' | 'PAYMENT' | 'STOCK' | 'REFUND' | 'ITEMS';
@@ -41,6 +59,11 @@ export interface OrderRow {
   farmId: string;
   channel: string;
   status: OrderStatus;
+  /** Most advanced active shipment status (F1), null before the first shipment moves. */
+  fulfilmentStage: string | null;
+  /** F1: latest known state per shipment (see {@link ShipmentStates}); raw JSON. */
+  shipmentStates: unknown;
+  customerPoRef: string | null;
   failureCode: string | null;
   /** ONLINE (gateway) or WALLET (paid in full from the FarmX wallet, D-54). */
   paymentMethod: PaymentMethod;
@@ -86,6 +109,14 @@ export interface OrderRow {
   version: number;
   updatedAt: Date;
 }
+
+/** F1: latest known state of one shipment. `version` is -1 for events sent before versions. */
+export interface ShipmentState {
+  status: string;
+  version: number;
+  deliveredLines: { lineNo: number; variantId: string; qty: number }[];
+}
+export type ShipmentStates = Record<string, ShipmentState>;
 
 export interface OrderLineRow {
   id: string;
@@ -192,6 +223,8 @@ export interface CheckoutInput {
   billToGst: boolean;
   /** ONLINE (default) or WALLET — the whole order, never split (D-54). */
   paymentMethod: PaymentMethod;
+  /** Buyer's purchase-order reference (B2B, optional). */
+  customerPoRef?: string | null;
 }
 
 export type OrderTab = 'active' | 'completed' | 'cancelled';
@@ -200,4 +233,21 @@ export interface OrderListQuery {
   tab: OrderTab;
   cursor?: string;
   limit: number;
+}
+
+/** D-57b W3.15 delivery edit (before picking). */
+export interface DeliveryInput {
+  contactName?: string;
+  contactPhone?: string;
+  line1?: string;
+  line2?: string | null;
+  landmark?: string | null;
+  village?: string | null;
+  mandal?: string | null;
+  district?: string;
+  pinCode?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  deliveryPromise?: string | null;
+  reason: string;
 }

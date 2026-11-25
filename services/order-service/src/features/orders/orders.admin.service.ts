@@ -20,6 +20,7 @@ import type { Ctx } from './orders.lifecycle.js';
 import {
   type AdminOrderQuery,
   type CancelInput,
+  type DeliveryInput,
   type ExceptionType,
   type NoteRow,
   type OrderRow,
@@ -82,6 +83,9 @@ const STALE_RELEASE_MS = 15 * 60_000;
 const STALE_REFUND_MS = 10 * 60_000;
 
 const staff = (a: AuditActor) => ({ type: 'STAFF' as const, id: a.userId });
+/** D-57b W3.15: delivery details can change until picking starts. */
+const DELIVERY_EDITABLE = new Set(['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED', 'IN_FULFILMENT']);
+const DELIVERY_PRE_PICK = new Set(['PENDING_RELEASE', 'RELEASED', 'ALLOCATED', 'ASSIGNED']);
 const versionConflict = (current: number) =>
   new ConflictError('The order changed; reload and retry', {
     details: { reason: 'VERSION_CONFLICT', currentVersion: current },
@@ -298,6 +302,86 @@ export class OrdersAdminService {
     return this.mustFind(id).then((o) =>
       this.deps.orderCancelService.quote(o, { lines }, staff(actor)),
     );
+  }
+
+  /**
+   * D-57b W3.15: change delivery details before picking. The state never changes (GST was
+   * computed on it); the warehouse checks its PIN coverage before calling. Emits
+   * `order.delivery_updated.v1` (warehouse-service pulls the facts again).
+   */
+  async updateDelivery(
+    actor: AuditActor,
+    id: string,
+    input: DeliveryInput & { expectedVersion?: number },
+    ctx: Ctx,
+  ): Promise<AdminOrderView> {
+    const { reason, expectedVersion, deliveryPromise, ...fields } = input;
+    await this.deps.runInTransaction(async (tx) => {
+      const order = await this.deps.ordersRepository.lock(tx, id);
+      if (order === null) throw new NotFoundError('Order');
+      if (expectedVersion !== undefined && order.version !== expectedVersion)
+        throw versionConflict(order.version);
+      if (!DELIVERY_EDITABLE.has(order.status))
+        throw new ConflictError(`Order is ${order.status}; delivery details are fixed`, {
+          details: { reason: 'NOT_EDITABLE' },
+        });
+      if (order.fulfilmentStage !== null && !DELIVERY_PRE_PICK.has(order.fulfilmentStage))
+        throw new ConflictError('Picking has started; delivery details are fixed', {
+          details: { reason: 'NOT_EDITABLE_AFTER_PICK' },
+        });
+      const before = order.deliveryAddress as Record<string, unknown>;
+      const changes = Object.entries(fields).filter(
+        ([k, v]) => (before[k] ?? null) !== (v === '' ? null : v),
+      );
+      const promiseChanged =
+        deliveryPromise !== undefined && deliveryPromise !== order.deliveryPromise;
+      if (changes.length === 0 && !promiseChanged) return;
+      const after = {
+        ...before,
+        ...Object.fromEntries(changes.map(([k, v]) => [k, v === '' ? null : v])),
+      };
+      after.formatted = [
+        after.line1,
+        after.line2,
+        after.landmark,
+        after.village,
+        after.mandal,
+        after.district,
+        after.pinCode,
+      ]
+        .filter((x) => typeof x === 'string' && x.length > 0)
+        .join(', ');
+      await this.deps.ordersRepository.update(tx, id, {
+        deliveryAddress: after as never,
+        ...(promiseChanged ? { deliveryPromise } : {}),
+      });
+      const changed = [...changes.map(([k]) => k), ...(promiseChanged ? ['deliveryPromise'] : [])];
+      await this.deps.auditService.record(tx, actor, {
+        action: 'order.delivery_update',
+        targetType: 'order',
+        targetId: id,
+        before: { fields: changed, deliveryPromise: order.deliveryPromise },
+        after: {
+          fields: changed,
+          deliveryPromise: promiseChanged ? deliveryPromise : order.deliveryPromise,
+        },
+        reason,
+      });
+      await emitOrderEvent(
+        tx,
+        ORDER_EVENTS.deliveryUpdated,
+        {
+          orderId: id,
+          orderNo: order.orderNo,
+          changes: changed,
+          pinCode: typeof after.pinCode === 'string' ? after.pinCode : '',
+          district: typeof after.district === 'string' ? after.district : null,
+          deliveryPromise: promiseChanged ? (deliveryPromise ?? null) : order.deliveryPromise,
+        },
+        ctx.correlationId,
+      );
+    });
+    return this.detail(id);
   }
 
   async addNote(actor: AuditActor, id: string, body: string): Promise<NoteRow> {

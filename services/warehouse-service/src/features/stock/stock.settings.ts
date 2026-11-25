@@ -58,4 +58,22 @@ export class StockSettings {
   invalidate(): void {
     this.cache = undefined;
   }
+
+  /**
+   * Settings of other features in the same table (namespaced keys such as `fulfilment.*`):
+   * GLOBAL rows plus the `scope` override, newest wins. Defaults stay with the owning feature.
+   */
+  async raw(keys: readonly string[], scope = 'GLOBAL'): Promise<Map<string, unknown>> {
+    const rows = await this.repo.settings(keys, scope);
+    const out = new Map<string, unknown>();
+    for (const r of rows.filter((x) => x.scope === 'GLOBAL')) out.set(r.key, r.value);
+    for (const r of rows.filter((x) => x.scope === scope && scope !== 'GLOBAL'))
+      out.set(r.key, r.value);
+    return out;
+  }
+
+  async setRaw(tx: Tx, key: string, value: unknown, userId: string | null, scope = 'GLOBAL') {
+    if (key.startsWith('stock.')) throw new Error('stock settings go through set()');
+    await this.repo.setSetting(tx, key, value, userId, scope);
+  }
 }

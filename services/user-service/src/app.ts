@@ -16,6 +16,8 @@ export function createServiceOptions(env: NodeJS.ProcessEnv = process.env): Serv
     level: config.LOG_LEVEL,
     appEnv: config.APP_ENV,
     version: config.SERVICE_VERSION,
+    // Tests build many apps per worker: no pino-pretty worker thread per app.
+    ...(config.NODE_ENV === 'test' && { pretty: false }),
   });
   const container = createAppContainer({ config, logger });
 

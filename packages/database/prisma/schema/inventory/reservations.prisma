@@ -61,5 +61,18 @@ model StockReservationLine {
 
   @@id([reservationId, warehouseId, variantId])
   @@index([warehouseId, variantId])
+  @@index([warehouseId, reservationId])
   @@map("inventory_reservation_lines")
+}
+
+/// D-57b §2a.4: one row per warehouse reallocation request (idempotency key = WMS reallocation
+/// id, or "<id>:revert" for the compensation). A retried call returns the stored result.
+model StockReallocation {
+  key           String   @id @db.VarChar(80)
+  reservationId String   @db.Uuid
+  result        Json
+  createdAt     DateTime @default(now())
+
+  @@index([reservationId])
+  @@map("inventory_reallocations")
 }

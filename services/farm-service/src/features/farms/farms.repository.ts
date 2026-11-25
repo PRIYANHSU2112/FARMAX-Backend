@@ -17,6 +17,7 @@ import type {
   FarmStatus,
   FarmSummary,
   FarmView,
+  InvoiceNameReviewStatus,
   InvoiceNameSource,
   KycStatus,
   OwnerSegment,
@@ -38,6 +39,10 @@ const FARM_SELECT = {
   gstBusinessName: true,
   gstTradeName: true,
   gstVerifiedAt: true,
+  invoiceNameReview: true,
+  invoiceNameRequestedAt: true,
+  invoiceNameReviewedAt: true,
+  invoiceNameReviewNote: true,
   latitude: true,
   longitude: true,
   gpsAccuracyM: true,
@@ -78,6 +83,8 @@ const FARM_SELECT = {
       aadhaarLast4: true,
       kycStatus: true,
       personalizedOffers: true,
+      panVerifiedAt: true,
+      aadhaarVerifiedAt: true,
     },
   },
 } satisfies Prisma.FarmSelect;
@@ -110,7 +117,19 @@ export const toFarmView = (row: FarmRow): FarmView => ({
   status: row.status,
   statusReason: row.statusReason,
   registrationStep: row.registrationStep,
-  owner: row.owner,
+  owner: {
+    id: row.owner.id,
+    userId: row.owner.userId,
+    fullName: row.owner.fullName,
+    phone: row.owner.phone,
+    ageBand: row.owner.ageBand,
+    panMasked: row.owner.panMasked,
+    aadhaarLast4: row.owner.aadhaarLast4,
+    kycStatus: row.owner.kycStatus,
+    personalizedOffers: row.owner.personalizedOffers,
+    panVerified: row.owner.panVerifiedAt !== null,
+    aadhaarVerified: row.owner.aadhaarVerifiedAt !== null,
+  },
   capacities: row.capacities.map((c) => ({ ...c, value: c.value.toNumber() })),
   totalBirdCapacity: row.totalBirdCapacity,
   location:
@@ -130,6 +149,10 @@ export const toFarmView = (row: FarmRow): FarmView => ({
           mandalName: row.mandalName,
           primaryNodeId: row.primaryNodeId,
           backupNodeId: row.backupNodeId,
+          // Filled by FarmsService from the pin directory (another feature's data).
+          primaryNodeName: null,
+          backupNodeName: null,
+          deliveryPromise: null,
         },
   billing: {
     gstin: row.gstin,
@@ -139,6 +162,15 @@ export const toFarmView = (row: FarmRow): FarmView => ({
     businessName: row.gstBusinessName,
     tradeName: row.gstTradeName,
     gstVerifiedAt: iso(row.gstVerifiedAt),
+    invoiceNameReview:
+      row.invoiceNameReview === null
+        ? null
+        : {
+            status: row.invoiceNameReview,
+            requestedAt: iso(row.invoiceNameRequestedAt),
+            reviewedAt: iso(row.invoiceNameReviewedAt),
+            note: row.invoiceNameReviewNote,
+          },
   },
   kycDeferred: row.kycDeferredAt !== null,
   channel: row.channel,
@@ -182,6 +214,11 @@ export interface FarmPatch {
   gstBusinessName?: string | null;
   gstTradeName?: string | null;
   gstVerifiedAt?: Date | null;
+  invoiceNameReview?: InvoiceNameReviewStatus | null;
+  invoiceNameRequestedAt?: Date | null;
+  invoiceNameReviewedById?: string | null;
+  invoiceNameReviewedAt?: Date | null;
+  invoiceNameReviewNote?: string | null;
   kycDeferredAt?: Date | null;
   status?: FarmStatus;
   statusReason?: string | null;
@@ -240,6 +277,24 @@ export class FarmsRepository {
 
   async updateOwner(tx: Tx, ownerId: string, patch: OwnerPatch): Promise<void> {
     await tx.farmOwner.update({ where: { id: ownerId }, data: patch });
+  }
+
+  /** Account profile sync (`user.profile_updated.v1`): owner name + phone snapshot by user id. */
+  async syncOwnerContact(
+    tx: Tx,
+    userId: string,
+    patch: { fullName?: string; phone?: string | null },
+  ): Promise<void> {
+    // No row = the user has no farm yet: nothing to sync (0 rows updated).
+    await tx.farmOwner.updateMany({ where: { userId }, data: patch });
+  }
+
+  /** Ids of every farm (any status) owned by an auth user: cache invalidation. */
+  async farmIdsOfUser(userId: string): Promise<string[]> {
+    const rows = await withPrismaErrors(() =>
+      this.db.farm.findMany({ where: { owner: { userId } }, select: { id: true } }),
+    );
+    return rows.map((r) => r.id);
   }
 
   findOwnerPan(ownerId: string) {
@@ -342,6 +397,9 @@ export class FarmsRepository {
         ? {}
         : { channel: query.channel as Prisma.FarmWhereInput['channel'] }),
       ...(query.kycStatus === undefined ? {} : { owner: { kycStatus: query.kycStatus } }),
+      ...(query.invoiceNameReview === undefined
+        ? {}
+        : { invoiceNameReview: query.invoiceNameReview }),
       ...(query.createdFrom === undefined && query.createdTo === undefined
         ? {}
         : {
@@ -360,6 +418,7 @@ export class FarmsRepository {
           ownerId: true,
           territoryCode: true,
           submittedAt: true,
+          invoiceNameReview: true,
           owner: { select: { fullName: true, phone: true, kycStatus: true } },
         },
         ...cursorArgs(query),
@@ -368,7 +427,7 @@ export class FarmsRepository {
     const page = toPage(rows, query.limit);
     return {
       ...page,
-      items: page.items.map(({ owner, submittedAt, ...row }) => ({
+      items: page.items.map(({ owner, submittedAt, invoiceNameReview, ...row }) => ({
         ...toSummary(row),
         ownerId: row.ownerId,
         territoryCode: row.territoryCode,
@@ -376,6 +435,7 @@ export class FarmsRepository {
         ownerPhone: owner.phone,
         kycStatus: owner.kycStatus,
         submittedAt: iso(submittedAt),
+        invoiceNameReview,
       })),
     };
   }

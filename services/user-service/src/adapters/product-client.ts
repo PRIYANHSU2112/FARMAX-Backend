@@ -4,6 +4,7 @@ import { INTERNAL_TOKEN_HEADER } from '@farmx/common/middleware';
 import { type Redis, userKeys } from '@farmx/infra/redis';
 
 import type { UserConfig } from '../config/index.js';
+import { getJson } from './http.js';
 
 /**
  * product-service storefront card (owned there; passed through unchanged) plus `available`
@@ -31,7 +32,10 @@ const TIMEOUT_MS = 2_000;
 export class ProductClient {
   constructor(private readonly deps: { config: UserConfig; logger: Logger; redis: () => Redis }) {}
 
-  async cards(ids: readonly string[]): Promise<Map<string, ProductCard>> {
+  async cards(
+    ids: readonly string[],
+    timeoutMs: number = TIMEOUT_MS,
+  ): Promise<Map<string, ProductCard>> {
     const unique = [...new Set(ids)];
     const result = new Map<string, ProductCard>();
     if (unique.length === 0) return result;
@@ -39,7 +43,7 @@ export class ProductClient {
     const misses = await this.fromCache(unique, result);
     if (misses.length === 0) return result;
 
-    const fetched = await this.fetchCards(misses);
+    const fetched = await this.fetchCards(misses, timeoutMs);
     for (const card of fetched) result.set(card.id, card);
     await this.store(misses, fetched);
     return result;
@@ -80,7 +84,45 @@ export class ProductClient {
     });
   }
 
-  private async fetchCards(ids: string[]): Promise<ProductCard[]> {
+  /**
+   * One page of the PUBLIC storefront list (`GET /catalog/products`), the same cards the catalog
+   * listing pages show. `query` is a saved, validated filter set (home DYNAMIC_QUERY).
+   */
+  async list(
+    query: Readonly<Record<string, string | number | boolean | readonly string[]>>,
+    timeoutMs: number,
+  ): Promise<{ items: ProductCard[]; nextCursor: string | null }> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (Array.isArray(value)) for (const v of value as readonly string[]) params.append(key, v);
+      else params.append(key, String(value));
+    }
+    const body = await getJson<{ data?: ProductCard[]; meta?: { nextCursor?: string | null } }>(
+      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/products?${params.toString()}`,
+      { timeoutMs },
+    );
+    return { items: body.data ?? [], nextCursor: body.meta?.nextCursor ?? null };
+  }
+
+  /** Active disease ids (Shop by Problem), for the home ref check. */
+  async diseaseIds(timeoutMs: number): Promise<Set<string>> {
+    const body = await getJson<{ data?: { id: string }[] }>(
+      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/diseases`,
+      { timeoutMs },
+    );
+    return new Set((body.data ?? []).map((d) => d.id));
+  }
+
+  /** Active FLOCK_STAGE lookup codes, for the home ref check. */
+  async flockStageCodes(timeoutMs: number): Promise<Set<string>> {
+    const body = await getJson<{ data?: { code: string }[] }>(
+      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/lookups?group=FLOCK_STAGE`,
+      { timeoutMs },
+    );
+    return new Set((body.data ?? []).map((l) => l.code));
+  }
+
+  private async fetchCards(ids: string[], timeoutMs: number): Promise<ProductCard[]> {
     const { config, logger } = this.deps;
     if (config.INTERNAL_SERVICE_TOKEN === undefined)
       throw new ServiceUnavailableError('Product lookup is not configured');
@@ -89,7 +131,7 @@ export class ProductClient {
     try {
       res = await fetch(`${config.PRODUCT_SERVICE_URL}/internal/products/cards?${query}`, {
         headers: { [INTERNAL_TOKEN_HEADER]: config.INTERNAL_SERVICE_TOKEN },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       logger.error({ err }, 'product-service unreachable');

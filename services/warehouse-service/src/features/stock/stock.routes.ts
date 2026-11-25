@@ -15,6 +15,8 @@ import type {
   RelabelInput,
   StatusChangeInput,
   ThresholdInput,
+  VendorInput,
+  VendorVariantInput,
 } from './stock.types.js';
 import * as V from './stock.validation.js';
 
@@ -235,7 +237,96 @@ export const stockRoutes =
         reply.code(201).send(ok(await svc(req).propose(callerOf(req), req.body))),
     );
 
+    const ven = (req: FastifyRequest) => req.diScope.resolve('stockVendors');
+    app.get<{ Querystring: Page & { q?: string; variantId?: string; status?: string } }>(
+      '/vendors',
+      { schema: { ...V.vendorsQuery, ...routeDocs(D.vendors) }, preHandler: r('inventory.view') },
+      async (req) => paginated(await ven(req).list(req.query)),
+    );
+    app.get<{ Params: Id }>(
+      '/vendors/:id',
+      { schema: { ...V.idParam, ...routeDocs(D.vendor) }, preHandler: r('inventory.view') },
+      async (req) => ok(await ven(req).get(req.params.id)),
+    );
+
+    app.get(
+      '/ops/maintenance',
+      { schema: { ...routeDocs(D.maintenance) }, preHandler: r('warehouse.view') },
+      async (req) => {
+        const s = await req.diScope.resolve('stockSettings').get('stock.cutover');
+        const active = s?.phase === 'FROZEN';
+        return ok({
+          active,
+          phase: s?.phase ?? null,
+          startsAt: active ? (s.frozenAt ?? null) : null,
+          endsAt: active ? (s.freezeDeadline ?? null) : null,
+          message: active
+            ? 'Stock and threshold changes are paused for the inventory → warehouse cutover.'
+            : null,
+        });
+      },
+    );
+
     if (aud !== 'admin') return;
+
+    // ── Vendors (admin) ──
+    app.post<{ Body: VendorInput }>(
+      '/vendors',
+      {
+        schema: { ...V.createVendorSchema, ...routeDocs(D.createVendor) },
+        preHandler: w('vendors.manage'),
+      },
+      async (req, reply) =>
+        reply.code(201).send(ok(await ven(req).create(callerOf(req), req.body))),
+    );
+    app.patch<{
+      Params: Id;
+      Body: Partial<VendorInput> & { expectedVersion: number };
+    }>(
+      '/vendors/:id',
+      {
+        schema: { ...V.updateVendorSchema, ...routeDocs(D.updateVendor) },
+        preHandler: w('vendors.manage'),
+      },
+      async (req) => ok(await ven(req).update(callerOf(req), req.params.id, req.body)),
+    );
+    app.put<{ Params: Id; Body: VendorVariantInput[] }>(
+      '/vendors/:id/variants',
+      {
+        schema: { ...V.vendorVariantsSchema, ...routeDocs(D.vendorVariants) },
+        preHandler: w('vendors.manage'),
+      },
+      async (req) => ok(await ven(req).setVariants(callerOf(req), req.params.id, req.body)),
+    );
+
+    // ── Ops (admin) ──
+    app.get(
+      '/ops/jobs',
+      { schema: { ...routeDocs(D.jobs) }, preHandler: r('inventory.configure') },
+      async (req) => ok(await req.diScope.resolve('jobsRuntime').status()),
+    );
+    app.post<{ Params: Id }>(
+      '/ops/jobs/dlq/:id/replay',
+      {
+        schema: { params: V.dlqParam, ...routeDocs(D.replayJob) },
+        preHandler: w('inventory.configure'),
+      },
+      async (req) =>
+        ok({ replayed: await req.diScope.resolve('jobsRuntime').replay(req.params.id) }),
+    );
+    app.get<{ Querystring: { type: string } }>(
+      '/ops/reconcile',
+      {
+        schema: { ...V.reconcileQuery, ...routeDocs(D.reconcile) },
+        preHandler: r('inventory.configure'),
+      },
+      async (req) => {
+        const rows = await req.diScope
+          .resolve('stockRepository')
+          .settings(['stock.reconcileReport']);
+        return ok({ type: req.query.type, report: rows[0]?.value ?? null });
+      },
+    );
 
     // ── Admin panel only ──
     for (const [action, approve] of [
@@ -269,5 +360,43 @@ export const stockRoutes =
         preHandler: w('inventory.configure'),
       },
       async (req) => ok(await svc(req).setSettings(callerOf(req), req.body, req.query.scope)),
+    );
+
+    // Cutover (inventory → warehouse, §2a.1).
+    const cut = (req: FastifyRequest) => req.diScope.resolve('stockCutover');
+    const reasonOf = (req: FastifyRequest) => (req.body as { reason: string }).reason;
+    app.get(
+      '/stock/cutover',
+      { schema: { ...routeDocs(D.cutoverStatus) }, preHandler: r('inventory.configure') },
+      async (req) => ok(await cut(req).status()),
+    );
+    app.post(
+      '/stock/cutover/freeze',
+      {
+        schema: { ...V.reasonSchema, ...routeDocs(D.cutoverFreeze) },
+        preHandler: w('inventory.configure'),
+      },
+      async (req) => ok(await cut(req).freeze(callerOf(req), reasonOf(req))),
+    );
+    app.post(
+      '/stock/cutover/run',
+      { schema: { ...routeDocs(D.cutoverRun) }, preHandler: w('inventory.configure') },
+      async (req) => ok(await cut(req).run(callerOf(req))),
+    );
+    app.post(
+      '/stock/cutover/abort',
+      {
+        schema: { ...V.reasonSchema, ...routeDocs(D.cutoverAbort) },
+        preHandler: w('inventory.configure'),
+      },
+      async (req) => ok(await cut(req).abort(callerOf(req).userId, reasonOf(req))),
+    );
+    app.post(
+      '/stock/cutover/rollback',
+      {
+        schema: { ...V.reasonSchema, ...routeDocs(D.cutoverRollback) },
+        preHandler: w('inventory.configure'),
+      },
+      async (req) => ok(await cut(req).rollback(callerOf(req), reasonOf(req))),
     );
   };

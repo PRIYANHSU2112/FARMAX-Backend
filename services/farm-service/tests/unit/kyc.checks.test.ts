@@ -8,6 +8,7 @@ import {
   isValidGstin,
   maskPan,
   namesMatch,
+  sameBusinessName,
 } from '../../src/features/kyc/kyc.checks.js';
 
 describe('Aadhaar (Verhoeff)', () => {
@@ -40,6 +41,14 @@ describe('namesMatch', () => {
     expect(namesMatch('K. Venkata Ramana', 'Kothapalli Venkata Ramana')).toBe(true);
     expect(namesMatch('Sri Lakshmi Agro Farms', 'Sri Lakshmi Poultry')).toBe(true);
     expect(namesMatch('Padmavathi Hatcheries', 'Sai Ganesh Feeds')).toBe(false);
+  });
+});
+
+describe('sameBusinessName (invoice name rule)', () => {
+  it('equal after case / spacing / punctuation; the Figma pair does NOT match', () => {
+    expect(sameBusinessName('Sri Lakshmi Agro Farms', 'sri  lakshmi agro-farms')).toBe(true);
+    expect(sameBusinessName('Sri Lakshmi Agro Farms', 'Sri Lakshmi Poultry')).toBe(false);
+    expect(sameBusinessName('', '')).toBe(false);
   });
 });
 

@@ -15,6 +15,8 @@ export const INVENTORY_EVENTS = {
   reservationCommitted: 'inventory.reservation_committed.v1',
   reservationRejected: 'inventory.reservation_rejected.v1',
   reservationReleased: 'inventory.reservation_released.v1',
+  /** D-57b: a dispatch asked to issue more than the reservation line holds (nothing applied). */
+  issueRejected: 'inventory.issue_rejected.v1',
 } as const;
 
 export type InventoryEventType = (typeof INVENTORY_EVENTS)[keyof typeof INVENTORY_EVENTS];
@@ -88,7 +90,17 @@ export interface ReservationReleasedV1 {
   lines: { variantId: string; qty: number; warehouseId?: string }[];
 }
 
+/** shipment.dispatched could not be issued for these lines (WMS raises ISSUE_MISMATCH). */
+export interface IssueRejectedV1 {
+  dispatchId: string;
+  shipmentId: string;
+  orderRef: string;
+  warehouseId: string;
+  lines: { variantId: string; requested: number; held: number }[];
+}
+
 export interface InventoryEventMap {
+  'inventory.issue_rejected.v1': IssueRejectedV1;
   'inventory.availability_changed.v1': AvailabilityChangedV1;
   'inventory.low_stock.v1': LowStockV1;
   'inventory.batch_expiring.v1': BatchExpiringV1;

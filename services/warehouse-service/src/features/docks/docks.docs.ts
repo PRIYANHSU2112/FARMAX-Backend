@@ -26,6 +26,7 @@ const door = Joi.object({
   type: Joi.string().valid('UNLOADING', 'LOADING', 'BOTH'),
   vehicleClass: Joi.string(),
   capacityPerDay: Joi.string(),
+  equipment: Joi.string().valid('STANDARD', 'HOPPER', 'CONVEYOR', 'SCALE', 'WEIGHBRIDGE'),
   capacityUnit: Joi.string(),
   opensAt: Joi.string().allow(null),
   closesAt: Joi.string().allow(null),

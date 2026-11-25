@@ -11,7 +11,8 @@
     "./redis": "./src/redis/index.ts",
     "./events": "./src/events/index.ts",
     "./rabbitmq": "./src/events/rabbitmq.ts",
-    "./realtime": "./src/realtime/index.ts"
+    "./realtime": "./src/realtime/index.ts",
+    "./routing": "./src/routing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

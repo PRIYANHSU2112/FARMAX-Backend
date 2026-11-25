@@ -7,6 +7,7 @@ import type { Cradle } from '@fastify/awilix';
 import { type AwilixContainer, asClass, asFunction, asValue, createContainer } from 'awilix';
 
 import { AccessClient, buildTokenVerifier } from './adapters/auth.js';
+import { EventsRuntime } from './adapters/events.js';
 import { JobsRuntime } from './adapters/jobs.js';
 import {
   type AadhaarProvider,
@@ -36,6 +37,7 @@ declare module '@fastify/awilix' {
     accessClient: AccessClient;
     tokenVerifier: TokenVerifier;
     jobsRuntime: JobsRuntime;
+    eventsRuntime: EventsRuntime;
   }
 }
 
@@ -97,6 +99,9 @@ export function createAppContainer({ config, logger }: ContainerDeps): AwilixCon
       buildTokenVerifier(cradle.config, cradle.logger, () => cradle.redis),
     ).singleton(),
     jobsRuntime: asFunction((cradle: Cradle) => new JobsRuntime(cradle))
+      .singleton()
+      .disposer((runtime) => runtime.stop()),
+    eventsRuntime: asFunction((cradle: Cradle) => new EventsRuntime(cradle))
       .singleton()
       .disposer((runtime) => runtime.stop()),
   });

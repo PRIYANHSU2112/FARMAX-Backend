@@ -18,6 +18,16 @@ export interface UserConfig extends BaseConfig {
   INTERNAL_SERVICE_TOKEN?: string;
   /** product-service base URL for wishlist product cards (`/internal/products/cards`). */
   PRODUCT_SERVICE_URL: string;
+  /** Home SDUI (D-59): banners + categories (public catalog API). */
+  CATALOG_SERVICE_URL: string;
+  /** Home SDUI: the farmer's farm (region, depot, farm type) and the news feed. */
+  FARM_SERVICE_URL: string;
+  /** Home SDUI: the ORDER_LIVE feed (latest active order). */
+  ORDER_SERVICE_URL: string;
+  /** Home SDUI: hosts a https deep link may point to (comma list; subdomains allowed). */
+  HOME_LINK_HOSTS: string;
+  /** Home SDUI: CDN hosts an item image may come from (comma list; subdomains allowed). */
+  HOME_IMAGE_HOSTS: string;
   /** Per-user limits. */
   MAX_ADDRESSES_PER_USER: number;
   MAX_WISHLIST_ITEMS: number;
@@ -45,6 +55,17 @@ const schema = Joi.object<UserConfig>({
   PRODUCT_SERVICE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:3005'),
+  CATALOG_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3004'),
+  FARM_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3003'),
+  ORDER_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3007'),
+  HOME_LINK_HOSTS: Joi.string().default('farmx.in'),
+  HOME_IMAGE_HOSTS: Joi.string().default('cdn.farmx.in,digitaloceanspaces.com'),
   MAX_ADDRESSES_PER_USER: Joi.number().integer().min(1).max(100).default(20),
   MAX_WISHLIST_ITEMS: Joi.number().integer().min(1).max(1000).default(200),
 });

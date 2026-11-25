@@ -1,4 +1,5 @@
 import { type Tx, withPrismaErrors } from '@farmx/database';
+import type { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
 
 import type { SettingKey } from './settings.types.js';
@@ -27,6 +28,24 @@ export class SettingsRepository {
   async lockAll(tx: Tx): Promise<SettingRow[]> {
     return tx.$queryRaw<SettingRow[]>`
       SELECT "key", "value", "updatedAt" FROM "inventory_settings" ORDER BY "key" FOR UPDATE`;
+  }
+
+  /** D-57a: a non-business row (e.g. `stock.writesMode`), outside the strict settings set. */
+  async raw(key: string, tx?: Tx): Promise<unknown> {
+    const row = await (tx ?? this.db).inventorySetting.findUnique({
+      where: { key },
+      select: { value: true },
+    });
+    return row?.value ?? null;
+  }
+
+  async setRaw(tx: Tx, key: string, value: unknown, userId: string | null): Promise<void> {
+    const json = value as Prisma.InputJsonValue;
+    await tx.inventorySetting.upsert({
+      where: { key },
+      create: { key, value: json, updatedByUserId: userId },
+      update: { value: json, updatedByUserId: userId },
+    });
   }
 
   async upsert(tx: Tx, key: SettingKey, value: unknown, userId: string | null): Promise<void> {

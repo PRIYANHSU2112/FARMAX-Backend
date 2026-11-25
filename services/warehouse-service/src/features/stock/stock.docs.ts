@@ -6,6 +6,8 @@ import { OWNER_TYPES, STOCK_STATUSES } from './stock.rules.js';
 export const STOCK_AREA = 'Stock';
 export const LIFECYCLE_AREA = 'Stock lifecycle';
 export const CUTOVER_AREA = 'Stock cutover';
+export const OPS_AREA = 'Ops';
+export const VENDORS_AREA = 'Vendors';
 
 const IDEM =
   'Send an `Idempotency-Key` header (8–64 chars): a retry with the same key returns the first result (handheld / offline safe).';
@@ -99,11 +101,11 @@ export const stockDocs = (aud: 'panel' | 'admin') => {
   const d = (area: string, s: string, p: string, o: Parameters<typeof wmsDoc>[4] = {}) =>
     wmsDoc(aud, area, s, p, o);
   return {
-    receive: d(STOCK_AREA, 'Receive stock (CN)', 'inventory.receive', {
+    receive: d(STOCK_AREA, 'Receive stock (CN) / customer return (RT)', 'inventory.receive', {
       status: 201,
       data: receipt,
       errors: [404, 409, 422],
-      description: `Interim goods receipt until the Gate / Receiving screens (W5/W6): creates the CN number and any new batches; lines land in QC hold (setting \`stock.qcOnReceipt\`). Ownership defaults to the vendor ↔ SKU model, else FarmX-owned. Units of serialized SKUs get unit QR labels. 409 \`BATCH_MISMATCH\` when a batch already exists with another expiry. ${IDEM} ${ENGINE}`,
+      description: `Interim goods receipt until the Gate / Receiving screens (W5/W6): creates the CN number and any new batches; lines land in QC hold (setting \`stock.qcOnReceipt\`). Ownership defaults to the vendor ↔ SKU model, else FarmX-owned. \`sourceType: RETURN\` books a customer return: number \`RT-YYMM-####\`, stock lands in RETURNED (then inspection → available / quarantine). \`restockRequestId\` links a procurement receipt to an approved W4.08 request (received quantities and status update in the same transaction). Units of serialized SKUs get unit QR labels. 409 \`BATCH_MISMATCH\` when a batch already exists with another expiry. ${IDEM} ${ENGINE}`,
     }),
     receipts: d(STOCK_AREA, 'Receipts (CN list)', 'inventory.view', {
       paginated: true,
@@ -120,7 +122,7 @@ export const stockDocs = (aud: 'panel' | 'admin') => {
       }),
       errors: [404, 409, 422],
       description:
-        'One label per physical unit of the batch at this warehouse (codes `FX-<SKU>-<batch>-<seq>`); marks the batch serialized so later moves keep unit statuses in step. 409 `QR_ALREADY_GENERATED`.',
+        'One label per physical unit of the batch at this warehouse (codes `FX-<batchNo>-<seq>`, e.g. FX-LF-2608-0001; the SKU is inserted only when another SKU already uses that batch number); marks the batch serialized so later moves keep unit statuses in step. 409 `QR_ALREADY_GENERATED`.',
     }),
     coa: d(STOCK_AREA, 'Set COA / certificate of a batch', 'quality.hold_create', {
       data: Joi.object().unknown(true),
@@ -232,6 +234,91 @@ export const stockDocs = (aud: 'panel' | 'admin') => {
       data: Joi.object().unknown(true),
       description:
         'GLOBAL or per-warehouse (`?scope=<warehouseId>`). The writes mode and cutover state change only through the cutover API.',
+    }),
+    cutoverStatus: d(
+      CUTOVER_AREA,
+      'Cutover status (inventory → warehouse)',
+      'inventory.configure',
+      {
+        data: Joi.object().unknown(true),
+        description:
+          'Writes mode on both sides (INVENTORY · FROZEN · WMS), in-flight inventory operations, freeze deadline, last report.',
+      },
+    ),
+    cutoverFreeze: d(CUTOVER_AREA, 'Freeze stock writes (cutover step 2)', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      errors: [409, 422, 503],
+      description:
+        'Both services refuse stock and threshold writes (423 STOCK_WRITES_FROZEN). Checkout, reservations and orders keep running. The freeze ends automatically after `stock.freezeMaxMinutes` (default 120) unless the cutover is activated; `warehouse.stock_cutover.v1` tells the people who edit stock.',
+    }),
+    cutoverRun: d(CUTOVER_AREA, 'Run the cutover (steps 3–6)', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      errors: [409, 503],
+      description:
+        'Rejects still-pending inventory operations (CUTOVER_MOVED_TO_WMS, listed in the report), snapshots inventory, imports opening balances (batch OPENING, no bin / expiry, FarmX-owned, flagged for review) — or replays inventory ledger rows after a rollback (tables are never truncated) — verifies WMS sellable / damaged = inventory onHand / damaged for every warehouse × SKU, then activates. A mismatch keeps both sides FROZEN (409 CUTOVER_MISMATCH with the list).',
+    }),
+    cutoverAbort: d(CUTOVER_AREA, 'Abort the freeze', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      errors: [409, 503],
+    }),
+    cutoverRollback: d(CUTOVER_AREA, 'Roll back to inventory (≤ 72 h)', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      errors: [409, 503],
+      description:
+        'Only within `stock.rollbackWindowHours` of activation (409 ROLLBACK_WINDOW_CLOSED after; fix forward). WMS stock tables turn read-only and keep batches, bins, QC hold and quarantine; a later re-cutover replays the inventory changes made meanwhile.',
+    }),
+    vendors: d(VENDORS_AREA, 'Vendors', 'inventory.view', {
+      paginated: true,
+      data: Joi.array().items(Joi.object().unknown(true)),
+      description:
+        'Search by name / code; `variantId` = vendors that supply that SKU (restock form).',
+    }),
+    vendor: d(VENDORS_AREA, 'Vendor detail (+ supplied SKUs)', 'inventory.view', {
+      data: Joi.object().unknown(true),
+    }),
+    createVendor: d(VENDORS_AREA, 'Add vendor', 'vendors.manage', {
+      status: 201,
+      data: Joi.object().unknown(true),
+      errors: [409, 422],
+    }),
+    updateVendor: d(VENDORS_AREA, 'Edit vendor', 'vendors.manage', {
+      data: Joi.object().unknown(true),
+      errors: [404, 409, 422],
+      description: IF_VERSION,
+    }),
+    vendorVariants: d(
+      VENDORS_AREA,
+      'Set supplied SKUs (ownership, lead time, MOQ, preferred, unit QR)',
+      'vendors.manage',
+      {
+        data: Joi.object().unknown(true),
+        description:
+          'Replaces the list. Ownership decides how received stock is owned (SOR / FarmX / JIT); `requiresUnitQr` makes its batches serialized.',
+      },
+    ),
+    maintenance: d(OPS_AREA, 'Maintenance banner', 'warehouse.view', {
+      data: Joi.object({
+        active: Joi.boolean(),
+        phase: Joi.string().allow(null),
+        startsAt: Joi.string().allow(null),
+        endsAt: Joi.string().allow(null),
+        message: Joi.string().allow(null),
+      }),
+      description:
+        'Shown on every screen while stock writes are frozen for the cutover (start, deadline, reason).',
+    }),
+    jobs: d(OPS_AREA, 'Background jobs', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      description:
+        'Each job: schedule, last success (heartbeat), stale flag; dead-letter count and latest dead letters. Failure policy: 5 tries with exponential backoff → dead-letter (14 days) → `warehouse.job_failed.v1` alert.',
+    }),
+    replayJob: d(OPS_AREA, 'Replay a dead-lettered job', 'inventory.configure', {
+      data: Joi.object({ replayed: Joi.boolean() }),
+    }),
+    reconcile: d(OPS_AREA, 'Latest reconcile report', 'inventory.configure', {
+      data: Joi.object().unknown(true),
+      description:
+        'type=stock: WMS sellable / damaged vs inventory onHand / damaged per warehouse × SKU, and unit QR vs columns (nightly). type=allocation arrives with fulfilment (D-57b).',
     }),
   } satisfies Record<string, RouteDocs>;
 };

@@ -27,6 +27,48 @@ export class PaymentsRepository {
     this.db = db;
   }
 
+  /** D-57b W3.18 reconciliation SLA: payments created in a period, by outcome + capture latency. */
+  async stats(from: Date, to: Date) {
+    const [r] = await this.db.$queryRaw<
+      {
+        created: number;
+        captured: number;
+        failed: number;
+        expired: number;
+        cancelled: number;
+        pending: number;
+        capturedPaise: bigint | null;
+        avgCaptureSec: number | null;
+        p95CaptureSec: number | null;
+        within5Min: number;
+      }[]
+    >`
+      SELECT count(*)::int AS created,
+        count(*) FILTER (WHERE "status" = 'CAPTURED')::int AS captured,
+        count(*) FILTER (WHERE "status" = 'FAILED')::int AS failed,
+        count(*) FILTER (WHERE "status" = 'EXPIRED')::int AS expired,
+        count(*) FILTER (WHERE "status" = 'CANCELLED')::int AS cancelled,
+        count(*) FILTER (WHERE "status" IN ('CREATED', 'PENDING'))::int AS pending,
+        sum("amountPaise") FILTER (WHERE "status" = 'CAPTURED') AS "capturedPaise",
+        (avg(EXTRACT(EPOCH FROM ("capturedAt" - "createdAt"))) FILTER (WHERE "capturedAt" IS NOT NULL))::float8 AS "avgCaptureSec",
+        (percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ("capturedAt" - "createdAt")))
+          FILTER (WHERE "capturedAt" IS NOT NULL))::float8 AS "p95CaptureSec",
+        count(*) FILTER (WHERE "capturedAt" IS NOT NULL AND "capturedAt" - "createdAt" <= interval '5 minutes')::int AS "within5Min"
+      FROM "payments" WHERE "createdAt" >= ${from} AND "createdAt" < ${to}`;
+    return {
+      created: r?.created ?? 0,
+      captured: r?.captured ?? 0,
+      failed: r?.failed ?? 0,
+      expired: r?.expired ?? 0,
+      cancelled: r?.cancelled ?? 0,
+      pending: r?.pending ?? 0,
+      capturedPaise: Number(r?.capturedPaise ?? 0n),
+      avgCaptureSec: r?.avgCaptureSec == null ? null : Math.round(r.avgCaptureSec),
+      p95CaptureSec: r?.p95CaptureSec == null ? null : Math.round(r.p95CaptureSec),
+      within5Min: r?.within5Min ?? 0,
+    };
+  }
+
   async find(id: string, tx?: Tx): Promise<PaymentRow | null> {
     return await withPrismaErrors(() => (tx ?? this.db).payment.findUnique({ where: { id } }));
   }

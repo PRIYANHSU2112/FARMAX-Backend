@@ -25,7 +25,8 @@ export class WishlistController {
   }
 
   async ids(request: FastifyRequest) {
-    return ok({ productIds: await this.wishlistService.productIds(userIdOf(request)) });
+    const { productIds, truncated } = await this.wishlistService.productIds(userIdOf(request));
+    return { success: true, data: { productIds }, meta: { truncated } };
   }
 
   async add(request: Req<{ Body: AddWishlistInput }>, reply: FastifyReply) {

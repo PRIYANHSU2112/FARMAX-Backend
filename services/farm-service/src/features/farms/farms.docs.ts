@@ -51,6 +51,8 @@ const owner = Joi.object({
   aadhaarLast4: Joi.string().allow(null).example('4417'),
   kycStatus: Joi.string().valid(...KYC_STATUSES),
   personalizedOffers: Joi.boolean(),
+  panVerified: Joi.boolean().description('PAN card accepted: PAN is locked (409 PAN_LOCKED)'),
+  aadhaarVerified: Joi.boolean().description('Aadhaar e-KYC passed'),
 }).meta({ className: 'FarmOwner' });
 
 const location = Joi.object({
@@ -66,6 +68,9 @@ const location = Joi.object({
   mandalName: Joi.string().allow(null).example('Denduluru'),
   primaryNodeId: uuid.allow(null),
   backupNodeId: uuid.allow(null),
+  primaryNodeName: Joi.string().allow(null).example('Mother WH (Eluru)'),
+  backupNodeName: Joi.string().allow(null).example('Tanuku C&F'),
+  deliveryPromise: Joi.string().allow(null).example('Next-day delivery here'),
 })
   .allow(null)
   .description('null until step 3 (location) is saved')
@@ -104,6 +109,17 @@ export const farmSchema = Joi.object({
     businessName: Joi.string().allow(null).description('GST "Legal Name of Business"'),
     tradeName: Joi.string().allow(null),
     gstVerifiedAt: Joi.date().iso().allow(null),
+    invoiceNameReview: Joi.object({
+      status: Joi.string().valid('PENDING', 'APPROVED', 'REJECTED'),
+      requestedAt: Joi.date().iso().allow(null),
+      reviewedAt: Joi.date().iso().allow(null),
+      note: Joi.string().allow(null).description('Staff reason (show it on REJECTED)'),
+    })
+      .allow(null)
+      .description(
+        '"Keep farm name & send for review". null = never asked. PENDING / REJECTED: invoices use the GST trade name; APPROVED: the farm name.',
+      )
+      .meta({ className: 'InvoiceNameReview' }),
   }),
   kycDeferred: Joi.boolean(),
   channel: Joi.string().valid('SELF', 'FIELD_ASSISTED', 'ADMIN', 'IMPORT').example('SELF'),
@@ -139,6 +155,8 @@ export const farmExample = {
     aadhaarLast4: '4417',
     kycStatus: 'VERIFIED',
     personalizedOffers: true,
+    panVerified: true,
+    aadhaarVerified: true,
   },
   capacities: [
     { productionType: 'LAYER', metric: 'BIRDS', value: 60000, period: 'STANDING', rank: 1 },
@@ -158,6 +176,9 @@ export const farmExample = {
     mandalName: 'Denduluru',
     primaryNodeId: IDS.node,
     backupNodeId: IDS.node2,
+    primaryNodeName: 'Mother WH (Eluru)',
+    backupNodeName: 'Tanuku C&F',
+    deliveryPromise: 'Next-day delivery here',
   },
   billing: {
     gstin: '37AKLPK7741Q1Z5',
@@ -167,6 +188,7 @@ export const farmExample = {
     businessName: 'K. Venkata Ramana',
     tradeName: 'Sri Lakshmi Agro Farms',
     gstVerifiedAt: '2026-11-10T09:12:00.000Z',
+    invoiceNameReview: null,
   },
   kycDeferred: false,
   channel: 'SELF',
@@ -259,6 +281,7 @@ const adminListItem = summarySchema
     territoryCode: Joi.string().allow(null),
     kycStatus: Joi.string().valid(...KYC_STATUSES),
     submittedAt: isoDate.allow(null),
+    invoiceNameReview: Joi.string().valid('PENDING', 'APPROVED', 'REJECTED').allow(null),
   })
   .meta({ className: 'AdminFarmListItem' });
 
@@ -551,7 +574,7 @@ export const FARMS_DOCS = {
     operationId: 'saveFarmLocation',
     summary: 'Farm location (step 3)',
     description:
-      'GPS fix (inside India, accuracy ≤ 100 m, `capturedAt` not in the future) + village + serviceable pin code. Territory, district, mandal and serving nodes are resolved server-side from the pin. Allowed only in DRAFT or NEEDS_ATTENTION.',
+      'GPS fix (inside India, accuracy ≤ 100 m, `capturedAt` not in the future) + village + serviceable pin code. Territory, district, mandal and serving nodes are resolved server-side from the pin. Allowed in DRAFT or NEEDS_ATTENTION, and on ACTIVE farms (Farm Location screen) only inside the same territory: a pin in another territory → 409 `TERRITORY_LOCKED` (the Farm ID carries the territory code).',
     auth: AUTH_CUSTOMER,
     headers: IF_MATCH,
     requestExample: {
@@ -567,7 +590,16 @@ export const FARMS_DOCS = {
     errors: [404, 409, 422],
     errorExamples: {
       404: ERR.farmNotFound,
-      409: [ERR.versionConflict, ERR.notEditable],
+      409: [
+        ERR.versionConflict,
+        ERR.notEditable,
+        {
+          summary: 'Other territory (ACTIVE farm)',
+          message:
+            'This pin code is in another territory. Your Farm ID is tied to its territory; contact support to move the farm.',
+          details: { reason: 'TERRITORY_LOCKED', currentTerritory: 'WG', newTerritory: 'EG' },
+        },
+      ],
       422: [
         ERR.pinNotServiceable,
         {
@@ -701,11 +733,12 @@ export const FARMS_DOCS = {
     operationId: 'updateActiveFarm',
     summary: 'Edit an active farm',
     description:
-      'ACTIVE farms only: address line and capacities (validated against the farm’s existing production types). Name and owner are locked (admins correct them). At least one field.',
+      'ACTIVE farms only (Farm Profile / Hatchery Profile screens): address line, production types and capacities. `productionTypes` (ranked) needs `capacities` (one per type, category rules apply); `productionTypes[0]` must stay the current primary type, which is in the Farm ID (else 409 `PRIMARY_TYPE_LOCKED`). Farm name is locked (admins correct it); the owner name follows the account name (`PATCH /v1/auth/me`). At least one field.',
     auth: AUTH_CUSTOMER,
     headers: IF_MATCH,
     requestExample: {
       addressLine: 'Opp. Panchayat Office, Main Road',
+      productionTypes: ['LAYER', 'BROILER'],
       capacities: [
         { productionType: 'LAYER', metric: 'BIRDS', value: 65000, period: 'STANDING' },
         { productionType: 'BROILER', metric: 'BIRDS', value: 12000, period: 'PER_CYCLE' },
@@ -721,6 +754,12 @@ export const FARMS_DOCS = {
           summary: 'Not ACTIVE',
           message: 'Only active farms can be edited here',
           details: { reason: 'FARM_STATE_INVALID' },
+        },
+        {
+          summary: 'Primary type changed',
+          message:
+            'The primary production type (LAYER) is part of your Farm ID and cannot change; add or remove the others.',
+          details: { reason: 'PRIMARY_TYPE_LOCKED', primary: 'LAYER' },
         },
       ],
       422: capacitiesIssue,
@@ -774,6 +813,7 @@ export const FARMS_DOCS = {
             territoryCode: 'WG',
             kycStatus: 'VERIFIED',
             submittedAt: NOW,
+            invoiceNameReview: null,
           },
         ],
         page(),
@@ -937,6 +977,56 @@ export const FARMS_DOCS = {
 } satisfies Record<string, RouteDocs>;
 
 /** Per-action docs for `POST /admin/farms/{id}/<action>` (one operation each). */
+/** POST /admin/farms/:id/invoice-name/{approve|reject}. */
+export const invoiceNameDocs = (decision: 'approve' | 'reject'): RouteDocs => {
+  const approve = decision === 'approve';
+  return {
+    tag: ADMIN_FARMS_TAG,
+    operationId: approve ? 'adminApproveInvoiceName' : 'adminRejectInvoiceName',
+    summary: approve ? 'Approve "invoice as farm name"' : 'Reject "invoice as farm name"',
+    description: approve
+      ? 'The owner chose "Keep farm name & send for review" (GST names differ from the farm name). Approve → invoices use the farm name (`invoiceNameSource: FARM_NAME`). Queue: `GET /admin/farms?invoiceNameReview=PENDING`. Reviewer must not own or have registered the farm (403 `SOD_VIOLATION`). Audited.'
+      : 'Reject → invoices stay on the GST trade name; `reason` is shown to the owner as `billing.invoiceNameReview.note`. Reviewer must not own or have registered the farm (403 `SOD_VIOLATION`). Audited.',
+    auth: AUTH_ADMIN,
+    permission: 'customers.verify',
+    headers: IF_MATCH,
+    requestExample: {
+      reason: approve
+        ? 'Farm name is the registered brand of the GSTIN holder (letterhead checked)'
+        : 'GST invoices must carry the registered trade name for input tax credit',
+    },
+    success: farm(200, 'Updated farm', {
+      ...farmExample,
+      billing: {
+        ...farmExample.billing,
+        invoiceNameSource: approve ? 'FARM_NAME' : 'GST_TRADE_NAME',
+        invoiceName: approve ? 'Sri Lakshmi Poultry' : 'Sri Lakshmi Agro Farms',
+        invoiceNameReview: {
+          status: approve ? 'APPROVED' : 'REJECTED',
+          requestedAt: '2026-11-24T05:01:00.000Z',
+          reviewedAt: '2026-11-24T07:30:00.000Z',
+          note: approve
+            ? 'Farm name is the registered brand of the GSTIN holder (letterhead checked)'
+            : 'GST invoices must carry the registered trade name for input tax credit',
+        },
+      },
+      version: 6,
+    }),
+    errors: [403, 404, 409, 422],
+    errorExamples: {
+      404: ERR.farmNotFound,
+      409: [
+        {
+          summary: 'Nothing pending',
+          message: 'No invoice-name review is pending for this farm',
+          details: { reason: 'NO_PENDING_REVIEW' },
+        },
+        ERR.versionConflict,
+      ],
+    },
+  };
+};
+
 export const adminActionDocs = (
   action: 'suspend' | 'reactivate' | 'close' | 'reject' | 'request-changes',
   permission: string,

@@ -85,13 +85,15 @@ export const WISHLIST_DOCS = {
   ids: me({
     operationId: 'listMyWishlistProductIds',
     summary: 'Product ids in my wishlist',
-    description: 'Lightweight list for heart icons on product cards (max 200 ids).',
-    rateLimit: READ_RATE,
+    description:
+      'Lightweight list for heart icons on product cards (home rails and listings), newest first, at most 500 ids; `meta.truncated` = there are more.',
+    rateLimit: WRITE_RATE,
     success: {
       status: 200,
       description: 'Product ids',
       data: Joi.object({ productIds: Joi.array().items(Joi.string().guid()) }),
-      example: ok({ productIds: [IDS.product] }),
+      meta: Joi.object({ truncated: Joi.boolean() }),
+      example: ok({ productIds: [IDS.product] }, { truncated: false }),
     },
   }),
   add: me({

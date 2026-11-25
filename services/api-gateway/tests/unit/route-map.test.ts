@@ -64,11 +64,13 @@ describe('route map', () => {
         upstream: 'http://catalog:3004',
         rewritePrefix: '/health',
       },
-      ...['/me/addresses', '/me/wishlist', '/admin/customers'].map((path) => ({
-        prefix: '/v1' + path,
-        upstream: 'http://user:3006',
-        rewritePrefix: path,
-      })),
+      ...['/me/addresses', '/me/wishlist', '/admin/customers', '/home', '/admin/home'].map(
+        (path) => ({
+          prefix: '/v1' + path,
+          upstream: 'http://user:3006',
+          rewritePrefix: path,
+        }),
+      ),
       { prefix: '/v1/user-service/health', upstream: 'http://user:3006', rewritePrefix: '/health' },
       { prefix: '/v1/cart', upstream: 'http://order:3007', rewritePrefix: '/cart' },
       { prefix: '/v1/orders', upstream: 'http://order:3007', rewritePrefix: '/orders' },
@@ -143,6 +145,11 @@ describe('route map', () => {
       { prefix: '/v1/faqs', upstream: 'http://support:3013', rewritePrefix: '/faqs' },
       { prefix: '/v1/legal', upstream: 'http://support:3013', rewritePrefix: '/legal' },
       {
+        prefix: '/v1/admin/support',
+        upstream: 'http://support:3013',
+        rewritePrefix: '/admin/support',
+      },
+      {
         prefix: '/v1/support-service/health',
         upstream: 'http://support:3013',
         rewritePrefix: '/health',
@@ -153,6 +160,9 @@ describe('route map', () => {
         rewritePrefix: '/admin/warehouses',
       },
       { prefix: '/v1/admin/wms', upstream: 'http://warehouse:3014', rewritePrefix: '/admin/wms' },
+      { prefix: '/v1/wms', upstream: 'http://warehouse:3014', rewritePrefix: '/wms' },
+      { prefix: '/v1/shipments', upstream: 'http://warehouse:3014', rewritePrefix: '/shipments' },
+      { prefix: '/v1/driver', upstream: 'http://warehouse:3014', rewritePrefix: '/driver' },
       {
         prefix: '/v1/warehouse-service/health',
         upstream: 'http://warehouse:3014',

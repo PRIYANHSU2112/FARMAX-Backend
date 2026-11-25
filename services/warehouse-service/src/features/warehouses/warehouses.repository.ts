@@ -24,6 +24,7 @@ const SELECT = {
   pinCode: true,
   latitude: true,
   longitude: true,
+  tagline: true,
   totalAreaSqft: true,
   capacityKg: true,
   temperatureClasses: true,

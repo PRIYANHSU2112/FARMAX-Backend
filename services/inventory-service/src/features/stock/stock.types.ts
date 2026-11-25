@@ -1,7 +1,18 @@
 export type StockOperationType = 'RECEIPT' | 'DAMAGE' | 'WRITE_OFF' | 'ADJUSTMENT';
 export type StockOperationStatus = 'PENDING' | 'APPLIED' | 'REJECTED';
 export type StockLedgerType =
-  'RECEIVE' | 'ADJUST_IN' | 'ADJUST_OUT' | 'DAMAGE' | 'WRITE_OFF' | 'SALE';
+  | 'RECEIVE'
+  | 'ADJUST_IN'
+  | 'ADJUST_OUT'
+  | 'DAMAGE'
+  | 'WRITE_OFF'
+  | 'SALE'
+  // D-57a: from warehouse-service movements.
+  | 'QUALITY_RELEASE'
+  | 'QUALITY_HOLD'
+  | 'TRANSFER_IN'
+  | 'TRANSFER_OUT'
+  | 'RETURN';
 
 export interface OperationLine {
   variantId: string;

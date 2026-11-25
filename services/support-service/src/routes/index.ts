@@ -4,6 +4,7 @@ import type { SupportConfig } from '../config/index.js';
 import { ADMIN_AGENTS_TAG, agentsModule } from '../features/agents/index.js';
 import { auditModule } from '../features/audit/index.js';
 import { CHAT_TAG, chatModule } from '../features/chat/index.js';
+import { ADMIN_COMPANY_TAG, COMPANY_TAG, companyModule } from '../features/company/index.js';
 import { ADMIN_FAQ_TAG, FAQ_TAG, faqsModule } from '../features/faqs/index.js';
 import { ADMIN_LEGAL_TAG, LEGAL_TAG, legalModule } from '../features/legal/index.js';
 import { ADMIN_SUPPORT_CONFIG_TAG, settingsModule } from '../features/settings/index.js';
@@ -16,7 +17,8 @@ import { HELP_TAG, topicsModule } from '../features/topics/index.js';
  *   /faqs/*  /legal/*                  public   FAQ (search, votes) and legal pages
  *   /support/tickets/*                 requester own tickets, messages, feedback
  *   /support/chat/ws-token|ws          any      live chat (shared @farmx/infra/realtime layer)
- *   /support/admin/*  /faqs/admin/*  /legal/admin/*   staff (permissions)
+ *   /support/company/*                 public / requester   licences & certificates, partner applications
+ *   /support/admin/*  /faqs/admin/*  /legal/admin/*  /admin/support/*   staff (permissions)
  */
 export const features: readonly ServiceModule[] = [
   auditModule,
@@ -24,6 +26,7 @@ export const features: readonly ServiceModule[] = [
   topicsModule,
   faqsModule,
   legalModule,
+  companyModule,
   agentsModule,
   ticketsModule,
   chatModule,
@@ -34,7 +37,7 @@ export const createDocsOptions = (config: SupportConfig): DocsOptions => ({
   title: 'FarmX Support Service API',
   version: config.SERVICE_VERSION,
   description:
-    'Help & Support for all apps: priority-driven tickets with SLA (business hours, holidays), live chat over WebSocket, FAQ with search and deflection, versioned legal pages.',
+    'Help & Support for all apps: priority-driven tickets with SLA (business hours, holidays), live chat over WebSocket, FAQ with search and deflection, versioned legal pages, company licences & certificates, dealer / partner applications.',
   tags: [
     { name: 'Health', description: 'Public liveness and readiness probes.' },
     {
@@ -59,5 +62,14 @@ export const createDocsOptions = (config: SupportConfig): DocsOptions => ({
     },
     { name: ADMIN_FAQ_TAG, description: 'FAQ categories and items.' },
     { name: ADMIN_LEGAL_TAG, description: 'Legal document drafts and publishing.' },
+    {
+      name: COMPANY_TAG,
+      description:
+        'Company licences & certificates (CDSCO, GST, COI, FSSAI, ISO); apply to become a dealer / partner and track the status.',
+    },
+    {
+      name: ADMIN_COMPANY_TAG,
+      description: 'Company documents CRUD; dealer / partner application review queue.',
+    },
   ],
 });

@@ -3,6 +3,7 @@ import {
   ForbiddenError,
   RateLimitError,
   UnauthorizedError,
+  isAppError,
 } from '@farmx/common/errors';
 import { authenticate } from '@farmx/common/middleware';
 import type { UserType } from '@farmx/common/types';
@@ -10,7 +11,53 @@ import { userKeys, hitRateLimit } from '@farmx/infra/redis';
 import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 
 /** Permission keys this service checks (must exist in auth's permissions.catalog.ts). */
-export const USER_PERMISSIONS = new Set(['customers.view']);
+export const USER_PERMISSIONS = new Set([
+  'customers.view',
+  'home_layout.view',
+  'home_layout.manage',
+  'home_layout.publish',
+]);
+
+/**
+ * How the caller's token looked on an optional-auth route (home): `none` = no token, `ok` = valid,
+ * `expired` = invalid or expired (served as a guest; the app refreshes quietly),
+ * `unavailable` = could not be checked (revocation store down; served as a guest).
+ */
+export type AuthState = 'none' | 'ok' | 'expired' | 'unavailable';
+
+const authStates = new WeakMap<FastifyRequest, AuthState>();
+
+export const authStateOf = (request: FastifyRequest): AuthState =>
+  authStates.get(request) ?? 'none';
+
+/** The raw bearer token (to forward to another service on the caller's behalf). */
+export const bearerOf = (request: FastifyRequest): string | undefined => {
+  const header = request.headers.authorization;
+  if (header === undefined) return undefined;
+  const [scheme, token] = header.split(' ');
+  return scheme?.toLowerCase() === 'bearer' && token !== undefined && token !== ''
+    ? token
+    : undefined;
+};
+
+/**
+ * preHandler for routes that must never fail on auth (home): a valid full-scope token sets
+ * `request.user`; anything else leaves the caller a guest and records why (`authStateOf`).
+ */
+export const optionalAuth: preHandlerAsyncHookHandler = async (request) => {
+  const token = bearerOf(request);
+  if (token === undefined) {
+    authStates.set(request, 'none');
+    return;
+  }
+  try {
+    const user = await request.diScope.resolve('tokenVerifier')(token);
+    if (user.scope === 'full') request.user = user;
+    authStates.set(request, user.scope === 'full' ? 'ok' : 'none');
+  } catch (err) {
+    authStates.set(request, isAppError(err) && err.statusCode >= 500 ? 'unavailable' : 'expired');
+  }
+};
 
 /** preHandler: valid, non-revoked access token with FULL scope; optionally a persona. */
 export const requireAuth = (...userTypes: UserType[]): preHandlerAsyncHookHandler =>

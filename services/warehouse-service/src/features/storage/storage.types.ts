@@ -9,6 +9,7 @@ export interface ZoneView {
   temperatureClass: TempClass;
   minTempC: string | null;
   maxTempC: string | null;
+  isSecure: boolean;
   isFoodGrade: boolean;
   productCategoryIds: string[];
   status: ResourceStatus;
@@ -76,6 +77,7 @@ export interface ZoneInput {
   temperatureClass: TempClass;
   minTempC?: number | null;
   maxTempC?: number | null;
+  isSecure?: boolean;
   isFoodGrade?: boolean;
   productCategoryIds?: string[];
   status?: ResourceStatus;

@@ -54,6 +54,8 @@ export class WarehousesService {
       isAllocatable: d.status === 'ACTIVE' && d.isAllocatable,
       hasColdChain: d.temperatureClasses.some((c) => COLD.has(c)),
       priority: d.priority,
+      latitude: d.latitude,
+      longitude: d.longitude,
     });
     if (changed) await this.afterChange(tx, d.warehouseId, allocationChanged);
   }

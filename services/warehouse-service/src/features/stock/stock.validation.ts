@@ -23,8 +23,9 @@ export const receiptSchema = {
   headers: IDEMPOTENCY,
   body: Joi.object({
     warehouseId: ID.required(),
+    sourceType: Joi.string().valid('VENDOR', 'RETURN').default('VENDOR'),
     vendorId: ID.allow(null),
-    restockRequestId: ID.allow(null),
+    restockRequestId: ID.allow(null).when('sourceType', { is: 'RETURN', then: Joi.forbidden() }),
     notes: Joi.string().trim().max(500).allow(null, ''),
     lines: Joi.array()
       .items(
@@ -255,4 +256,67 @@ export const settingsQuery = {
   querystring: Joi.object({
     scope: Joi.alternatives(ID, Joi.string().valid('GLOBAL')).default('GLOBAL'),
   }),
+};
+
+export const reasonSchema = { body: Joi.object({ reason: REASON.required() }) };
+
+export const dlqParam = Joi.object({ id: Joi.string().max(64).required() });
+export const reconcileQuery = {
+  querystring: Joi.object({ type: Joi.string().valid('stock', 'allocation').default('stock') }),
+};
+
+const VENDOR = {
+  name: Joi.string().trim().min(2).max(120),
+  gstin: Joi.string()
+    .trim()
+    .uppercase()
+    .pattern(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/)
+    .allow(null),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^\+?\d{10,15}$/)
+    .allow(null),
+  email: Joi.string().trim().lowercase().email().max(254).allow(null),
+  defaultOwnership: OWNER,
+  status: Joi.string().valid('ACTIVE', 'INACTIVE'),
+};
+export const vendorsQuery = {
+  querystring: Joi.object({
+    q: Joi.string().trim().min(1).max(60),
+    variantId: ID,
+    status: Joi.string().valid('ACTIVE', 'INACTIVE'),
+    ...PAGE,
+  }),
+};
+export const createVendorSchema = {
+  body: Joi.object({
+    code: Joi.string()
+      .trim()
+      .uppercase()
+      .pattern(/^[A-Z0-9][A-Z0-9-]{1,19}$/)
+      .required(),
+    ...VENDOR,
+    name: VENDOR.name.required(),
+  }),
+};
+export const updateVendorSchema = {
+  ...idParam,
+  body: Joi.object({ ...VENDOR, expectedVersion: VERSION.required() }).min(2),
+};
+export const vendorVariantsSchema = {
+  ...idParam,
+  body: Joi.array()
+    .items(
+      Joi.object({
+        variantId: ID.required(),
+        ownershipModel: OWNER.required(),
+        leadTimeDays: Joi.number().integer().min(0).max(365),
+        moq: Joi.number().integer().min(1).max(1_000_000),
+        isPreferred: Joi.boolean(),
+        requiresUnitQr: Joi.boolean(),
+      }),
+    )
+    .max(1000)
+    .unique('variantId')
+    .required(),
 };

@@ -116,6 +116,13 @@ export class InventoryClient {
     pinCode: string;
     lines: { variantId: string; qty: number }[];
     ttlSeconds: number;
+    routing?: {
+      orderValue?: number;
+      district?: string;
+      stateCode?: string;
+      lat?: number;
+      lng?: number;
+    };
   }): Promise<Reservation> {
     return this.http.call('POST', '/internal/inventory/reservations', {
       idempotencyKey: `order-${input.orderId}`,
@@ -124,6 +131,7 @@ export class InventoryClient {
         pinCode: input.pinCode,
         lines: input.lines,
         ttlSeconds: input.ttlSeconds,
+        ...(input.routing === undefined ? {} : { routing: input.routing }),
       },
     });
   }

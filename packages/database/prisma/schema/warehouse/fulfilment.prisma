@@ -1,0 +1,544 @@
+// warehouse-service feature: fulfilment (D-57b Phase 3). Order read model + F1 shipments (one per
+// order × warehouse), FEFO lot allocations, pick/pack tasks, QC, holds, exceptions, cross-warehouse
+// reallocations (saga, §2a.4) and daily counters. Other services' ids are plain uuid columns.
+
+enum WmsShipmentStatus {
+  PENDING_RELEASE
+  RELEASED
+  ALLOCATED
+  ASSIGNED
+  PICKING
+  PACKING
+  QC
+  READY_TO_DISPATCH
+  DISPATCHED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FULFILLED
+  DELIVERY_FAILED
+  RETURNED_TO_WAREHOUSE
+  CANCELLED
+}
+
+enum WmsShipmentPriority {
+  STANDARD
+  PRIORITY
+}
+
+enum WmsDeliveryType {
+  STANDARD
+  EXPRESS
+  BULK
+}
+
+enum WmsLotAllocationStatus {
+  ALLOCATED
+  PICKED
+  PACKED
+  ISSUED
+  RELEASED
+}
+
+enum WmsTaskType {
+  PICK_PACK
+  PUTAWAY
+}
+
+enum WmsTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum WmsPickBatchStatus {
+  OPEN
+  CLOSED
+}
+
+enum WmsPackageType {
+  BAG
+  BOX
+  PALLET
+  DRUM
+  CAN
+  CASK
+  TANK
+}
+
+enum WmsQcResult {
+  PASS
+  FAIL
+}
+
+enum WmsHoldReason {
+  CUSTOMER_REQUEST
+  PAYMENT_ISSUE
+  COMPLIANCE
+  QUALITY
+  OPERATIONS
+  OTHER
+}
+
+enum WmsExceptionType {
+  SHORTAGE
+  PARTIAL
+  CANCELLATION
+  ALLOCATION_ISSUE
+  QUALITY
+  DELIVERY
+  STOCK_DRIFT
+  ALLOCATION_MISMATCH
+  ISSUE_MISMATCH
+}
+
+enum WmsExceptionCause {
+  STOCK_SHORT
+  COLD_BREACH
+  DAMAGED
+  QC_FAIL
+  UNBINNED_STOCK
+  ZERO_STOCK_AT_NODE
+  CUSTOMER_CANCEL
+  DRIFT
+  OTHER
+}
+
+enum WmsSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WmsExceptionStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum WmsReallocationStatus {
+  PENDING
+  INVENTORY_DONE
+  COMPLETED
+  FAILED
+  COMPENSATED
+}
+
+enum WmsComplianceStatus {
+  NOT_REQUIRED
+  PENDING
+  FLAGGED
+  APPROVED
+  REJECTED
+  ON_HOLD
+}
+
+/// Order read model (from order events + order-service fulfilment facts). PII for staff screens.
+model WmsFulfilmentOrder {
+  orderId           String              @id @db.Uuid
+  orderNo           String              @db.VarChar(30)
+  reservationId     String?             @db.Uuid
+  userId            String?             @db.Uuid
+  farmId            String?             @db.Uuid
+  channel           String?             @db.VarChar(12)
+  customerName      String?             @db.VarChar(120)
+  customerPhone     String?             @db.VarChar(20)
+  farmName          String?             @db.VarChar(160)
+  farmCode          String?             @db.VarChar(30)
+  segment           String?             @db.VarChar(60)
+  customerPoRef     String?             @db.VarChar(40)
+  /// Address snapshot {line1, line2, landmark, village, mandal, district, stateCode, pinCode, formatted}.
+  shipTo            Json?
+  district          String?             @db.VarChar(80)
+  stateCode         String?             @db.VarChar(4)
+  pinCode           String?             @db.Char(6)
+  latitude          Decimal?            @db.Decimal(9, 6)
+  longitude         Decimal?            @db.Decimal(9, 6)
+  /// OMS order status (PENDING_ADMIN_CONFIRMATION, CONFIRMED, IN_FULFILMENT …).
+  orderStatus       String              @db.VarChar(30)
+  paymentStatus     String              @db.VarChar(20)
+  paymentMethod     String?             @db.VarChar(12)
+  paymentInstrument String?             @db.VarChar(20)
+  paymentRefMasked  String?             @db.VarChar(20)
+  refundStatus      String?             @db.VarChar(24)
+  grandTotal        Decimal             @default(0) @db.Decimal(14, 2)
+  /// Full breakdown {itemSubtotal, discountTotal, taxableAmount, cgst, sgst, igst, freight, …}.
+  totals            Json?
+  itemCount         Int                 @default(0)
+  unitCount         Int                 @default(0)
+  placedAt          DateTime
+  paidAt            DateTime?
+  confirmedAt       DateTime?
+  cancelledAt       DateTime?
+  promisedBy        DateTime?
+  complianceStatus  WmsComplianceStatus @default(NOT_REQUIRED)
+  holdActive        Boolean             @default(false)
+  /// Allocated by the checkout rules without a manual reallocation (routed %).
+  autoAllocated     Boolean             @default(true)
+  routingRuleId     String?             @db.Uuid
+  /// facts pulled from order-service (false = only event data so far).
+  factsLoaded       Boolean             @default(false)
+  searchText        String              @default("")
+  version           Int                 @default(0)
+  updatedAt         DateTime            @updatedAt
+
+  lines WmsFulfilmentOrderLine[]
+
+  @@index([placedAt(sort: Desc), orderId])
+  @@index([paymentStatus, placedAt])
+  @@index([pinCode])
+  @@map("warehouse_orders")
+}
+
+model WmsFulfilmentOrderLine {
+  orderId          String             @db.Uuid
+  lineNo           Int
+  variantId        String             @db.Uuid
+  productId        String?            @db.Uuid
+  sku              String?            @db.VarChar(40)
+  name             String?            @db.VarChar(250)
+  temperatureClass String?            @db.VarChar(10)
+  qty              Int
+  cancelledQty     Int                @default(0)
+  unitPrice        Decimal            @default(0) @db.Decimal(14, 2)
+  lineTotal        Decimal            @default(0) @db.Decimal(14, 2)
+  order            WmsFulfilmentOrder @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+  @@id([orderId, lineNo])
+  @@index([variantId])
+  @@map("warehouse_order_lines")
+}
+
+/// F1 shipment: one per order × warehouse. Hold is a flag, not a state.
+model WmsShipment {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  /// SHP-YYMM-#### (BLK-… for bulk).
+  shipmentNo       String              @unique @db.VarChar(20)
+  orderId          String              @db.Uuid
+  warehouseId      String              @db.Uuid
+  status           WmsShipmentStatus   @default(PENDING_RELEASE)
+  priority         WmsShipmentPriority @default(STANDARD)
+  deliveryType     WmsDeliveryType     @default(STANDARD)
+  isBulk           Boolean             @default(false)
+  holdActive       Boolean             @default(false)
+  atRisk           Boolean             @default(false)
+  coldRequired     Boolean             @default(false)
+  slaDueAt         DateTime?
+  releasedAt       DateTime?
+  allocatedAt      DateTime?
+  assignedAt       DateTime?
+  pickStartedAt    DateTime?
+  pickedAt         DateTime?
+  packedAt         DateTime?
+  qcPassedAt       DateTime?
+  stagedAt         DateTime?
+  dispatchedAt     DateTime?
+  outForDeliveryAt DateTime?
+  deliveredAt      DateTime?
+  fulfilledAt      DateTime?
+  cancelledAt      DateTime?
+  stagingAreaId    String?             @db.Uuid
+  /// One per gate-out; shipment.dispatched.v1 is keyed on it (inventory issues once).
+  dispatchId       String?             @unique @db.Uuid
+  palletCount      Int                 @default(0)
+  routeId          String?             @db.Uuid
+  dockBookingId    String?             @db.Uuid
+  lineCount        Int                 @default(0)
+  unitCount        Int                 @default(0)
+  weightKg         Decimal             @default(0) @db.Decimal(12, 3)
+  value            Decimal             @default(0) @db.Decimal(14, 2)
+  /// W3.10 prepaid reconciliation: SETTLED · PENDING (reason below), set when FULFILLED.
+  settlementStatus String?             @db.VarChar(12)
+  /// DISCREPANCY · POD_MISSING · OTP_LOCK · REFUND_IN_PROGRESS
+  settlementReason String?             @db.VarChar(24)
+  settledAt        DateTime?
+  settledBy        String?             @db.Uuid
+  deliveryAttempts Int                 @default(0)
+  failedReason     String?             @db.VarChar(300)
+  /// First QC passed without a FAIL before it.
+  qcFirstPass      Boolean?
+  version          Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  lines WmsShipmentLine[]
+
+  /// One OPEN (not yet dispatched) shipment per order × warehouse: a partial unique index in SQL
+  /// (a backorder follow-up ships after the first leg left, W3.14).
+  @@index([orderId, warehouseId])
+  @@index([warehouseId, status, slaDueAt])
+  @@index([warehouseId, deliveredAt(sort: Desc)])
+  @@index([warehouseId, fulfilledAt(sort: Desc)])
+  @@index([status, slaDueAt])
+  @@index([warehouseId, createdAt(sort: Desc)])
+  @@map("warehouse_shipments")
+}
+
+model WmsShipmentLine {
+  shipmentId     String      @db.Uuid
+  lineNo         Int
+  orderLineNo    Int?
+  variantId      String      @db.Uuid
+  qty            Int
+  allocatedQty   Int         @default(0)
+  pickedQty      Int         @default(0)
+  packedQty      Int         @default(0)
+  dispatchedQty  Int         @default(0)
+  deliveredQty   Int         @default(0)
+  cancelledQty   Int         @default(0)
+  backorderedQty Int         @default(0)
+  unitPrice      Decimal     @default(0) @db.Decimal(14, 2)
+  lineTotal      Decimal     @default(0) @db.Decimal(14, 2)
+  /// Locked by a pending reallocation (§2a.4): no FEFO or pick.
+  reallocationId String?     @db.Uuid
+  shipment       WmsShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@id([shipmentId, lineNo])
+  @@index([variantId])
+  @@map("warehouse_shipment_lines")
+}
+
+/// FEFO lot allocation of a shipment line (position = batch × bin × owner at the warehouse).
+model WmsLotAllocation {
+  id             String                 @id @default(uuid(7)) @db.Uuid
+  shipmentId     String                 @db.Uuid
+  lineNo         Int
+  warehouseId    String                 @db.Uuid
+  variantId      String                 @db.Uuid
+  positionId     String                 @db.Uuid
+  batchId        String                 @db.Uuid
+  binId          String?                @db.Uuid
+  qty            Int
+  pickedQty      Int                    @default(0)
+  status         WmsLotAllocationStatus @default(ALLOCATED)
+  isFefo         Boolean                @default(true)
+  overrideReason String?                @db.VarChar(300)
+  /// Held order: borrowable by other shipments until keepAllocationUntil (§2a.6).
+  soft           Boolean                @default(false)
+  allocatedBy    String?                @db.Uuid
+  createdAt      DateTime               @default(now())
+  releasedAt     DateTime?
+  releaseReason  String?                @db.VarChar(200)
+
+  @@index([shipmentId, lineNo])
+  @@index([batchId, status])
+  @@index([warehouseId, variantId, status])
+  @@index([warehouseId, status, createdAt(sort: Desc)])
+  @@map("warehouse_lot_allocations")
+}
+
+/// Append-only shipment timeline (DB trigger).
+model WmsShipmentEvent {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  shipmentId String   @db.Uuid
+  orderId    String   @db.Uuid
+  fromStatus String?  @db.VarChar(30)
+  toStatus   String   @db.VarChar(30)
+  action     String   @db.VarChar(40)
+  actorType  String   @db.VarChar(10)
+  actorId    String?  @db.Uuid
+  note       String?  @db.VarChar(500)
+  at         DateTime @default(now())
+
+  @@index([shipmentId, at])
+  @@index([orderId, at])
+  @@map("warehouse_shipment_events")
+}
+
+model WmsPickBatch {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  /// B-#### per warehouse sequence.
+  batchNo     String             @unique @db.VarChar(20)
+  warehouseId String             @db.Uuid
+  status      WmsPickBatchStatus @default(OPEN)
+  createdBy   String?            @db.Uuid
+  createdAt   DateTime           @default(now())
+  closedAt    DateTime?
+
+  @@index([warehouseId, status])
+  @@map("warehouse_pick_batches")
+}
+
+model WmsTask {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  taskNo         String              @unique @db.VarChar(20)
+  shipmentId     String              @db.Uuid
+  warehouseId    String              @db.Uuid
+  type           WmsTaskType         @default(PICK_PACK)
+  assigneeUserId String?             @db.Uuid
+  priority       WmsShipmentPriority @default(STANDARD)
+  deadlineAt     DateTime?
+  status         WmsTaskStatus       @default(OPEN)
+  /// [{key, label, done, doneAt, doneBy}]
+  checklist      Json                @default("[]")
+  pickBatchId    String?             @db.Uuid
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdBy      String?             @db.Uuid
+  version        Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([warehouseId, assigneeUserId, status])
+  @@index([shipmentId])
+  @@index([pickBatchId])
+  @@map("warehouse_tasks")
+}
+
+model WmsPackage {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  shipmentId  String         @db.Uuid
+  boxNo       Int
+  packageType WmsPackageType @default(BOX)
+  weightKg    Decimal?       @db.Decimal(10, 3)
+  sealed      Boolean        @default(true)
+  createdBy   String?        @db.Uuid
+  createdAt   DateTime       @default(now())
+
+  @@unique([shipmentId, boxNo])
+  @@map("warehouse_packages")
+}
+
+model WmsQcCheck {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  shipmentId String      @db.Uuid
+  attempt    Int
+  /// [{key, label, passed}]
+  checks     Json
+  tempC      Decimal?    @db.Decimal(5, 2)
+  result     WmsQcResult
+  note       String?     @db.VarChar(500)
+  checkedBy  String?     @db.Uuid
+  at         DateTime    @default(now())
+
+  @@unique([shipmentId, attempt])
+  @@index([at])
+  @@map("warehouse_qc_checks")
+}
+
+model WmsHold {
+  id                  String        @id @default(uuid(7)) @db.Uuid
+  orderId             String        @db.Uuid
+  reasonCode          WmsHoldReason
+  note                String?       @db.VarChar(500)
+  placedBy            String?       @db.Uuid
+  placedAt            DateTime      @default(now())
+  autoReleaseAt       DateTime?
+  keepAllocationUntil DateTime?
+  releasedBy          String?       @db.Uuid
+  releasedAt          DateTime?
+  releaseNote         String?       @db.VarChar(500)
+  version             Int           @default(0)
+
+  @@index([orderId, placedAt(sort: Desc)])
+  @@index([autoReleaseAt])
+  @@index([keepAllocationUntil])
+  @@map("warehouse_holds")
+}
+
+model WmsException {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  /// EX-YYMM-####
+  exNo             String             @unique @db.VarChar(20)
+  type             WmsExceptionType
+  cause            WmsExceptionCause?
+  severity         WmsSeverity        @default(MEDIUM)
+  status           WmsExceptionStatus @default(OPEN)
+  orderId          String?            @db.Uuid
+  shipmentId       String?            @db.Uuid
+  warehouseId      String             @db.Uuid
+  variantId        String?            @db.Uuid
+  batchId          String?            @db.Uuid
+  requiredQty      Int                @default(0)
+  availableQty     Int                @default(0)
+  impactedQty      Int                @default(0)
+  impactedKg       Decimal            @default(0) @db.Decimal(12, 3)
+  reportedLocation String?            @db.VarChar(60)
+  expectedRef      String?            @db.VarChar(60)
+  title            String             @db.VarChar(200)
+  diagnostic       Json               @default("{}")
+  proposal         Json               @default("{}")
+  resolution       Json?
+  slaDueAt         DateTime?
+  reportedBy       String?            @db.Uuid
+  assignedTo       String?            @db.Uuid
+  resolvedBy       String?            @db.Uuid
+  resolvedAt       DateTime?
+  /// One open exception per dedupe key (job-raised exceptions never duplicate).
+  dedupeKey        String?            @db.VarChar(120)
+  version          Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([warehouseId, status, type, slaDueAt])
+  @@index([orderId])
+  @@index([status, createdAt])
+  @@map("warehouse_exceptions")
+}
+
+/// Cross-warehouse reallocation saga (§2a.4): local PENDING first, then inventory.
+model WmsReallocation {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  orderId         String                @db.Uuid
+  fromWarehouseId String                @db.Uuid
+  toWarehouseId   String                @db.Uuid
+  /// [{variantId, qty}]
+  lines           Json
+  status          WmsReallocationStatus @default(PENDING)
+  attempts        Int                   @default(0)
+  lastError       String?               @db.VarChar(500)
+  reason          String                @db.VarChar(500)
+  requestedBy     String?               @db.Uuid
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([orderId])
+  @@map("warehouse_reallocations")
+}
+
+/// Daily counters per warehouse (IST day), bumped on each transition; yesterday rebuilt nightly.
+model WmsFulfilmentDaily {
+  warehouseId      String   @db.Uuid
+  day              DateTime @db.Date
+  received         Int      @default(0)
+  released         Int      @default(0)
+  dispatched       Int      @default(0)
+  onTimeDispatch   Int      @default(0)
+  delivered        Int      @default(0)
+  onTimeDelivery   Int      @default(0)
+  fulfilled        Int      @default(0)
+  cancelled        Int      @default(0)
+  cycleMinSum      BigInt   @default(0)
+  pickToPackMinSum BigInt   @default(0)
+  pickToPackCount  Int      @default(0)
+  qcFirst          Int      @default(0)
+  qcTotal          Int      @default(0)
+  exceptionsOpened Int      @default(0)
+  valueFulfilled   Decimal  @default(0) @db.Decimal(16, 2)
+  updatedAt        DateTime @updatedAt
+
+  @@id([warehouseId, day])
+  @@index([day])
+  @@map("warehouse_fulfilment_daily")
+}
+
+/// Minimum remaining shelf life at dispatch (most specific match wins), W3.05 / W3.15.
+model WmsShelfLifeRule {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  name             String   @db.VarChar(120)
+  stateCode        String?  @db.VarChar(4)
+  rootCategoryId   String?  @db.Uuid
+  farmCategory     String?  @db.VarChar(60)
+  minRemainingDays Int
+  isActive         Boolean  @default(true)
+  version          Int      @default(0)
+  createdBy        String?  @db.Uuid
+  updatedBy        String?  @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("warehouse_shelf_life_rules")
+}

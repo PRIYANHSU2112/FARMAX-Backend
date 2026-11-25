@@ -38,6 +38,7 @@ export interface WarehouseRecord {
   pinCode: string;
   latitude: string | null;
   longitude: string | null;
+  tagline: string | null;
   totalAreaSqft: number | null;
   capacityKg: string | null;
   temperatureClasses: TempClass[];
@@ -136,6 +137,7 @@ export interface CreateWarehouseInput {
   pinCode: string;
   latitude?: number | null;
   longitude?: number | null;
+  tagline?: string | null;
   totalAreaSqft?: number | null;
   capacity?: CapacityInput | null;
   temperatureClasses: TempClass[];

@@ -21,7 +21,10 @@ type Deps = Pick<
 >;
 
 /** Orders that can still be cancelled (F1 adds "until the first shipment is picked"). */
-const CANCELLABLE = ['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED'];
+const CANCELLABLE = ['PENDING_ADMIN_CONFIRMATION', 'CONFIRMED', 'IN_FULFILMENT'];
+/** F1 stages: before picking anyone may cancel; on the floor only staff; after dispatch nobody. */
+const PRE_PICK = new Set(['PENDING_RELEASE', 'RELEASED', 'ALLOCATED', 'ASSIGNED']);
+const ON_FLOOR = new Set(['PICKING', 'PACKING', 'QC', 'READY_TO_DISPATCH']);
 
 export interface CancellationQuote {
   eligible: boolean;
@@ -62,7 +65,7 @@ export class OrderCancelService {
       order.placedAt.getTime() + settings.freeCancelMinutes * 60_000,
     );
     const empty = { full: false, freeWindowEndsAt, fee: '0.00', refundAmount: '0.00', lines: [] };
-    const why = this.blocker(order);
+    const why = this.blocker(order, actor);
     if (why !== null) return { eligible: false, reason: why, ...empty };
     const plan = planCancellation(linesOf(order), input.lines);
     if (!plan.ok)
@@ -107,7 +110,7 @@ export class OrderCancelService {
         });
       const order = await repo.find(orderId, tx);
       if (order === null) throw new NotFoundError('Order');
-      const why = this.blocker(order);
+      const why = this.blocker(order, actor);
       if (why !== null)
         throw new ConflictError(why, {
           details: { reason: 'NOT_CANCELLABLE', status: order.status },
@@ -175,10 +178,16 @@ export class OrderCancelService {
     });
   }
 
-  private blocker(order: OrderRow): string | null {
-    return CANCELLABLE.includes(order.status)
-      ? null
-      : `Order is ${order.status} and can no longer be cancelled`;
+  private blocker(order: OrderRow, actor: Actor): string | null {
+    if (!CANCELLABLE.includes(order.status))
+      return `Order is ${order.status} and can no longer be cancelled`;
+    const stage = order.fulfilmentStage;
+    if (stage === null || PRE_PICK.has(stage)) return null;
+    if (ON_FLOOR.has(stage))
+      return actor.type === 'CUSTOMER'
+        ? 'Picking has started; please contact support to cancel'
+        : null;
+    return 'The order has left the warehouse and can no longer be cancelled';
   }
 
   private paid(order: OrderRow): boolean {

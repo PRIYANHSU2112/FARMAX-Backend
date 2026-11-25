@@ -187,3 +187,10 @@ export interface UserContact {
   phoneVerified: boolean;
   preferredLanguage: string;
 }
+
+/** PATCH /me (CUSTOMER self-service). Phone changes go through the OTP flow instead. */
+export interface UpdateMeInput {
+  fullName?: string;
+  email?: string;
+  avatarUrl?: string | null;
+}

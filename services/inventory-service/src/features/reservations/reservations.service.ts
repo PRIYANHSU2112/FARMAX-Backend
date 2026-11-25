@@ -1,7 +1,13 @@
 import { ConflictError, NotFoundError, ValidationError } from '@farmx/common/errors';
 import type { Paginated } from '@farmx/common/types';
 import type { Tx } from '@farmx/database';
-import { INVENTORY_EVENTS, type OrderPaidV1, type OrderStockReleaseV1 } from '@farmx/infra/events';
+import {
+  INVENTORY_EVENTS,
+  type OrderPaidV1,
+  type OrderStockReleaseV1,
+  type ShipmentDispatchedV1,
+} from '@farmx/infra/events';
+import { type RoutingDecision, evaluateRouting } from '@farmx/infra/routing';
 import type { Cradle } from '@fastify/awilix';
 
 import { emitInventoryEvent } from '../../adapters/events.js';
@@ -102,7 +108,12 @@ export class ReservationsService {
     if (live) throw orderAlreadyReserved(input.orderRef);
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-      const plan = await this.plan(input.pinCode, input.lines, settings.allowSplitAllocation);
+      const plan = await this.plan(
+        input.pinCode,
+        input.lines,
+        settings.allowSplitAllocation,
+        input.routing,
+      );
       if (!plan.ok) throw insufficient(plan);
       try {
         const reservation = await this.deps.runInTransaction(async (tx) => {
@@ -139,10 +150,32 @@ export class ReservationsService {
   /** Dry-run allocation for checkout screens: nothing is held. */
   async checkAvailability(input: AvailabilityCheckInput) {
     const { allowSplitAllocation } = await this.deps.settingsService.current();
-    const plan = await this.plan(input.pinCode, input.lines, allowSplitAllocation);
+    const plan = await this.plan(input.pinCode, input.lines, allowSplitAllocation, input.routing);
+    const trace =
+      plan.routing === undefined
+        ? null
+        : {
+            ruleId: plan.routing.ruleId,
+            ruleName: plan.routing.ruleName,
+            fallbackUsed: plan.routing.fallbackUsed,
+            ordered: plan.routing.ordered,
+            steps: plan.routing.trace,
+          };
     return plan.ok
-      ? { fulfillable: true, split: plan.split, allocations: plan.allocations, shortfall: [] }
-      : { fulfillable: false, split: false, allocations: [], shortfall: plan.shortfall };
+      ? {
+          fulfillable: true,
+          split: plan.split,
+          allocations: plan.allocations,
+          shortfall: [],
+          routing: trace,
+        }
+      : {
+          fulfillable: false,
+          split: false,
+          allocations: [],
+          shortfall: plan.shortfall,
+          routing: trace,
+        };
   }
 
   // ── Commit (order.paid) ──
@@ -408,6 +441,176 @@ export class ReservationsService {
     return { checked: stale.length, released };
   }
 
+  /**
+   * D-57b §2a.11 issue at dispatch: against the order's ONE reservation, line (warehouse, SKU)
+   * as it is now, under the reservation lock. Guard: issued + qty ≤ qty − released; a line that
+   * fails is not applied and `inventory.issue_rejected.v1` tells the WMS (ISSUE_MISMATCH).
+   * Idempotent per `dispatchId` (ledger reference). All lines issued → reservation ISSUED.
+   */
+  async issueInTx(tx: Tx, d: ShipmentDispatchedV1, ctx: EventContext): Promise<void> {
+    const r = await this.lockForOrder(tx, null, d.orderId);
+    if (r === null) return;
+    if (await this.deps.stockService.wasIssued(tx, d.dispatchId)) return; // republished dispatch
+    if (r.status !== 'COMMITTED' && r.status !== 'ISSUED') {
+      this.deps.logger.error(
+        { reservationId: r.id, status: r.status, dispatchId: d.dispatchId },
+        'dispatch for a reservation that is not committed',
+      );
+      return;
+    }
+    const ok: { variantId: string; qty: number }[] = [];
+    const bad: { variantId: string; requested: number; held: number }[] = [];
+    for (const l of d.lines) {
+      const line = r.lines.find(
+        (x) => x.warehouseId === d.warehouseId && x.variantId === l.variantId,
+      );
+      const left = line === undefined ? 0 : line.qty - line.releasedQty - line.issuedQty;
+      if (l.qty > left) bad.push({ variantId: l.variantId, requested: l.qty, held: left });
+      else ok.push(l);
+    }
+    if (
+      ok.length > 0 &&
+      (await this.deps.stockService.issueInTx(tx, d.dispatchId, d.warehouseId, ok))
+    ) {
+      await this.deps.reservationsRepository.addIssued(
+        tx,
+        r.id,
+        ok.map((l) => ({ ...l, warehouseId: d.warehouseId })),
+      );
+      const after = await this.deps.reservationsRepository.find(r.id, tx);
+      const open = (after?.lines ?? []).some((l) => l.qty - l.releasedQty - l.issuedQty > 0);
+      await this.deps.reservationsRepository.update(
+        tx,
+        r.id,
+        open ? {} : { status: 'ISSUED', issuedAt: new Date() },
+      );
+    }
+    if (bad.length > 0) {
+      this.deps.logger.error(
+        { dispatchId: d.dispatchId, lines: bad },
+        'dispatch over-issue refused',
+      );
+      await emitInventoryEvent(
+        tx,
+        INVENTORY_EVENTS.issueRejected,
+        {
+          dispatchId: d.dispatchId,
+          shipmentId: d.shipmentId,
+          orderRef: d.orderId,
+          warehouseId: d.warehouseId,
+          lines: bad,
+        },
+        ctx.correlationId,
+        ctx.causationId,
+      );
+    }
+  }
+
+  // ── D-57b: warehouse reallocation (§2a.4) + allocation reconcile (§2a.3) ──
+
+  /**
+   * Moves held quantity of some SKUs between warehouses inside ONE reservation (the order keeps
+   * one reservation, §2a.11). All or nothing: the source must hold it, the target must have it
+   * free (safety stock respected); otherwise 409 and nothing changes. Idempotent by `key`
+   * (the warehouse reallocation id): a retry returns the stored result.
+   */
+  async reallocate(
+    id: string,
+    key: string,
+    moves: readonly {
+      variantId: string;
+      fromWarehouseId: string;
+      toWarehouseId: string;
+      qty: number;
+    }[],
+  ) {
+    const repo = this.deps.reservationsRepository;
+    const done = await repo.reallocation(key);
+    if (done !== null) return { ...(done.result as object), replayed: true };
+    if (moves.some((m) => m.fromWarehouseId === m.toWarehouseId))
+      throw new ValidationError([{ path: 'body.moves', message: 'source and target must differ' }]);
+    try {
+      return await this.deps.runInTransaction(async (tx) => {
+        const r = await repo.lock(tx, id);
+        if (r === null) throw new NotFoundError('Reservation');
+        if (r.status !== 'ACTIVE' && r.status !== 'COMMITTED')
+          throw new ConflictError(`Reservation is ${r.status}`, {
+            details: { reason: 'NOT_REALLOCATABLE', status: r.status },
+          });
+        for (const m of moves) {
+          const line = r.lines.find(
+            (l) => l.warehouseId === m.fromWarehouseId && l.variantId === m.variantId,
+          );
+          if (line === undefined || line.heldQty < m.qty)
+            throw new ConflictError('The source warehouse does not hold that quantity', {
+              details: { reason: 'NOT_HELD', variantId: m.variantId, held: line?.heldQty ?? 0 },
+            });
+        }
+        await this.deps.stockService.releaseAllInTx(
+          tx,
+          moves.map((m) => ({
+            warehouseId: m.fromWarehouseId,
+            variantId: m.variantId,
+            qty: m.qty,
+          })),
+        );
+        const held = await this.deps.stockService.holdAllInTx(
+          tx,
+          moves.map((m) => ({ warehouseId: m.toWarehouseId, variantId: m.variantId, qty: m.qty })),
+        );
+        if (!held)
+          throw new ConflictError('Not enough free stock at the target warehouse', {
+            details: { reason: 'INSUFFICIENT_STOCK' },
+          });
+        for (const m of moves) {
+          const fresh = (await repo.find(id, tx))?.lines.find(
+            (l) => l.warehouseId === m.fromWarehouseId && l.variantId === m.variantId,
+          );
+          await repo.moveLine(tx, id, m, fresh ?? { qty: m.qty, releasedQty: 0, issuedQty: 0 });
+        }
+        const after = await repo.find(id, tx);
+        const result = {
+          reservationId: id,
+          orderRef: r.orderRef,
+          lines: (after?.lines ?? []).map((l) => ({
+            warehouseId: l.warehouseId,
+            variantId: l.variantId,
+            qty: l.qty,
+            heldQty: l.heldQty,
+          })),
+          moved: moves,
+        };
+        await repo.saveReallocation(tx, key, id, result);
+        return { ...result, replayed: false };
+      });
+    } catch (err) {
+      const raced = await repo.reallocation(key);
+      if (raced !== null) return { ...(raced.result as object), replayed: true };
+      throw err;
+    }
+  }
+
+  /** Held lines of live reservations at a warehouse (WMS allocation reconcile), keyset paged. */
+  async openLines(warehouseId: string, cursor: string | undefined, limit: number) {
+    let after: { reservationId: string; variantId: string } | null = null;
+    if (cursor !== undefined) {
+      const [reservationId, variantId] = cursor.split(':');
+      if (reservationId === undefined || variantId === undefined)
+        throw new ValidationError([{ path: 'querystring.cursor', message: 'invalid cursor' }]);
+      after = { reservationId, variantId };
+    }
+    const rows = await this.deps.reservationsRepository.openLines(warehouseId, after, limit);
+    const items = rows.slice(0, limit);
+    const last = items.at(-1);
+    return {
+      items,
+      nextCursor:
+        rows.length > limit && last !== undefined
+          ? `${last.reservationId}:${last.variantId}`
+          : null,
+    };
+  }
+
   // ── Reads ──
 
   async get(id: string): Promise<ReservationView> {
@@ -446,32 +649,84 @@ export class ReservationsService {
     pinCode: string,
     lines: readonly ReserveLineInput[],
     allowSplit: boolean,
-  ): Promise<AllocationPlan> {
-    const [variants, candidates] = await Promise.all([
+    routing?: ReserveInput['routing'],
+  ): Promise<AllocationPlan & { routing?: RoutingDecision }> {
+    const [variants, coverage, snapshot] = await Promise.all([
       this.deps.projectionsService.requireActive(
         lines.map((l) => l.variantId),
         (i) => `body.lines[${String(i)}].variantId`,
       ),
       this.deps.warehousesService.candidatesForPin(pinCode),
+      this.deps.settingsService.routingSnapshot(),
     ]);
-    if (candidates.length === 0)
+    if (coverage.length === 0)
       throw new ConflictError('No warehouse serves this PIN code', {
         details: { reason: 'NOT_SERVICEABLE', pinCode },
       });
     const sellable = await this.deps.stockService.sellableMap(
-      candidates.map((c) => c.warehouseId),
+      coverage.map((c) => c.warehouseId),
       lines.map((l) => l.variantId),
     );
-    return planAllocation(
+    const at = (w: string, v: string) => sellable.get(`${w}|${v}`) ?? 0;
+    // D-57b W3.12: routing rules reorder the PIN's warehouses (coverage order otherwise).
+    let candidates = coverage;
+    let decision: RoutingDecision | undefined;
+    if (snapshot !== null && snapshot.rules.length > 0) {
+      const facts = lines.map((l) => variants.get(l.variantId));
+      decision = evaluateRouting(
+        snapshot.rules,
+        snapshot.fallback,
+        {
+          pinCode,
+          stateCode: routing?.stateCode ?? null,
+          district: routing?.district ?? null,
+          value: routing?.orderValue ?? null,
+          weightKg: lines.reduce((n, l, i) => n + ((facts[i]?.weightGrams ?? 0) * l.qty) / 1000, 0),
+          categoryIds: facts.flatMap((f) => (f?.rootCategoryId == null ? [] : [f.rootCategoryId])),
+          coldRequired: facts.some((f) => f?.coldChain === true),
+          temperatureClasses: [
+            ...new Set(facts.flatMap((f) => (f === undefined ? [] : [f.temperatureClass]))),
+          ],
+          hazardous: false,
+          lat: routing?.lat ?? null,
+          lng: routing?.lng ?? null,
+        },
+        coverage.map((c, i) => ({
+          warehouseId: c.warehouseId,
+          type: c.type === 'MOTHER' ? 'MOTHER' : 'DEPOT',
+          lat: c.lat,
+          lng: c.lng,
+          priority: i,
+          covered: true,
+          routable: true,
+          throttled: snapshot.throttles.some(
+            (t) => t.warehouseId === c.warehouseId && (t.paused || t.capReached === true),
+          ),
+          coldChain: c.hasColdChain,
+          fullStock: lines.every((l) => at(c.warehouseId, l.variantId) >= l.qty),
+          stockUnits: lines.reduce((n, l) => n + at(c.warehouseId, l.variantId), 0),
+          equipment: [],
+          dispatchWithinHours: null,
+        })),
+      );
+      const rank = new Map(decision.ordered.map((id, i) => [id, i]));
+      candidates = [...coverage].sort(
+        (a, b) =>
+          (rank.get(a.warehouseId) ?? 1_000 + coverage.indexOf(a)) -
+          (rank.get(b.warehouseId) ?? 1_000 + coverage.indexOf(b)),
+      );
+    }
+    const plan = planAllocation(
       lines.map((l) => ({
         variantId: l.variantId,
         qty: l.qty,
         coldChain: variants.get(l.variantId)?.coldChain ?? false,
       })),
       candidates,
-      (w, v) => sellable.get(`${w}|${v}`) ?? 0,
+      at,
       allowSplit,
     );
+    return decision === undefined ? plan : { ...plan, routing: decision };
   }
 
   /** The reservation an order event refers to (by id, else the newest for that order), locked. */

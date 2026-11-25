@@ -16,6 +16,8 @@ import type {
   RefundFailedV1,
   RefundInitiatedV1,
   RefundProcessedV1,
+  ShipmentSplitPlannedV1,
+  ShipmentStatusChangedV1,
 } from '@farmx/infra/events';
 
 import type { OrderRef } from '../audience/index.js';
@@ -60,6 +62,14 @@ const buyer = (
 const must = (order: OrderRef | null, event: EventEnvelope): OrderRef => {
   if (order === null) throw new Error(`order projection missing for ${event.type} ${event.id}`);
   return order;
+};
+
+/** Shipment status → buyer template (F1). Other statuses send nothing. */
+const SHIPMENT_TEMPLATES: Partial<Record<ShipmentStatusChangedV1['to'], string>> = {
+  DISPATCHED: 'shipment.dispatched',
+  OUT_FOR_DELIVERY: 'shipment.out_for_delivery',
+  DELIVERED: 'shipment.delivered',
+  DELIVERY_FAILED: 'shipment.delivery_failed',
 };
 
 /** Customer-facing text for order failure codes (order-service FailureCode). */
@@ -256,6 +266,42 @@ const CORE_RULES: Readonly<Record<string, Rule>> = {
       ];
     },
   },
+  /** F1 (D-57b): the buyer hears when a shipment leaves, is out for delivery, arrives or fails. */
+  'shipment.status_changed.v1': {
+    needsOrder: true,
+    build: (event, order) => {
+      const d = event.data as ShipmentStatusChangedV1;
+      const key = SHIPMENT_TEMPLATES[d.to];
+      if (key === undefined) return [];
+      return [
+        buyer(event, must(order, event), {
+          dedupeKey: `${key}:${d.shipmentId}:${d.at}`,
+          category: 'ORDER',
+          templateKey: key,
+          channels: d.to === 'OUT_FOR_DELIVERY' ? ['PUSH', 'SMS'] : ['PUSH'],
+          // Never an OTP: the code is shown inside the app only (D-40).
+          vars: { orderNo: d.orderNo, shipmentNo: d.shipmentNo },
+          ...(d.to === 'OUT_FOR_DELIVERY' ? { priority: 'HIGH' as const } : {}),
+        }),
+      ];
+    },
+  },
+  // D-57b W3.14: the order now arrives in several deliveries (backorders follow, no extra cost).
+  'shipment.split_planned.v1': {
+    needsOrder: true,
+    build: (event, order) => {
+      const d = event.data as ShipmentSplitPlannedV1;
+      return [
+        buyer(event, must(order, event), {
+          dedupeKey: `shipment.split_planned:${d.orderId}:${event.id}`,
+          category: 'ORDER',
+          templateKey: 'shipment.split_planned',
+          channels: ['PUSH'],
+          vars: { orderNo: d.orderNo, legs: String(Math.max(d.legs.length, 1)) },
+        }),
+      ];
+    },
+  },
   'order.review_overdue.v1': {
     needsOrder: false,
     build: (event) => {
@@ -393,7 +439,11 @@ const CONTENT_RULES: Readonly<Record<string, Rule>> = {
     },
   },
 };
-export const RULES: Readonly<Record<string, Rule>> = { ...CORE_RULES, ...CONTENT_RULES, ...SUPPORT_RULES };
+export const RULES: Readonly<Record<string, Rule>> = {
+  ...CORE_RULES,
+  ...CONTENT_RULES,
+  ...SUPPORT_RULES,
+};
 
 /** Routing keys the consumer queue binds. */
 export const EVENT_BINDINGS: readonly string[] = Object.keys(RULES);

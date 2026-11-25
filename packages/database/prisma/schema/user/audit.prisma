@@ -4,9 +4,9 @@
 model UserAuditLog {
   id          String   @id @default(uuid(7)) @db.Uuid
   actorUserId String   @db.Uuid
-  /// address.create, address.update, address.default, address.delete
+  /// address.create/update/default/delete; home_layout.create/update/reorder/validate/publish/…
   action      String   @db.VarChar(60)
-  /// address
+  /// address | home_layout
   targetType  String   @db.VarChar(30)
   targetId    String   @db.VarChar(64)
   before      Json?

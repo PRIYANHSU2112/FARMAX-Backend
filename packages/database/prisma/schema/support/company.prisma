@@ -1,0 +1,63 @@
+// support-service feature: company. Official licences / certificates shown to users, and inbound
+// dealer / partner applications reviewed by staff. One SUBMITTED application per (applicant, type)
+// — partial unique index in SQL.
+
+enum CompanyDocType {
+  DRUG_LICENSE
+  GST
+  COI
+  FSSAI
+  ISO
+  OTHER
+}
+
+enum CompanyApplicationType {
+  DEALER
+  DISTRIBUTOR
+  PARTNER
+}
+
+enum CompanyApplicationStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model CompanyDocument {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  type             CompanyDocType
+  title            String         @db.VarChar(160)
+  documentNo       String         @db.VarChar(80)
+  issuingAuthority String         @db.VarChar(160)
+  /// null = no expiry. Expired documents are hidden from the public list.
+  expiresAt        DateTime?      @db.Date
+  /// Public URL from media-service `/v1/upload`.
+  fileUrl          String         @db.VarChar(1000)
+  isPublic         Boolean        @default(false)
+  createdBy        String         @db.Uuid
+  updatedBy        String?        @db.Uuid
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([isPublic, type])
+  @@map("company_documents")
+}
+
+model CompanyApplication {
+  id              String                   @id @default(uuid(7)) @db.Uuid
+  applicantUserId String                   @db.Uuid
+  businessName    String                   @db.VarChar(160)
+  applicationType CompanyApplicationType
+  /// [{ key, fileName, mime, size }] — private media keys from verified upload receipts.
+  attachedDocs    Json                     @default("[]")
+  status          CompanyApplicationStatus @default(SUBMITTED)
+  reviewNotes     String?                  @db.VarChar(500)
+  reviewedBy      String?                  @db.Uuid
+  reviewedAt      DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([status, createdAt])
+  @@index([applicantUserId, createdAt])
+  @@map("company_applications")
+}

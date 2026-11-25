@@ -50,6 +50,8 @@ model WmsWarehouse {
   pinCode            String             @db.Char(6)
   latitude           Decimal?           @db.Decimal(9, 6)
   longitude          Decimal?           @db.Decimal(9, 6)
+  /// One-line node description ("Primary Mother Hub", W3.13).
+  tagline            String?            @db.VarChar(80)
   totalAreaSqft      Int?
   /// Storage capacity in kg (the form also accepts tonnes).
   capacityKg         Decimal?           @db.Decimal(14, 2)

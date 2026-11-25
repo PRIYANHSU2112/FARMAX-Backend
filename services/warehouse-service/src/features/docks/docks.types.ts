@@ -13,6 +13,7 @@ export interface DoorInput {
   type: DockType;
   vehicleClass: VehicleClass;
   capacityPerDay: number;
+  equipment?: 'STANDARD' | 'HOPPER' | 'CONVEYOR' | 'SCALE' | 'WEIGHBRIDGE';
   capacityUnit: CapacityUnit;
   opensAt?: string | null;
   closesAt?: string | null;
@@ -31,6 +32,7 @@ export interface DoorView {
   type: DockType;
   vehicleClass: VehicleClass;
   capacityPerDay: string;
+  equipment: 'STANDARD' | 'HOPPER' | 'CONVEYOR' | 'SCALE' | 'WEIGHBRIDGE';
   capacityUnit: CapacityUnit;
   opensAt: string | null;
   closesAt: string | null;

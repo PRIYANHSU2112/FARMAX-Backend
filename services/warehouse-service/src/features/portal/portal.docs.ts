@@ -69,7 +69,7 @@ export const PORTAL_DOCS = {
     tag: WMS_PORTAL_TAG,
     summary: 'Header search',
     description:
-      'Warehouses by code, name or city; a 6-digit query also lists who serves that PIN. Batches, bins, orders and vehicles join as their modules ship. Only warehouses the caller may see.',
+      'Warehouses by code, name or city; a 6-digit query also lists who serves that PIN. From 2 characters: bins by code and stock hits (SKU / product name, batch no, unit QR, receipt CN / RT, restock RST, transfer TR; up to 5 each, needs inventory.view). Orders, shipments, vehicles and trips join with D-57b. Only warehouses the caller may see.',
     auth: AUTH_STAFF,
     permission: 'warehouse.view',
     success: {
@@ -77,11 +77,21 @@ export const PORTAL_DOCS = {
       description: 'Results',
       data: Joi.array().items(
         Joi.object({
-          type: Joi.string().valid('warehouse', 'pin'),
+          type: Joi.string().valid(
+            'warehouse',
+            'pin',
+            'bin',
+            'sku',
+            'batch',
+            'unit',
+            'receipt',
+            'restock',
+            'transfer',
+          ),
           id: Joi.string(),
           title: Joi.string(),
           subtitle: Joi.string(),
-          warehouseId: Joi.string().guid(),
+          warehouseId: Joi.string().guid().allow(null),
         }).meta({ className: 'WmsSearchResult' }),
       ),
     },

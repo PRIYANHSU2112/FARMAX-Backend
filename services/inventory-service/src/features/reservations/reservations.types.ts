@@ -43,10 +43,19 @@ export interface ReserveInput {
   lines: ReserveLineInput[];
   /** Hold time while unpaid (order `paymentWindowMinutes`); default = setting. */
   ttlSeconds?: number;
+  /** D-57b routing facts (rules on value, district, distance). */
+  routing?: {
+    orderValue?: number | null;
+    district?: string | null;
+    stateCode?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+  };
 }
 
 export interface AvailabilityCheckInput {
   pinCode: string;
+  routing?: ReserveInput['routing'];
   lines: ReserveLineInput[];
 }
 

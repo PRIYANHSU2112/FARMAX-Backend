@@ -17,6 +17,9 @@ type Deps = Pick<
   'wishlistRepository' | 'productClient' | 'runInTransaction' | 'config' | 'logger'
 >;
 
+/** Hard cap of `/me/wishlist/ids` (home + listing hearts), whatever MAX_WISHLIST_ITEMS is. */
+export const MAX_WISHLIST_IDS = 500;
+
 // ── Pure helpers (exported for unit tests) ──
 
 export const hydrate = (
@@ -49,8 +52,10 @@ export class WishlistService {
     return { ...page, items: hydrate(page.items, cards) };
   }
 
-  productIds(userId: string): Promise<string[]> {
-    return this.deps.wishlistRepository.productIds(userId);
+  /** Heart icons: newest first, capped at MAX_WISHLIST_IDS (`truncated` = there are more). */
+  async productIds(userId: string): Promise<{ productIds: string[]; truncated: boolean }> {
+    const ids = await this.deps.wishlistRepository.productIds(userId, MAX_WISHLIST_IDS);
+    return { productIds: ids.slice(0, MAX_WISHLIST_IDS), truncated: ids.length > MAX_WISHLIST_IDS };
   }
 
   /** `created: false` when it was already saved (idempotent). */

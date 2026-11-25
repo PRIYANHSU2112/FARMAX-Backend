@@ -10,6 +10,7 @@ const DOOR = {
   type: true,
   vehicleClass: true,
   capacityPerDay: true,
+  equipment: true,
   capacityUnit: true,
   opensAt: true,
   closesAt: true,
@@ -155,6 +156,33 @@ export class DocksRepository {
         select: BOOKING,
       }),
     );
+  }
+
+  doorsByIds(ids: readonly string[]) {
+    return withPrismaErrors(() =>
+      this.db.wmsDockDoor.findMany({
+        where: { id: { in: [...new Set(ids)] } },
+        select: { id: true, code: true },
+      }),
+    );
+  }
+
+  /** D-57b dashboards: Σ pallet capacity of ACTIVE staging areas + docks in use now. */
+  async floorFacts(warehouseIds: readonly string[] | 'ALL') {
+    const where = warehouseIds === 'ALL' ? {} : { warehouseId: { in: [...warehouseIds] } };
+    const [cap, inUse, doors] = await Promise.all([
+      this.db.wmsStagingArea.aggregate({
+        where: { ...where, status: 'ACTIVE' },
+        _sum: { capacityPallets: true },
+      }),
+      this.db.wmsDockBooking.count({ where: { ...where, status: 'IN_USE' } }),
+      this.db.wmsDockDoor.count({ where: { ...where, status: 'ACTIVE' } }),
+    ]);
+    return {
+      stagingCapacityPallets: cap._sum.capacityPallets ?? 0,
+      docksInUse: inUse,
+      activeDoors: doors,
+    };
   }
 
   /** Bookings planned to start in [from, to), all statuses. */

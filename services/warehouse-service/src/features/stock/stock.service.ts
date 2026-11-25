@@ -11,6 +11,7 @@ import { uuidv7 } from '../../adapters/uuid.js';
 import type { Caller } from '../../middleware/guards.js';
 import type { Actor } from '../audit/index.js';
 import type { ApplyContext, StockMove } from './stock.engine.js';
+import { projectionRow } from './stock.events.js';
 import type { PositionRow } from './stock.repository.js';
 import {
   COLUMN,
@@ -18,9 +19,12 @@ import {
   OWNER_LABEL,
   type OwnerType,
   type StockStatus,
+  type DocKind,
   docNo,
+  fefoCompare,
   isColumn,
   periodOf,
+  qrPrefix,
 } from './stock.rules.js';
 import type {
   AdjustmentInput,
@@ -71,7 +75,8 @@ export class StockService {
   private readonly runInTransaction: Cradle['runInTransaction'];
   private readonly auditService: Cradle['auditService'];
   private readonly mediaClient: Cradle['mediaClient'];
-  private readonly lazy: Pick<Cradle, 'warehousesService' | 'storageService'>;
+  private readonly productClient: Cradle['productClient'];
+  private readonly lazy: Pick<Cradle, 'warehousesService' | 'storageService' | 'restockService'>;
 
   constructor(
     deps: Pick<
@@ -82,8 +87,10 @@ export class StockService {
       | 'runInTransaction'
       | 'auditService'
       | 'mediaClient'
+      | 'productClient'
       | 'warehousesService'
       | 'storageService'
+      | 'restockService'
     >,
   ) {
     this.repo = deps.stockRepository;
@@ -92,6 +99,7 @@ export class StockService {
     this.runInTransaction = deps.runInTransaction;
     this.auditService = deps.auditService;
     this.mediaClient = deps.mediaClient;
+    this.productClient = deps.productClient;
     this.lazy = deps;
   }
 
@@ -106,7 +114,7 @@ export class StockService {
     const existing = await this.repo.receiptByKey(idempotencyKey);
     if (existing !== null) return this.receiptView(existing.id);
     const variants = new Map(
-      (await this.repo.variants(input.lines.map((l) => l.variantId))).map((v) => [v.variantId, v]),
+      (await this.ensureVariants(input.lines.map((l) => l.variantId))).map((v) => [v.variantId, v]),
     );
     const issues = input.lines.flatMap((l, i) =>
       variants.get(l.variantId)?.isActive === true
@@ -119,16 +127,18 @@ export class StockService {
       input.lines.map((l) => l.binId ?? null),
     );
     const s = await this.settings.all(input.warehouseId);
-    const initial: StockStatus = s['stock.qcOnReceipt'] ? 'QC_HOLD' : 'AVAILABLE';
+    const isReturn = input.sourceType === 'RETURN';
+    const initial: StockStatus = isReturn
+      ? 'RETURNED'
+      : s['stock.qcOnReceipt']
+        ? 'QC_HOLD'
+        : 'AVAILABLE';
+    const kind: DocKind = isReturn ? 'RT' : 'CN';
     const supply = await this.repo.vendorSupply(input.lines.map((l) => l.variantId));
     const serializedCats = new Set(s['stock.serializedCategoryIds']);
 
     const id = await this.runInTransaction(async (tx) => {
-      const cnNo = docNo(
-        'CN',
-        periodOf(new Date()),
-        await this.repo.nextSeq(tx, 'CN', periodOf(new Date())),
-      );
+      const cnNo = await this.nextDocNo(tx, kind);
       const receiptId = uuidv7();
       const moves: StockMove[] = [];
       const lines = [];
@@ -142,8 +152,8 @@ export class StockService {
           sup?.requiresUnitQr === true || v.categoryPath.some((c) => serializedCats.has(c));
         const batch = await this.upsertBatch(tx, l, vendorId, serialize, i);
         moves.push({
-          type: 'RECEIPT',
-          from: 'RECEIVED',
+          type: isReturn ? 'RETURN' : 'RECEIPT',
+          from: isReturn ? 'DELIVERED' : 'RECEIVED',
           to: initial,
           qty: l.qty,
           target: {
@@ -170,7 +180,7 @@ export class StockService {
         id: receiptId,
         cnNo,
         warehouseId: input.warehouseId,
-        sourceType: input.restockRequestId ? 'VENDOR' : 'VENDOR',
+        sourceType: isReturn ? 'RETURN' : 'VENDOR',
         vendorId: input.vendorId ?? null,
         restockRequestId: input.restockRequestId ?? null,
         notes: input.notes ?? null,
@@ -181,10 +191,22 @@ export class StockService {
       await this.engine.apply(
         tx,
         moves,
-        ctxOf(caller, 'RECEIPT', { refType: 'RECEIPT', refId: receiptId, refNo: cnNo }, 'system'),
+        ctxOf(
+          caller,
+          isReturn ? 'RETURN' : 'RECEIPT',
+          { refType: 'RECEIPT', refId: receiptId, refNo: cnNo },
+          'system',
+        ),
       );
+      if (!isReturn && input.restockRequestId !== undefined && input.restockRequestId !== null)
+        await this.lazy.restockService.applyProcurementReceipt(
+          tx,
+          input.restockRequestId,
+          input.warehouseId,
+          lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
+        );
       await this.auditService.record(tx, actorOf(caller), {
-        action: 'stock.received',
+        action: isReturn ? 'stock.return_received' : 'stock.received',
         targetType: 'stock_receipt',
         targetId: receiptId,
         after: { cnNo, warehouseId: input.warehouseId, lines: lines.length },
@@ -256,7 +278,11 @@ export class StockService {
       const positions = await this.repo.lockBatchPositions(tx, warehouseId, batchId);
       let seq = await this.repo.maxUnitSeq(tx, batchId);
       let total = 0;
-      const prefix = `FX-${clean(variant?.sku ?? 'SKU')}-${clean(batch.batchNo)}-`;
+      const prefix = qrPrefix(
+        batch.batchNo,
+        variant?.sku ?? 'SKU',
+        await this.repo.batchNoShared(tx, batch.batchNo, batch.variantId),
+      );
       for (const p of positions)
         for (const [status, col] of Object.entries(COLUMN) as [StockStatus, keyof PositionRow][]) {
           const qty = p[col] as number;
@@ -993,7 +1019,163 @@ export class StockService {
     return this.settings.all(scope);
   }
 
+  // ── helpers used by other features (restock, fulfilment) ──
+
+  /** Next document number `<kind>-YYMM-####` (CN, RT, TR, RST …), inside the caller's tx. */
+  async nextDocNo(tx: Tx, kind: DocKind): Promise<string> {
+    const period = periodOf(new Date());
+    return docNo(kind, period, await this.repo.nextSeq(tx, kind, period));
+  }
+
+  /** Available, thresholds, open inbound and suggested qty per SKU at one warehouse. */
+  async levelsFor(warehouseId: string, variantIds: readonly string[]) {
+    const rows = await this.repo.levels(warehouseId, variantIds);
+    return new Map(
+      rows.map((r) => {
+        const goal = r.targetStock > 0 ? r.targetStock : r.reorderLevel;
+        return [r.variantId, { ...r, suggested: Math.max(goal - r.available - r.inbound, 0) }];
+      }),
+    );
+  }
+
+  /** Projection rows only (no product-service call; safe inside event transactions). */
+  variantRows(ids: readonly string[], tx?: Tx) {
+    return this.repo.variants(ids, tx);
+  }
+
+  /** AVAILABLE lots of some SKUs at a warehouse in FEFO order (fulfilment W3.05). */
+  async lotsFor(warehouseId: string, variantIds: readonly string[]) {
+    return await this.repo.lots(warehouseId, variantIds);
+  }
+
+  async vendorNames(ids: readonly (string | null)[]) {
+    const rows = await this.repo.vendorsByIds(ids.filter((x): x is string => x !== null));
+    return new Map(rows.map((v) => [v.id, { id: v.id, code: v.code, name: v.name }]));
+  }
+
+  async batchNos(ids: readonly string[]) {
+    const rows = await this.repo.batches(ids);
+    return new Map(rows.map((b) => [b.id, b.batchNo]));
+  }
+
+  /** Batch number + expiry + certificate of some batches (fulfilment pick list, COA check). */
+  async batchExpiries(ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await this.repo.batches([...new Set(ids)]);
+    return rows.map((b) => ({
+      id: b.id,
+      batchNo: b.batchNo,
+      expiryDate: b.expiryDate,
+      certificateStatus: b.certificateStatus,
+      coaRef: b.coaRef,
+    }));
+  }
+
+  /**
+   * FEFO picks of AVAILABLE stock (positions locked): binned lots only (a picker cannot find
+   * unbinned opening stock), expired lots skipped, dated lots before "expiry unknown".
+   * 409 INSUFFICIENT_STOCK (reason UNBINNED_STOCK when only unbinned stock would cover it).
+   */
+  async pickFefo(tx: Tx, warehouseId: string, variantId: string, qty: number) {
+    const today = new Date(new Date().toISOString().slice(0, 10));
+    const rows = await this.repo.lockAvailable(tx, warehouseId, variantId);
+    const usable = rows
+      .filter((p) => p.binId !== null && (p.expiryDate === null || p.expiryDate >= today))
+      .sort(fefoCompare);
+    const picks: {
+      positionId: string;
+      batchId: string;
+      binId: string | null;
+      ownerType: OwnerType;
+      vendorId: string | null;
+      qty: number;
+    }[] = [];
+    let left = qty;
+    for (const p of usable) {
+      if (left === 0) break;
+      const take = Math.min(p.available, left);
+      picks.push({
+        positionId: p.id,
+        batchId: p.batchId,
+        binId: p.binId,
+        ownerType: p.ownerType,
+        vendorId: p.vendorId,
+        qty: take,
+      });
+      left -= take;
+    }
+    if (left > 0) {
+      const unbinned = rows.filter((p) => p.binId === null).reduce((n, p) => n + p.available, 0);
+      throw new ConflictError(`Only ${String(qty - left)} of ${String(qty)} available to pick`, {
+        details: {
+          reason: unbinned >= left ? 'UNBINNED_STOCK' : 'INSUFFICIENT_STOCK',
+          variantId,
+          warehouseId,
+          short: left,
+        },
+      });
+    }
+    return picks;
+  }
+
+  /** Receipt (CN) header + lines written by another command (transfer receive). */
+  async recordReceipt(
+    tx: Tx,
+    r: {
+      warehouseId: string;
+      sourceType: 'TRANSFER' | 'RETURN' | 'VENDOR';
+      transferId?: string | null;
+      restockRequestId?: string | null;
+      notes: string | null;
+      receivedBy: string;
+      lines: {
+        lineNo: number;
+        variantId: string;
+        batchId: string;
+        binId: string | null;
+        qty: number;
+        ownerType: OwnerType;
+        vendorId: string | null;
+        initialStatus: StockStatus;
+      }[];
+    },
+  ): Promise<{ id: string; cnNo: string }> {
+    if (r.lines.some((l) => l.binId !== null))
+      await this.assertBins(
+        r.warehouseId,
+        r.lines.map((l) => l.binId),
+      );
+    const id = uuidv7();
+    const cnNo = await this.nextDocNo(tx, r.sourceType === 'RETURN' ? 'RT' : 'CN');
+    await this.repo.createReceipt(tx, {
+      id,
+      cnNo,
+      warehouseId: r.warehouseId,
+      sourceType: r.sourceType,
+      transferId: r.transferId ?? null,
+      restockRequestId: r.restockRequestId ?? null,
+      notes: r.notes,
+      idempotencyKey: `auto:${id}`,
+      receivedBy: r.receivedBy,
+      lines: r.lines,
+    });
+    return { id, cnNo };
+  }
+
   // ── helpers ──
+
+  /** Projection rows; SKUs missing (facts published before the WMS existed) are fetched once. */
+  async ensureVariants(ids: readonly string[]) {
+    const have = await this.repo.variants(ids);
+    const missing = [...new Set(ids)].filter((id) => !have.some((v) => v.variantId === id));
+    if (missing.length === 0) return have;
+    const facts = await this.productClient.variantFacts(missing);
+    if (facts === null || facts.length === 0) return have;
+    await this.runInTransaction(async (tx) => {
+      for (const f of facts) await this.repo.upsertVariant(tx, projectionRow(f));
+    });
+    return this.repo.variants(ids);
+  }
 
   private async upsertBatch(
     tx: Tx,
@@ -1057,5 +1239,3 @@ export class StockService {
     return p;
   }
 }
-
-const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, '');

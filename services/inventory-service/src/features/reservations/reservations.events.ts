@@ -1,5 +1,11 @@
 import type { Tx } from '@farmx/database';
-import type { EventEnvelope, OrderPaidV1, OrderStockReleaseV1 } from '@farmx/infra/events';
+import type {
+  EventEnvelope,
+  RoutingRulesReplacedV1,
+  OrderPaidV1,
+  OrderStockReleaseV1,
+  ShipmentDispatchedV1,
+} from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
 import type { EventHandlerMap } from '../../adapters/events.js';
@@ -10,7 +16,8 @@ import type { EventHandlerMap } from '../../adapters/events.js';
  */
 export const createReservationEventHandlers = ({
   reservationsService: svc,
-}: Pick<Cradle, 'reservationsService'>): EventHandlerMap => {
+  settingsService,
+}: Pick<Cradle, 'reservationsService' | 'settingsService'>): EventHandlerMap => {
   const ctx = (e: EventEnvelope) => ({ correlationId: e.correlationId, causationId: e.id });
   const release = (label: string) => async (e: EventEnvelope, tx: Tx) => {
     const d = e.data as OrderStockReleaseV1;
@@ -21,5 +28,11 @@ export const createReservationEventHandlers = ({
     'order.rejected.v1': release('Order rejected'),
     'order.cancelled.v1': release('Order cancelled'),
     'order.failed.v1': release('Order failed'),
+    // D-57b: issue the reservation line at gate-out (once per dispatchId).
+    'shipment.dispatched.v1': (e, tx) => svc.issueInTx(tx, e.data as ShipmentDispatchedV1, ctx(e)),
+    // D-57b W3.12: routing rules snapshot (newest version wins).
+    'warehouse.routing_rules_replaced.v1': async (e, tx) => {
+      await settingsService.applyRoutingSnapshot(tx, e.data as RoutingRulesReplacedV1);
+    },
   };
 };

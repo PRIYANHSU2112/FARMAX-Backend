@@ -55,6 +55,20 @@ export function isValidGstin(value: string): boolean {
 export const maskPan = (pan: string): string => `${pan.slice(0, 5)}****${pan.slice(-1)}`;
 
 /** Loose name match for provider results: any shared word of ≥ 3 letters (initials vary). */
+/**
+ * Strict business-name equality for invoices (case, spacing and punctuation ignored):
+ * "Sri Lakshmi Agro Farms" ≠ "Sri Lakshmi Poultry". A GST invoice must carry the registered name,
+ * so anything else is "doesn't match" and needs a review to invoice under the farm name.
+ */
+export function sameBusinessName(a: string, b: string): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  return norm(a) !== '' && norm(a) === norm(b);
+}
+
 export function namesMatch(a: string, b: string): boolean {
   const words = (s: string) =>
     new Set(

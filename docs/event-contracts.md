@@ -85,8 +85,12 @@ sequenceDiagram
 | `user.status_changed.v1`      | Activation, suspension, deactivation, lock, deletion request / cancel (`PENDING_DELETION`) | `userId`, `previousStatus`, `status`, `changedByUserId \| null`                                                                       |
 | `user.deleted.v1`             | Admin soft delete, or self-service purge after the grace period (D-55)                     | `userId`, `deletedByUserId \| null`                                                                                                   |
 | `auth.session_compromised.v1` | Refresh-token reuse detected; the session family was revoked                               | `userId`, `familyId`, `revokedSessions`, `ip \| null`, `deviceId \| null`                                                             |
+| `user.profile_updated.v1`     | Customer self-service: `PATCH /me` (name, email, photo) or a verified mobile change (D-58b) | `userId`, `userType`, `fullName`, `phone \| null`, `email \| null`, `changedFields[]` (current values, not a diff)                     |
 
-Consumers: none yet (auth-service has **no outbox relay**, so these are not published). The notification service will add welcome / account / security rules once they are (docs/notifications). Other expected consumers:
+`user.profile_updated.v1` consumer: farm-service queue `farm-service.events` (D-58b) syncs
+`farm_owners.fullName` (never with a blank name) and `phone`, then drops the farm caches after commit.
+
+Other consumers: none yet. The notification service will add welcome / account / security rules once they are (docs/notifications). Other expected consumers:
 and services that keep a local read model of users.
 
 ### Published by farm-service
@@ -292,6 +296,13 @@ Ticket ref = `ticketId`, `ticketNo`, `app`, `requesterId`. Consumer: notificatio
 (requester push for replies / resolution / escalation; desk alerts for URGENT / HIGH tickets and
 SLA breaches).
 
+| Type                                    | When                                                                  | Payload (`data`)                                                               |
+| --------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `support.application_status_changed.v1` | Staff approved / rejected a dealer / partner application (2026-11-24) | `applicationId`, `applicationType`, `applicantUserId`, `from`, `to`, `actorId` |
+
+No business name or review notes in the payload. Consumer: notification-service (push to the
+applicant, templates `support.application_approved` / `support.application_rejected`).
+
 ### Consumed by support-service
 
 Queue `support-service.events`: `user.deleted.v1` → delete the requester's private files, scrub
@@ -310,6 +321,31 @@ when newer than what the consumer holds (duplicates and out-of-order deliveries 
 
 Consumers: inventory-service → `inventory_warehouses` / `inventory_warehouse_coverage` projection
 (same ids; allocation unchanged).
+
+### Published by warehouse-service (built 2026-11-24, D-57)
+
+Contracts: `packages/infra/src/events/contracts/warehouse.events.ts` (+ `inventory.events.ts`,
+`order.events.ts` for the two events other services publish for D-57).
+
+| Event                                 | When                                                     | Data (key fields)                                                                                                                                                                                                              | Consumers                       |
+| ------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `warehouse.stock_changed.v1`          | Any physical stock change in WMS                         | `movementId`, `warehouseId`, `kind`, `lines[{variantId, sellableDelta, damagedDelta}]` (idempotent by movementId)                                                                                                              | inventory                       |
+| `warehouse.thresholds_changed.v1`     | Safety / reorder / target edited (WMS owns them)         | `warehouseId`, `variantId`, `safetyStock`, `reorderLevel`, `targetStock`, `version`                                                                                                                                            | inventory (projection)          |
+| `warehouse.stock_cutover.v1`          | Cutover step (freeze / activate / rollback)              | mode, step, by                                                                                                                                                                                                                 | inventory, ops                  |
+| `warehouse.job_failed.v1`             | A job failed or its heartbeat is stale                   | `job`, `error`, `at`                                                                                                                                                                                                           | notification (ops admins)       |
+| `shipment.status_changed.v1`          | Every shipment transition                                | `shipmentId`, `shipmentNo`, `orderId`, `orderNo`, `warehouseId`, `from`, `to`, `at`, `orderShipments` snapshot (each entry has the shipment `version`; consumers keep the highest per shipment, D-57 2026-11-24). Never an OTP | order (F1 status), notification |
+| `shipment.dispatched.v1`              | Gate-out (PACKED / READY → DISPATCHED)                   | `dispatchId` (dedupe key), `shipmentId`, `orderId`, `warehouseId`, `lines[{variantId, qty}]`                                                                                                                                   | inventory (issue once)          |
+| `shipment.split_planned.v1`           | A split / backorder plan executed with a notice          | `orderId`, `orderNo`, `legs[{warehouseId, qty, plannedAt}]`, `backorders[{variantId, qty, promiseDate}]`                                                                                                                       | notification (buyer notice)     |
+| `warehouse.routing_rules_replaced.v1` | Any routing rule / fallback / throttle change; cap watch | Full snapshot: `version` (consumer keeps the highest), live `rules[]`, `fallback` (+ `maxDistanceKm`), `throttles[{warehouseId, paused, maxOrdersPerDay, capReached}]`                                                         | inventory (checkout)            |
+
+Also new for D-57: `inventory.issue_rejected.v1` (inventory → WMS: over-issue at dispatch →
+ISSUE_MISMATCH exception) and `order.delivery_updated.v1` (order → WMS: `orderId`, `orderNo`,
+`changes[]`, `pinCode`, `district`, `deliveryPromise`; no PII — WMS pulls the facts again and raises
+ALLOCATION_ISSUE when the assigned node no longer serves the PIN).
+
+warehouse-service consumes (queue `warehouse-service.events`): `order.placed|paid|confirmed|delivered|rejected|cancelled|failed|delivery_updated.v1`,
+`inventory.reservation_committed|reservation_released|issue_rejected|availability_changed.v1`
+(the last feeds the W3.13 storefront sync, newest `sequence` wins), `product.variant_created|updated|deactivated.v1`.
 
 ### Pending design
 

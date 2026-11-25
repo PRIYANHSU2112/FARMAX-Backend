@@ -81,6 +81,13 @@ const requireStaff: preHandlerAsyncHookHandler = async function (request, reply)
   request.access = new Access(await request.diScope.resolve('accessClient').grants(user.id));
 };
 
+/** D-57b customer app (`/v1/shipments`): a signed-in CUSTOMER (own orders only, checked later). */
+export const requireCustomer: preHandlerAsyncHookHandler = async function (request, reply) {
+  const verify = request.diScope.resolve('tokenVerifier');
+  await authenticate(verify).call(this, request, reply);
+  if (request.user?.userType !== 'CUSTOMER') throw new ForbiddenError();
+};
+
 /**
  * Coarse check at the route: the key is held GLOBALLY or at ≥ 1 warehouse (else 403). The
  * service then checks the exact warehouse (`Access.require`): out of scope → 404.

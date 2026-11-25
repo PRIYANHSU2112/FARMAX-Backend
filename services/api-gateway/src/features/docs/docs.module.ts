@@ -42,7 +42,8 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     service: 'user-service',
     baseUrl: config.USER_SERVICE_URL,
     publicPrefix: '/v1',
-    summary: 'Customer delivery addresses (default, audited) and product wishlist',
+    summary:
+      'Customer delivery addresses (default, audited), product wishlist, and the server-driven Home / All Categories layout (app + admin CMS)',
   },
   {
     service: 'order-service',
@@ -91,7 +92,7 @@ export const createDocsSources = (config: GatewayConfig): DocsSource[] => [
     baseUrl: config.SUPPORT_SERVICE_URL,
     publicPrefix: '/v1',
     summary:
-      'Help & Support for all apps: priority tickets with SLA, live chat (WebSocket), FAQ, legal pages, agent queue',
+      'Help & Support for all apps: priority tickets with SLA, live chat (WebSocket), FAQ, legal pages, agent queue, company licences & certificates, dealer / partner applications',
   },
   {
     service: 'warehouse-service',

@@ -732,6 +732,143 @@ status = 'ACTIVE'` (credits always land, even when FROZEN), and the posting chai
   - Cards whose module does not exist yet (transfers, picking stages, performance, near-expiry)
     return null with `modules` flags.
 
+### D-57 · Warehouse portal Order Fulfilment (W3) + In-stock Management (W4); WMS owns physical stock; OMS F1 shipments
+
+- **Scope (approved 2026-11-23, built 2026-11-24):** every widget of W3.01–W3.16, W3.18 (prepaid
+  parts), W3.19 (views) and W4.00–W4.11 has its own API, on two audiences with the same handlers:
+  warehouse panel `/v1/wms/*` (caller's warehouses; out of scope → 404) and admin panel
+  `/v1/admin/wms/*` (GLOBAL grants). Customer `/v1/shipments/*`, 3PL driver link `/v1/driver/*`.
+  Plan: `~/.claude/plans/c-projects-farmax-documents-fa-compiled-teapot-…md`. W3.17 Scheduled,
+  W3.18 credit and W3.19 "Create bulk order" are a later phase (business sign-off: prepaid only).
+- **D-57a stock (Phases 1–2):** warehouse-service owns batch × bin × status × owner stock
+  (columnar positions, one writer `stockEngine.apply`, every move checked against the lifecycle
+  table), receipts (CN / RT), unit QR, COA, quality, adjustments (maker-checker), thresholds,
+  vendors, restock (RST, approve ≠ requester) and transfers (TR). inventory keeps warehouse × SKU
+  totals + reservations, fed by `warehouse.stock_changed.v1`; its stock-write APIs follow the
+  `stockWritesMode` flag (INVENTORY → FROZEN → WMS) with a 72 h rollback window.
+- **D-57b fulfilment (Phases 3–5):** the OMS F1 shipment (one OPEN shipment per order × warehouse;
+  a backorder follow-up may ship later) with the state machine PENDING_RELEASE → … →
+  READY_TO_DISPATCH → DISPATCHED → OUT_FOR_DELIVERY → DELIVERED → FULFILLED (+ DELIVERY_FAILED,
+  RETURNED_TO_WAREHOUSE, CANCELLED; hold is a flag). order-service derives IN_FULFILMENT /
+  PARTIALLY_DELIVERED / DELIVERED from `shipment.status_changed.v1` and emits
+  `order.delivered.v1`. Each snapshot entry carries the shipment `version`; order-service merges
+  them into `orders.shipmentStates` (highest version per shipment wins), because two shipments
+  changing at once can each publish a snapshot without the other's change, and events can arrive
+  late or out of order. So neither the status nor `fulfilmentStage` (cancel / delivery-edit
+  rules) ever moves back on an old event. Gate-out sends `shipment.dispatched.v1` keyed by `dispatchId`; inventory
+  issues against the reservation line once (an over-issue → `inventory.issue_rejected.v1` →
+  ISSUE_MISMATCH exception).
+- **Cross-service reallocation** is a saga (local PENDING → inventory reallocate with an
+  idempotency key → local apply → COMPLETED; definitive refusal → FAILED; repeated apply failure →
+  COMPENSATED). Allocation reconcile acts only on a mismatch seen twice, never on picked stock, and
+  counts open backorders as held.
+- **Delivery (D-40 kept):** OTP HMAC + AES-GCM, 12 h, 5 tries, shown in the customer API only —
+  never to staff, logs or events. Prepaid settlement ("Settle now") = shortage refund / confirm /
+  POD / second-person override approval. 3PL drivers use a hashed 32-byte trip link.
+- **Routing rules (W3.12):** rules live in warehouse-service; every change publishes ONE versioned
+  snapshot `warehouse.routing_rules_replaced.v1`; inventory applies it at checkout through the
+  shared pure evaluator `@farmx/infra/routing` (WMS uses the same one for simulation and W3.04).
+  Paused nodes and nodes over their daily cap (cap watch republishes) are skipped. LOWEST_COST is
+  listed `available:false` (no fare rates).
+- **ATP (W3.13):** net ATP = physical − open demand (+ open backorders) − safety − QC hold −
+  blocked − returned; projected 24 h adds transfers due. Storefront sync from
+  `inventory.availability_changed.v1`. inventory owns the buffer floor (`bufferFloorPct`, hides
+  stock at or below reorder level × % from the storefront) and the cart-hold lease; WMS edits them
+  through inventory's internal API.
+- **Split / partial / backorder (W3.14):** moved legs run the reallocation saga one at a time;
+  backordered units keep their inventory reservation (first claim on incoming stock) and the
+  backorder job ships them when stock arrives. Partial-ship CANCEL and backorder cancel go through
+  order-service's normal cancel (refund + release; new internal `POST /internal/orders/:id/cancel-lines`).
+- **Amendments (W3.15):** delivery details are owned by order-service (new
+  `PATCH /v1/admin/orders/:id/delivery`, internal twin, `order.delivery_updated.v1`); decreases =
+  cancel + refund. **Increases are refused** (409 BALANCE_PAYMENT_NOT_AVAILABLE): a prepaid order
+  cannot take a balance payment yet (needs multi-payment orders in payment-service).
+- **Cost:** many new tables (migrations 2026-12-14 … 2026-12-19, local DB only, not Neon); the
+  D-56 `orders` read model stays for W2.03; driver-link SMS is not integrated (the link is returned
+  to the dispatcher); amendment increases and per-leg planned trips are open items.
+
+### D-58b · Customer profile + farm profile edits match the Figma (account is the source of the owner name)
+
+- **Problem (2026-11-24):** `GET /v1/auth/me` (auth `users`) and `GET /v1/farms/:id` (farm
+  `farm_owners` + `farms`) are different records; the owner name and phone were stored twice with
+  no sync, and every customer edit was blocked once a farm was ACTIVE.
+- **Account = source of truth** for name / phone / email / photo. New CUSTOMER-only
+  `PATCH /v1/auth/me` and `POST /v1/auth/me/phone/otp` + `/verify` (OTP to the NEW number, bound
+  to `userId|phone`, 409 `PHONE_TAKEN` / `EMAIL_TAKEN`; new email stored unverified). Each change
+  is audited and emits `user.profile_updated.v1`.
+- **farm-service gets its first event consumer** (queue `farm-service.events`, `EVENTS_ENABLED`,
+  `RABBITMQ_URL`): syncs the owner snapshot; a blank account name (fresh phone sign-up) never wipes
+  the name typed at registration. The farm outbox **relay is still not started** (separate
+  rollout: existing outbox rows would all publish at once).
+- **ACTIVE farm edits:** `PATCH /v1/farms/:id` accepts ranked `productionTypes` (+ capacities);
+  `[0]` stays fixed because it is in the Farm ID (409 `PRIMARY_TYPE_LOCKED`).
+  `PUT /v1/farms/:id/location` works on ACTIVE farms inside the same territory only (409
+  `TERRITORY_LOCKED`); it emits `farm.updated.v1`.
+- **Read model:** `location.primaryNodeName / backupNodeName / deliveryPromise` come from the geo
+  pin directory at read time (no new columns); `owner.panVerified / aadhaarVerified` booleans.
+  An accepted PAN card locks the PAN (409 `PAN_LOCKED`).
+- **"Keep farm name & send for review" (option A, approved by the owner 2026-11-24):** new
+  nullable `farms.invoiceNameReview` (PENDING / APPROVED / REJECTED) + requested/reviewed
+  timestamps, reviewer id and note (migration `20261222100000_farm_invoice_name_review`).
+  `PUT /farms/:id/billing` with FARM_NAME when the GST names differ → PENDING, and invoices use
+  the GST trade name meanwhile (valid for ITC). Staff queue `GET /v1/admin/farms?invoiceNameReview=PENDING`;
+  `POST /v1/admin/farms/:id/invoice-name/{approve|reject}` (`customers.verify`, reason, If-Match,
+  reviewer ≠ owner/registrar, audited). Approve → `FARM_NAME`; reject → stays on the trade name,
+  the reason is shown to the owner. Choosing GST_TRADE_NAME withdraws a pending request.
+- **Name-match rule fixed:** `nameMatchesFarm` (GSTIN check) used the lenient `namesMatch` (any
+  shared 3-letter word), so the Figma pair "Sri Lakshmi Agro Farms" / "Sri Lakshmi Poultry" counted
+  as a match and the mismatch banner never showed. It now uses strict `sameBusinessName` (case,
+  spacing, punctuation ignored), the same rule that decides the review. `namesMatch` stays for the
+  Aadhaar owner-name check.
+- **Deferred (product decisions / other features):** "Gold member" tier (membership feature),
+  profile-completeness %, sheds / vaccination schedule / consulting vet / water & litter fields
+  (vet + flock features). No push to the owner on the review decision yet (the farm outbox relay
+  is off); the app reads `billing.invoiceNameReview`.
+
+
+### D-59 · Home SDUI: server-driven Home + All Categories pages in user-service
+
+- **Why (2026-11-24):** the app's Home and All Categories screens were hard-coded. Admins now
+  reorder, show/hide, schedule, target and A/B-test every block from the CMS without an app
+  release. Built **only in user-service** (`features/home`); other services got one-line wiring
+  (gateway `/v1/home` + `/v1/admin/home`, permission module `home_layout.view|manage|publish`,
+  `userKeys.home*`).
+- **Model** (migration `20261223100000_user_home_layouts`): `home_configurations` (layout per page
+  HOME | CATEGORIES; DRAFT → SCHEDULED / PUBLISHED → ARCHIVED; `layoutNo`, per-page `publishRev`,
+  `settings.orderPhones` by region, `version` for If-Match) → `home_sections` (one widget each:
+  14 widget types × 7 data sources, localized `{ en, hi? }` text, `itemLimit`, `minItems`,
+  `inline`, `experimentKey`, per-widget `config`, `targeting`) → `home_section_items`. Partial
+  unique indexes: one PUBLISHED and one SCHEDULED layout per page.
+- **Banners are reused from catalog-service** (`BANNER_PLACEMENT` = a placement code); no
+  `home_banners` table. Categories can come live from the catalog (`CATALOG_CATEGORIES`).
+- **Product cards = the catalog listing's own product-service card** + `tracking`, `actions`
+  (ADD_TO_CART / UPLOAD_RX, PHONE_ORDER by region), `priceBreak` (null until product-service has
+  it), `inStockAtDepot`. Wishlist hearts stay out of cached responses (`/me/wishlist/ids`, cap 500).
+- **Reads:** `GET /v1/home/layout` (snapshot in-process 5 s → Redis 30 s → DB, filtered per
+  request in memory; up to 3 `inline` product sections carry page 1 within a 350 ms budget),
+  `GET /v1/home/sections?keys=` (batch ≤ 6) and `/sections/:key` (cursor),
+  `GET /v1/home/feeds?keys=` (allowlisted keys only, 400 ms each). Never 401: an expired token
+  is served as a guest with `meta.authState: expired`. ETag over the body + `private, no-cache`.
+- **Targeting is server-side:** region + depot come from the farmer's own farm (`X-Farm-Id` picks
+  among the user's ACTIVE farms, else the oldest; cached 10 min, no farm event to clear it);
+  `X-Region` / `nodeId` from the app are ignored; guests have no region. Old apps: `X-SDUI-Version`
+  drops widgets newer than the app. A/B bucket = hash(device id + salt), stable across login.
+- **Publishing:** If-Match on every write (missing → 400 `IF_MATCH_REQUIRED`, stale → 409);
+  publish and rollback both re-check every referenced category / brand / disease / flock stage /
+  product / placement (broken active ref → 422, service down → 503); schedule = lazy flip on the
+  first read after its time (no job runner); each publish / rollback / flip gets a new
+  `publishRev`, which is in every section cache key. Every change is audited (`user_audit_log`,
+  target `home_layout`).
+- **Future (blank until the data exists):** price breaks; flock stage / week / shed and "products
+  for this stage"; isNewUser / hasActiveOrder / segments targeting (rules on them never match);
+  feeds APPOINTMENT_NEXT (no call bookings), BUY_AGAIN, VET_AVAILABILITY (no general endpoint),
+  REQUIREMENT_DUE; guest region (pincode lookup needs login); image CDN variants + blur
+  placeholder; catalog/product deactivate events (user-service has no consumer: ref check at
+  publish + `POST …/validate` instead); Prometheus metrics (Pino line per request now).
+- **Seed:** `pnpm --filter @farmx/user-service home:seed` creates the Figma HOME + CATEGORIES
+  layouts as DRAFTs (idempotent). Create banner placement `HOME_TOP` and pick brands before
+  publishing.
+
 ---
 
 **Open questions:** how OTPs are delivered (auth-service still sends them directly; moving them

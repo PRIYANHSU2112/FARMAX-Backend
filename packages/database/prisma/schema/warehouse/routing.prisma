@@ -1,0 +1,109 @@
+// warehouse-service features: routing (W3.12), backorders (W3.14), storefront sync (W3.13)
+// (D-57b Phase 5). Rules are published as one versioned snapshot to inventory (checkout).
+
+enum WmsRoutingRankBy {
+  NEAREST
+  PRIORITY
+  MOST_STOCK
+  LOWEST_COST
+}
+
+enum WmsBackorderStatus {
+  OPEN
+  ALLOCATED
+  CANCELLED
+}
+
+model WmsRoutingRule {
+  id                   String           @id @default(uuid(7)) @db.Uuid
+  name                 String           @db.VarChar(120)
+  /// STANDARD · PRIORITY · BULK · COLD … (free label shown in the table).
+  tag                  String?          @db.VarChar(30)
+  priority             Int
+  /// Typed conditions (@farmx/infra/routing RoutingCondition[]).
+  conditions           Json
+  primaryWarehouseId   String?          @db.Uuid
+  primaryDockDoorId    String?          @db.Uuid
+  fallbackWarehouseIds String[]
+  rankBy               WmsRoutingRankBy @default(NEAREST)
+  /// {maxDistanceKm, stockFull, dispatchWithinHours, dockEquipment[]}
+  gates                Json             @default("{}")
+  isEnabled            Boolean          @default(true)
+  isDraft              Boolean          @default(false)
+  version              Int              @default(0)
+  deletedAt            DateTime?
+  createdBy            String?          @db.Uuid
+  updatedBy            String?          @db.Uuid
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([deletedAt, priority])
+  @@map("warehouse_routing_rules")
+}
+
+/// Append-only history of every rule change (Rule History / Audit Logs tabs).
+model WmsRoutingRuleVersion {
+  id       String   @id @default(uuid(7)) @db.Uuid
+  ruleId   String   @db.Uuid
+  version  Int
+  action   String   @db.VarChar(20)
+  snapshot Json
+  by       String?  @db.Uuid
+  at       DateTime @default(now())
+
+  @@index([ruleId, at])
+  @@index([at])
+  @@map("warehouse_routing_rule_versions")
+}
+
+/// Node throttles (W3.12 node load): paused or a daily cap of new orders.
+model WmsRoutingThrottle {
+  warehouseId     String   @id @db.Uuid
+  paused          Boolean  @default(false)
+  maxOrdersPerDay Int?
+  note            String?  @db.VarChar(300)
+  version         Int      @default(0)
+  updatedBy       String?  @db.Uuid
+  updatedAt       DateTime @updatedAt
+
+  @@map("warehouse_routing_throttles")
+}
+
+/// Units promised later (W3.14 backorder queue); allocated by the backorder job.
+model WmsBackorder {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  orderId       String             @db.Uuid
+  shipmentId    String?            @db.Uuid
+  orderLineNo   Int?
+  variantId     String             @db.Uuid
+  qty           Int
+  promiseDate   DateTime?          @db.Date
+  status        WmsBackorderStatus @default(OPEN)
+  warehouseId   String?            @db.Uuid
+  consentLogged Boolean            @default(false)
+  note          String?            @db.VarChar(300)
+  createdBy     String?            @db.Uuid
+  allocatedAt   DateTime?
+  cancelledAt   DateTime?
+  version       Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status, promiseDate])
+  @@index([orderId])
+  @@index([variantId, status])
+  @@index([warehouseId, status])
+  @@map("warehouse_backorders")
+}
+
+/// What the storefront shows (from inventory.availability_changed.v1), W3.13 sync status.
+model WmsStorefrontSync {
+  variantId    String   @id @db.Uuid
+  publishedQty Int
+  inStock      Boolean
+  sequence     BigInt   @default(0)
+  publishedAt  DateTime
+
+  @@index([publishedAt])
+  @@map("warehouse_storefront_sync")
+}

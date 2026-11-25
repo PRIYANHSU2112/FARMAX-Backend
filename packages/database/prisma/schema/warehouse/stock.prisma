@@ -211,30 +211,30 @@ model WmsBatch {
 /// Physical stock at (warehouse, batch, bin, owner, vendor). One column per at-rest status;
 /// physical on-hand = their sum. Unique NULLS NOT DISTINCT on the dimensions (migration SQL).
 model WmsStockPosition {
-  id          String       @id @default(uuid(7)) @db.Uuid
-  warehouseId String       @db.Uuid
-  variantId   String       @db.Uuid
-  batchId     String       @db.Uuid
+  id           String       @id @default(uuid(7)) @db.Uuid
+  warehouseId  String       @db.Uuid
+  variantId    String       @db.Uuid
+  batchId      String       @db.Uuid
   /// null = not in a bin yet (opening balance): not allocatable.
-  binId       String?      @db.Uuid
-  ownerType   WmsOwnerType
-  vendorId    String?      @db.Uuid
-  qcHold      Int          @default(0)
-  available   Int          @default(0)
-  reserved    Int          @default(0)
-  picked      Int          @default(0)
-  packed      Int          @default(0)
-  quarantined Int          @default(0)
-  damaged     Int          @default(0)
-  expired     Int          @default(0)
-  returned    Int          @default(0)
+  binId        String?      @db.Uuid
+  ownerType    WmsOwnerType
+  vendorId     String?      @db.Uuid
+  qcHold       Int          @default(0)
+  available    Int          @default(0)
+  reserved     Int          @default(0)
+  picked       Int          @default(0)
+  packed       Int          @default(0)
+  quarantined  Int          @default(0)
+  damaged      Int          @default(0)
+  expired      Int          @default(0)
+  returned     Int          @default(0)
   /// Copied from the batch (FEFO / expiry filters without a join).
-  expiryDate  DateTime?    @db.Date
-  receivedAt  DateTime     @default(now())
+  expiryDate   DateTime?    @db.Date
+  receivedAt   DateTime     @default(now())
   /// Imported data still to confirm (ownerType, bin, batch).
-  reviewFields String[]    @default([])
-  version     Int          @default(0)
-  updatedAt   DateTime     @updatedAt
+  reviewFields String[]     @default([])
+  version      Int          @default(0)
+  updatedAt    DateTime     @updatedAt
 
   @@index([warehouseId, variantId])
   @@index([batchId])
@@ -402,19 +402,19 @@ model WmsStatusTransition {
 
 /// Proposed lifecycle change; approved by someone else in Admin & Governance.
 model WmsTransitionProposal {
-  id            String            @id @default(uuid(7)) @db.Uuid
-  fromStatus    WmsStockStatus
-  toStatus      WmsStockStatus
+  id           String            @id @default(uuid(7)) @db.Uuid
+  fromStatus   WmsStockStatus
+  toStatus     WmsStockStatus
   /// ADD (allow the move) or REMOVE (stop allowing it).
-  action        String            @default("ADD") @db.VarChar(8)
-  reasonEvent   String            @db.VarChar(500)
-  roleLabel     String?           @db.VarChar(80)
-  status        WmsProposalStatus @default(PENDING)
-  proposedBy    String            @db.Uuid
-  decidedBy     String?           @db.Uuid
-  decidedAt     DateTime?
-  decisionNote  String?           @db.VarChar(500)
-  createdAt     DateTime          @default(now())
+  action       String            @default("ADD") @db.VarChar(8)
+  reasonEvent  String            @db.VarChar(500)
+  roleLabel    String?           @db.VarChar(80)
+  status       WmsProposalStatus @default(PENDING)
+  proposedBy   String            @db.Uuid
+  decidedBy    String?           @db.Uuid
+  decidedAt    DateTime?
+  decisionNote String?           @db.VarChar(500)
+  createdAt    DateTime          @default(now())
 
   @@index([status, createdAt(sort: Desc)])
   @@map("warehouse_transition_proposals")

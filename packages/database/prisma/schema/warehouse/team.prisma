@@ -24,6 +24,8 @@ model WmsStaffProfile {
   /// Empty = all areas.
   workAreas       WmsWorkArea[]
   /// calendar feature shift id.
+  /// Floor label shown next to the operator ("Zone Lead (North)", W3.07).
+  jobTitle        String?           @db.VarChar(80)
   shiftId         String?           @db.Uuid
   /// INACTIVE after removal (the row stays for the team history).
   status          WmsResourceStatus @default(ACTIVE)

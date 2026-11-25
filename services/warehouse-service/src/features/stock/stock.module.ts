@@ -2,11 +2,27 @@ import { defineModule } from '@farmx/common/server';
 import { asClass, asFunction } from 'awilix';
 import type { EventHandlerMap } from '../../adapters/events.js';
 import { createStockEventHandlers } from './stock.events.js';
+import { StockCutover } from './stock.cutover.js';
 import { StockEngine } from './stock.engine.js';
+import { StockJobs } from './stock.jobs.js';
+import { StockQueries } from './stock.queries.js';
+import { StockReadRepository } from './stock.read.repository.js';
+import { stockReadRoutes } from './stock.read.routes.js';
 import { StockRepository } from './stock.repository.js';
+import type { Audience } from '../../middleware/guards.js';
+import type { FastifyPluginAsync } from 'fastify';
 import { stockRoutes } from './stock.routes.js';
 import { StockService } from './stock.service.js';
 import { StockSettings } from './stock.settings.js';
+import { StockVendors } from './stock.vendors.js';
+
+/** Commands + W4 reads for one audience. */
+const routesFor =
+  (aud: Audience): FastifyPluginAsync =>
+  async (app) => {
+    await stockRoutes(aud)(app, {});
+    await stockReadRoutes(aud)(app, {});
+  };
 
 declare module '@fastify/awilix' {
   interface Cradle {
@@ -14,6 +30,11 @@ declare module '@fastify/awilix' {
     stockSettings: StockSettings;
     stockEngine: StockEngine;
     stockService: StockService;
+    stockCutover: StockCutover;
+    stockJobs: StockJobs;
+    stockVendors: StockVendors;
+    stockReadRepository: StockReadRepository;
+    stockQueries: StockQueries;
     stockEventHandlers: EventHandlerMap;
   }
 }
@@ -28,15 +49,20 @@ export const stockModule = defineModule({
       stockSettings: asClass(StockSettings).singleton(),
       stockEngine: asClass(StockEngine).singleton(),
       stockService: asClass(StockService).singleton(),
+      stockCutover: asClass(StockCutover).singleton(),
+      stockJobs: asClass(StockJobs).singleton(),
+      stockVendors: asClass(StockVendors).singleton(),
+      stockReadRepository: asClass(StockReadRepository).singleton(),
+      stockQueries: asClass(StockQueries).singleton(),
       stockEventHandlers: asFunction(createStockEventHandlers).singleton(),
     });
   },
-  routes: stockRoutes('panel'),
+  routes: routesFor('panel'),
 });
 
 /** Same handlers for the admin panel (`/admin/wms/stock/*`, GLOBAL grants) + admin-only routes. */
 export const stockAdminModule = defineModule({
   name: 'stock-admin',
   prefix: '/admin/wms',
-  routes: stockRoutes('admin'),
+  routes: routesFor('admin'),
 });

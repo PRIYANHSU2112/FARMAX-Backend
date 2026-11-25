@@ -22,6 +22,7 @@ import { requestHash } from '../../middleware/http.js';
 import { fromBasisPoints, fromPaise, toPaise } from '../pricing/index.js';
 import type { IssuedDocument, ShipmentRequest } from '../invoices/index.js';
 import type { OrderLedgerView } from '../transactions/index.js';
+import { shareOf } from './orders.cancellation.js';
 import { toInvoiceFacts } from './orders.invoice-facts.js';
 import type { Ctx } from './orders.lifecycle.js';
 import {
@@ -30,6 +31,7 @@ import {
   type OrderListQuery,
   type OrderRow,
   type OrderWithLines,
+  SERVICE,
   SYSTEM,
   UNPAID_STATUSES,
 } from './orders.types.js';
@@ -182,6 +184,12 @@ export class OrdersService {
               interState: inv.interState,
             },
             deliveryAddress: { ...address },
+            customerPoRef:
+              input.customerPoRef === undefined ||
+              input.customerPoRef === null ||
+              input.customerPoRef === ''
+                ? null
+                : input.customerPoRef,
             couponCode: cart.couponCode,
             cartVersion: cart.version,
             paymentMethod: input.paymentMethod,
@@ -452,6 +460,197 @@ export class OrdersService {
     return this.deps.ordersRepository.statuses(ids);
   }
 
+  /** Orders per status (internal; D-57 backfill count check). */
+  counts(): Promise<Record<string, number>> {
+    return this.deps.ordersRepository.countsByStatus();
+  }
+
+  /**
+   * What the warehouse needs to fulfil an order (internal, F1 / D-57): customer and farm, the
+   * delivery address snapshot with coordinates, active lines, totals, payment instrument and the
+   * buyer's PO reference. Staff screens only; never logged.
+   */
+  async fulfilmentFacts(orderId: string) {
+    const o = await this.mustFind(orderId);
+    const ledger = await this.deps.transactionsService.forOrder(orderId);
+    const capture = ledger.transactions.find((t) => t.kind === 'CAPTURE');
+    const a = (o.deliveryAddress ?? {}) as Partial<{
+      contactName: string;
+      contactPhone: string;
+      line1: string;
+      line2: string | null;
+      landmark: string | null;
+      village: string | null;
+      mandal: string | null;
+      district: string;
+      stateCode: string;
+      pinCode: string;
+      latitude: number | null;
+      longitude: number | null;
+      formatted: string;
+    }>;
+    const b = (o.billing ?? {}) as Partial<{
+      farmCode: string;
+      name: string;
+      gstin: string | null;
+    }>;
+    const m = (v: { toFixed(d: number): string }) => v.toFixed(2);
+    const ref = capture?.providerRef ?? null;
+    return {
+      orderId: o.id,
+      orderNo: o.orderNo,
+      userId: o.userId,
+      farmId: o.farmId,
+      channel: o.channel,
+      status: o.status,
+      fulfilmentStage: o.fulfilmentStage,
+      paymentStatus: o.paymentStatus,
+      paymentMethod: o.paymentMethod,
+      refundStatus: o.refundStatus,
+      customerPoRef: o.customerPoRef,
+      deliveryPromise: o.deliveryPromise,
+      placedAt: o.placedAt,
+      paidAt: o.paidAt,
+      confirmedAt: o.confirmedAt,
+      totals: {
+        itemSubtotal: m(o.itemSubtotal),
+        discountTotal: m(o.discountTotal),
+        taxableAmount: m(o.taxableAmount),
+        cgst: m(o.cgst),
+        sgst: m(o.sgst),
+        igst: m(o.igst),
+        freight: m(o.freight),
+        freightDiscount: m(o.freightDiscount),
+        grandTotal: m(o.grandTotal),
+        paidAmount: m(o.paidAmount),
+        refundedAmount: m(o.refundedAmount),
+      },
+      customer: {
+        name: a.contactName ?? null,
+        phone: a.contactPhone ?? null,
+        farmName: b.name ?? null,
+        farmCode: b.farmCode ?? null,
+        gstin: b.gstin ?? null,
+      },
+      shipTo: {
+        name: a.contactName ?? null,
+        phone: a.contactPhone ?? null,
+        line1: a.line1 ?? null,
+        line2: a.line2 ?? null,
+        landmark: a.landmark ?? null,
+        village: a.village ?? null,
+        mandal: a.mandal ?? null,
+        district: a.district ?? null,
+        stateCode: a.stateCode ?? null,
+        pinCode: a.pinCode ?? null,
+        latitude: a.latitude ?? null,
+        longitude: a.longitude ?? null,
+        formatted: a.formatted ?? null,
+      },
+      lines: o.lines.map((l) => ({
+        lineNo: l.lineNo,
+        variantId: l.variantId,
+        productId: l.productId,
+        sku: l.sku,
+        name: l.name,
+        temperatureClass: l.temperatureClass,
+        qty: l.qty,
+        cancelledQty: l.cancelledQty,
+        unitPrice: m(l.unitPrice),
+        lineTotal: m(l.lineTotal),
+      })),
+      payment: {
+        method: o.paymentMethod,
+        /** Gateway method of the capture: upi · card · netbanking · wallet … */
+        instrument: capture?.method ?? (o.paymentMethod === 'WALLET' ? 'wallet' : null),
+        providerRefMasked: ref === null ? null : `${'•'.repeat(4)}${ref.slice(-4)}`,
+        capturedAt: capture?.occurredAt ?? null,
+      },
+      version: o.version,
+    };
+  }
+
+  /**
+   * W3.10 prepaid settlement (F1): refund of units dispatched but not delivered. Per line the
+   * exact paise share of what was paid (same maths as cancellations), capped at what is still
+   * refundable; one refund decision per shipment (`shortage:<shipmentId>`, idempotent).
+   */
+  async shortageRefund(
+    orderId: string,
+    input: { shipmentId: string; lines: { lineNo: number; qty: number }[] },
+    ctx: Ctx,
+  ) {
+    return this.deps.runInTransaction(async (tx) => {
+      const locked = await this.deps.ordersRepository.lock(tx, orderId);
+      if (locked === null) throw new NotFoundError('Order');
+      const order = await this.deps.ordersRepository.find(orderId, tx);
+      if (order === null) throw new NotFoundError('Order');
+      if (order.activePaymentId === null)
+        throw new ConflictError('The order has no captured payment', {
+          details: { reason: 'NOT_PAID' },
+        });
+      let paise = 0;
+      for (const l of input.lines) {
+        const line = order.lines.find((x) => x.lineNo === l.lineNo);
+        if (line === undefined || l.qty > line.qty - line.cancelledQty)
+          throw new ConflictError(`Line ${String(l.lineNo)} cannot refund ${String(l.qty)} units`, {
+            details: { reason: 'INVALID_LINES' },
+          });
+        paise += shareOf(toPaise(line.lineTotal.toFixed(2)), line.qty, l.qty);
+      }
+      const refundable = await this.deps.orderLifecycle.refundablePaise(tx, locked);
+      const amountPaise = Math.min(paise, refundable);
+      const sourceRef = `shortage:${input.shipmentId}`;
+      await this.deps.orderLifecycle.requestRefundInTx(tx, locked, {
+        source: 'SHORTAGE',
+        sourceRef,
+        paymentId: order.activePaymentId,
+        amountPaise,
+        reason: 'Units not delivered (short delivery)',
+        ctx,
+        isSystem: true,
+      });
+      return { orderId, sourceRef, amountPaise, amount: fromPaise(amountPaise) };
+    });
+  }
+
+  /**
+   * Compliance rejection from the warehouse (D-57 §2a.7): before admin confirmation the order is
+   * REJECTED; after it, cancelled as a whole — both with the full refund (system decision).
+   */
+  async complianceReject(orderId: string, reason: string, ctx: Ctx) {
+    const o = await this.mustFind(orderId);
+    if (o.status === 'PENDING_ADMIN_CONFIRMATION') {
+      await this.deps.runInTransaction(async (tx) => {
+        const locked = await this.deps.ordersRepository.lock(tx, orderId);
+        if (locked?.status !== 'PENDING_ADMIN_CONFIRMATION') return;
+        await this.deps.orderLifecycle.closeInTx(tx, locked, {
+          to: 'REJECTED',
+          actor: SERVICE,
+          reasonCode: 'COMPLIANCE_REJECTED',
+          reason,
+          refundPaise: await this.deps.orderLifecycle.refundablePaise(tx, locked),
+          refundSource: 'REJECT',
+          refundSourceRef: `compliance:${orderId}`,
+          refundIsSystem: true,
+          ctx,
+        });
+      });
+    } else if (o.status === 'CONFIRMED' || o.status === 'IN_FULFILMENT') {
+      await this.deps.orderCancelService.cancel(
+        orderId,
+        { reasonCode: 'COMPLIANCE_REJECTED', note: reason },
+        SERVICE,
+        { ctx },
+      );
+    } else if (o.status !== 'REJECTED' && o.status !== 'CANCELLED')
+      throw new ConflictError(`Order is ${o.status}; it can no longer be rejected`, {
+        details: { reason: 'NOT_REJECTABLE', status: o.status },
+      });
+    const after = await this.mustFind(orderId);
+    return { orderId, status: after.status };
+  }
+
   // ── Jobs ──
 
   /** Unpaid past window + grace: live gateway check first (R6), then FAILED (D-43). */
@@ -533,7 +732,13 @@ export class OrdersService {
     windowMinutes: number,
     graceSeconds: number,
   ): Promise<Reservation> {
-    const address = order.deliveryAddress as { pinCode: string };
+    const address = order.deliveryAddress as {
+      pinCode: string;
+      district?: string;
+      stateCode?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    };
     const ttl = Math.min(3_600, windowMinutes * 60 + graceSeconds);
     try {
       return await this.deps.inventoryClient.reserve({
@@ -541,6 +746,14 @@ export class OrdersService {
         pinCode: address.pinCode,
         lines: order.lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
         ttlSeconds: ttl,
+        // D-57b routing facts (warehouse routing rules on value, district, distance).
+        routing: {
+          orderValue: Number(order.grandTotal.toFixed(2)),
+          ...(address.district === undefined ? {} : { district: address.district }),
+          ...(address.stateCode === undefined ? {} : { stateCode: address.stateCode }),
+          ...(address.latitude == null ? {} : { lat: address.latitude }),
+          ...(address.longitude == null ? {} : { lng: address.longitude }),
+        },
       });
     } catch (err) {
       // A live reservation for this order already exists (earlier attempt succeeded): adopt it.

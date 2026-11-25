@@ -18,6 +18,16 @@ export type CapacityPeriod =
   'STANDING' | 'PER_CYCLE' | 'PER_SETTING' | 'PER_WEEK' | 'PER_HOUR' | 'PER_DAY' | 'PER_MONTH';
 export type AgeBand = 'AGE_18_30' | 'AGE_31_45' | 'AGE_46_60' | 'AGE_60_PLUS';
 export type InvoiceNameSource = 'FARM_NAME' | 'GST_TRADE_NAME';
+export type InvoiceNameReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/** "Keep farm name & send for review" state (null = never asked). */
+export interface InvoiceNameReviewView {
+  status: InvoiceNameReviewStatus;
+  requestedAt: string | null;
+  reviewedAt: string | null;
+  /** Staff reason (shown on rejection). */
+  note: string | null;
+}
 export type ActorType = 'OWNER' | 'ADMIN' | 'SYSTEM';
 
 export interface CapacityInput {
@@ -41,6 +51,10 @@ export interface OwnerView {
   aadhaarLast4: string | null;
   kycStatus: KycStatus;
   personalizedOffers: boolean;
+  /** PAN card accepted by a reviewer: the PAN is locked (Documents screen lock icon). */
+  panVerified: boolean;
+  /** Aadhaar e-KYC OTP passed ("Owner Aadhaar · Verified"). */
+  aadhaarVerified: boolean;
 }
 
 export interface LocationView {
@@ -56,6 +70,11 @@ export interface LocationView {
   mandalName: string | null;
   primaryNodeId: string | null;
   backupNodeId: string | null;
+  /** "served from Mother WH (Eluru)": node names + delivery promise from the pin directory. */
+  primaryNodeName: string | null;
+  backupNodeName: string | null;
+  /** e.g. "Next-day delivery here"; null when the pin has none. */
+  deliveryPromise: string | null;
 }
 
 /** Full farm view (customer detail, admin detail, internal reads). PII masked. */
@@ -83,6 +102,8 @@ export interface FarmView {
     businessName: string | null;
     tradeName: string | null;
     gstVerifiedAt: string | null;
+    /** PENDING / REJECTED: invoices use the GST trade name; APPROVED: the farm name. */
+    invoiceNameReview: InvoiceNameReviewView | null;
   };
   kycDeferred: boolean;
   channel: string;
@@ -116,6 +137,7 @@ export interface AdminFarmListItem extends FarmSummary {
   territoryCode: string | null;
   kycStatus: KycStatus;
   submittedAt: string | null;
+  invoiceNameReview: InvoiceNameReviewStatus | null;
 }
 
 export interface FarmPassView {
@@ -181,6 +203,8 @@ export interface OwnerPrefsInput {
 
 export interface UpdateActiveFarmInput {
   addressLine?: string;
+  /** Ranked; [0] (the primary type in the Farm ID) cannot change. Needs `capacities`. */
+  productionTypes?: ProductionType[];
   capacities?: CapacityInput[];
 }
 
@@ -207,6 +231,8 @@ export interface AdminFarmListQuery extends CursorQuery {
   channel?: string;
   createdFrom?: string;
   createdTo?: string;
+  /** `PENDING` = the "invoice as farm name" review queue. */
+  invoiceNameReview?: InvoiceNameReviewStatus;
 }
 
 export type AdminAction = 'suspend' | 'reactivate' | 'close' | 'reject' | 'request-changes';

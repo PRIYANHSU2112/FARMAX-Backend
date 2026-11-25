@@ -12,6 +12,7 @@ const ZONE = {
   temperatureClass: true,
   minTempC: true,
   maxTempC: true,
+  isSecure: true,
   isFoodGrade: true,
   productCategoryIds: true,
   status: true,
@@ -230,6 +231,50 @@ export class StorageRepository {
         select: BIN,
         orderBy: { code: 'asc' },
         take: filter.limit + 1,
+      }),
+    );
+  }
+
+  /** Bin → rack → zone codes / names (stock screens: "A-01-01", "Racks B01–B08 Dry Zone"). */
+  binLocations(ids: readonly string[]) {
+    return withPrismaErrors(() =>
+      this.db.wmsBin.findMany({
+        where: { id: { in: [...new Set(ids)] } },
+        select: {
+          id: true,
+          code: true,
+          warehouseId: true,
+          zoneId: true,
+          rack: {
+            select: {
+              code: true,
+              zone: {
+                select: {
+                  code: true,
+                  name: true,
+                  temperatureClass: true,
+                  isFoodGrade: true,
+                  isSecure: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+  }
+
+  /** Bins whose code contains `q` in some warehouses (filter typeahead). */
+  binsByCode(warehouseIds: readonly string[] | 'ALL', q: string, limit: number) {
+    return withPrismaErrors(() =>
+      this.db.wmsBin.findMany({
+        where: {
+          ...(warehouseIds === 'ALL' ? {} : { warehouseId: { in: [...warehouseIds] } }),
+          code: { contains: q.toUpperCase() },
+        },
+        select: { id: true, code: true, warehouseId: true },
+        orderBy: { code: 'asc' },
+        take: limit,
       }),
     );
   }

@@ -17,6 +17,8 @@ model WmsZone {
   temperatureClass   WmsTempClass
   minTempC           Decimal?          @db.Decimal(4, 1)
   maxTempC           Decimal?          @db.Decimal(4, 1)
+  /// Secure / vault zone for restricted SKUs (W3.16 restricted ledger).
+  isSecure           Boolean           @default(false)
   isFoodGrade        Boolean           @default(false)
   /// catalog-service category ids stored here ("product type").
   productCategoryIds String[]          @db.Uuid

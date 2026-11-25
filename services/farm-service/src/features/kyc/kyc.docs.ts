@@ -40,7 +40,7 @@ const gstSchema = Joi.object({
   portalStatus: Joi.string().valid('ACTIVE', 'CANCELLED', 'SUSPENDED', 'INACTIVE'),
   checkedAt: Joi.date().iso(),
   nameMatchesFarm: Joi.boolean().description(
-    'false → show "Trade name on GST portal doesn’t match farm name"',
+    'Strict: the trade or legal name equals the farm name (case, spacing and punctuation ignored). false → show "Trade name on GST portal doesn’t match farm name"; choosing FARM_NAME then sends it for review.',
   ),
   panMatchesGstin: Joi.boolean().allow(null),
   options: Joi.array().items(Joi.string().valid('GST_TRADE_NAME', 'FARM_NAME')),
@@ -82,7 +82,8 @@ export const KYC_DOCS = {
   pan: {
     tag: KYC_TAG,
     summary: 'Save owner PAN',
-    description: 'Encrypted at rest (AES-256-GCM), masked in every response.',
+    description:
+      'Encrypted at rest (AES-256-GCM), masked in every response. Once a reviewer accepts the PAN card (`owner.panVerified: true`) the PAN is locked: 409 `PAN_LOCKED`.',
     success: {
       status: 200,
       description: 'Saved',
@@ -109,7 +110,7 @@ export const KYC_DOCS = {
     tag: KYC_TAG,
     summary: 'Bind the verified GSTIN for B2B / ITC billing ("Invoice as …")',
     description:
-      'Registration step 4. Takes the `verificationId` from `POST /{id}/kyc/gstin/verify`; business and trade names are copied from the GST portal snapshot (never sent by the client). 422 when the check is older than 24 h or the GSTIN state differs from the farm state. Emits `farm.facts_changed.v1` with `gstVerified`, `gstBusinessName`, `gstTradeName`, `invoiceName`.',
+      'Registration step 4 and the Documents screen. Takes the `verificationId` from `POST /{id}/kyc/gstin/verify`; business and trade names are copied from the GST portal snapshot (never sent by the client). 422 when the check is older than 24 h or the GSTIN state differs from the farm state. `FARM_NAME` when the GST names differ from the farm name (`nameMatchesFarm: false`) = "Keep farm name & send for review": the farm is saved with `billing.invoiceNameReview.status = PENDING` and invoices use the GST trade name until a reviewer approves (`POST /admin/farms/{id}/invoice-name/approve`). Choosing `GST_TRADE_NAME` withdraws a pending request. Emits `farm.facts_changed.v1` with `gstVerified`, `gstBusinessName`, `gstTradeName`, `invoiceName`.',
     success: {
       status: 200,
       description: 'Updated farm',

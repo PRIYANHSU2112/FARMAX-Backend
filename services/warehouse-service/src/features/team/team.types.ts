@@ -24,12 +24,14 @@ export interface AddMemberInput {
   roleId: string;
   workAreas?: WorkArea[];
   shiftId?: string | null;
+  jobTitle?: string | null;
 }
 
 export interface UpdateMemberInput {
   phone?: string | null;
   workAreas?: WorkArea[];
   shiftId?: string | null;
+  jobTitle?: string | null;
   /** Change the member's role at this warehouse (grant the new one, remove the others). */
   roleId?: string;
   reason?: string;
@@ -45,6 +47,7 @@ export interface MemberView {
   /** Empty = all areas ("All Areas"). */
   workAreas: WorkArea[];
   shiftId: string | null;
+  jobTitle: string | null;
   documentStatus: 'COMPLETE' | 'PENDING';
   documents: { docType: StaffDocType; uploadedAt: string }[];
   /** ACTIVE = holds a role here; INACTIVE = removed (kept for history). */

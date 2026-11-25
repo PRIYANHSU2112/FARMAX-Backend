@@ -12,6 +12,7 @@ const zone = Joi.object({
   temperatureClass: Joi.string().example('AMB'),
   minTempC: Joi.string().allow(null),
   maxTempC: Joi.string().allow(null),
+  isSecure: Joi.boolean().description('Secure / vault zone for restricted SKUs'),
   isFoodGrade: Joi.boolean(),
   productCategoryIds: Joi.array().items(Joi.string().guid()),
   status: Joi.string(),

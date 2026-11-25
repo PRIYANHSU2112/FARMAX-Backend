@@ -47,12 +47,14 @@ export class WishlistRepository {
     return toPage(rows, query.limit);
   }
 
-  async productIds(userId: string): Promise<string[]> {
+  /** Newest first, at most `max` + 1 rows (the extra one only tells the caller it was cut). */
+  async productIds(userId: string, max: number): Promise<string[]> {
     const rows = await withPrismaErrors(() =>
       this.db.wishlistItem.findMany({
         where: { userId },
         orderBy: { id: 'desc' },
         select: { productId: true },
+        take: max + 1,
       }),
     );
     return rows.map((r) => r.productId);

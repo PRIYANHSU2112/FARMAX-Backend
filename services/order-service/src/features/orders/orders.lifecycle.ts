@@ -11,6 +11,7 @@ import {
   type ReservationCommittedV1,
   type ReservationRejectedV1,
   type ReservationReleasedV1,
+  type ShipmentStatusChangedV1,
 } from '@farmx/infra/events';
 import type { Cradle } from '@fastify/awilix';
 
@@ -27,6 +28,8 @@ import {
   type RefundSource,
   type RefundStatus,
   SERVICE,
+  type ShipmentState,
+  type ShipmentStates,
   SYSTEM,
   type StatusField,
   type StockStatus,
@@ -54,7 +57,67 @@ const FIELD: Record<keyof Changes, StatusField> = {
 const HOLDS_STOCK: readonly StockStatus[] = ['PENDING', 'RESERVED', 'COMMITTED'];
 
 const isTerminal = (o: OrderRow) => TERMINAL.includes(o.status);
+
+/** F1 order ranks (status only moves forward) and shipment stage ranks. */
+const ORDER_RANK = new Map<string, number>([
+  ['CONFIRMED', 0],
+  ['IN_FULFILMENT', 1],
+  ['PARTIALLY_DELIVERED', 2],
+  ['DELIVERED', 3],
+]);
+const STAGE_RANK = new Map<string, number>(
+  [
+    'PENDING_RELEASE',
+    'RELEASED',
+    'ALLOCATED',
+    'ASSIGNED',
+    'PICKING',
+    'PACKING',
+    'QC',
+    'READY_TO_DISPATCH',
+    'DISPATCHED',
+    'OUT_FOR_DELIVERY',
+    'DELIVERY_FAILED',
+    'RETURNED_TO_WAREHOUSE',
+    'DELIVERED',
+    'FULFILLED',
+  ].map((s, i) => [s, i]),
+);
 const isPaid = (o: OrderRow) => PAID_STATUSES.includes(o.paymentStatus);
+
+const linesKey = (s: ShipmentState) =>
+  s.deliveredLines.map((l) => `${String(l.lineNo)}:${l.variantId}:${String(l.qty)}`).join(',');
+
+/**
+ * F1: merges an event snapshot into the stored shipment states. Per shipment the highest version
+ * wins, so a late or out-of-order event never moves a shipment back, and two snapshots that each
+ * missed the other's change still add up. Returns null when nothing is newer than what is stored.
+ */
+const mergeShipments = (
+  stored: unknown,
+  snapshot: ShipmentStatusChangedV1['orderShipments'],
+): ShipmentStates | null => {
+  const merged = new Map(Object.entries((stored ?? {}) as ShipmentStates));
+  let changed = false;
+  for (const s of snapshot) {
+    const next: ShipmentState = {
+      status: s.status,
+      version: s.version ?? -1,
+      deliveredLines: s.deliveredLines,
+    };
+    const prev = merged.get(s.shipmentId);
+    if (prev !== undefined && next.version < prev.version) continue;
+    if (
+      prev?.version === next.version &&
+      prev.status === next.status &&
+      linesKey(prev) === linesKey(next)
+    )
+      continue;
+    merged.set(s.shipmentId, next);
+    changed = true;
+  }
+  return changed ? Object.fromEntries(merged) : null;
+};
 
 /** Event context: request / causing event, carried into every outbox event. */
 export interface Ctx {
@@ -393,6 +456,91 @@ export class OrderLifecycle {
   // ── Admin decisions + cancellation (P4) ──
 
   /** Paid + committed + no exception → CONFIRMED → order.confirmed.v1 (shipments / invoice later). */
+  /**
+   * F1 (D-57b): the order status follows its shipments. The event snapshot is merged into
+   * `shipmentStates` (highest shipment version wins), so stage and status come from the latest
+   * known state of every shipment, whatever order events arrive in. The status never moves back
+   * and a closed or unconfirmed order is never touched. All shipments delivered → DELIVERED and
+   * order.delivered.v1 (reviews, reward points). The most advanced active stage is kept for the
+   * cancellation rules.
+   */
+  async onShipmentStatus(tx: Tx, d: ShipmentStatusChangedV1, ctx: Ctx): Promise<void> {
+    const repo = this.deps.ordersRepository;
+    const order = await repo.lock(tx, d.orderId);
+    if (order === null || isTerminal(order) || !ORDER_RANK.has(order.status)) return;
+    const states = mergeShipments(order.shipmentStates, d.orderShipments);
+    if (states === null) return; // late or duplicate: nothing newer than what is stored
+    const live = Object.values(states).filter((s) => s.status !== 'CANCELLED');
+    if (live.length === 0) {
+      // A full cancellation closes the order through its own flow; only the states are kept.
+      await repo.setShipmentStates(tx, order.id, states);
+      return;
+    }
+    const stage = live.reduce(
+      (best, s) =>
+        (STAGE_RANK.get(s.status) ?? 0) > (STAGE_RANK.get(best) ?? 0) ? s.status : best,
+      live[0]?.status ?? 'RELEASED',
+    );
+    const done = live.filter((s) => s.status === 'DELIVERED' || s.status === 'FULFILLED').length;
+    const target: OrderRow['status'] =
+      done === live.length
+        ? 'DELIVERED'
+        : done > 0
+          ? 'PARTIALLY_DELIVERED'
+          : live.some((s) => (STAGE_RANK.get(s.status) ?? 0) >= (STAGE_RANK.get('ALLOCATED') ?? 0))
+            ? 'IN_FULFILMENT'
+            : order.status;
+    const to =
+      (ORDER_RANK.get(target) ?? 0) > (ORDER_RANK.get(order.status) ?? 0) ? target : order.status;
+    if (to === order.status) {
+      const newStage = order.fulfilmentStage === stage ? undefined : stage;
+      await repo.setShipmentStates(tx, order.id, states, newStage);
+      return;
+    }
+    const at = new Date(d.at);
+    await this.apply(
+      tx,
+      order,
+      { status: to },
+      SERVICE,
+      { code: `SHIPMENT_${d.to}` },
+      {
+        fulfilmentStage: stage,
+        shipmentStates: states,
+        ...(to === 'DELIVERED' ? { deliveredAt: at } : {}),
+      },
+    );
+    if (to !== 'DELIVERED') return;
+    const full = await repo.find(order.id, tx);
+    const qty = new Map<number, number>();
+    for (const s of live)
+      for (const l of s.deliveredLines) qty.set(l.lineNo, (qty.get(l.lineNo) ?? 0) + l.qty);
+    await emitOrderEvent(
+      tx,
+      ORDER_EVENTS.delivered,
+      {
+        orderId: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        deliveredAt: at.toISOString(),
+        lines: (full?.lines ?? [])
+          .filter((l) => (qty.get(l.lineNo) ?? 0) > 0)
+          .map((l) => ({
+            lineNo: l.lineNo,
+            variantId: l.variantId,
+            productId: l.productId,
+            qty: qty.get(l.lineNo) ?? 0,
+          })),
+        netPaidPaise: Math.max(
+          0,
+          toPaise(order.paidAmount.toFixed(2)) - toPaise(order.refundedAmount.toFixed(2)),
+        ),
+      },
+      ctx.correlationId,
+      ctx.causationId,
+    );
+  }
+
   async confirmInTx(
     tx: Tx,
     order: OrderRow,

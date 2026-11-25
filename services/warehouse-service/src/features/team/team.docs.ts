@@ -17,6 +17,7 @@ const member = Joi.object({
     Joi.object({ roleId: Joi.string().guid(), roleKey: Joi.string(), roleName: Joi.string() }),
   ),
   workAreas: Joi.array().items(Joi.string()).description('Empty = "All Areas"'),
+  jobTitle: Joi.string().allow(null).example('Zone Lead (North)'),
   shiftId: Joi.string().guid().allow(null),
   documentStatus: Joi.string().valid('COMPLETE', 'PENDING'),
   documents: Joi.array().items(Joi.object({ docType: Joi.string(), uploadedAt: Joi.date().iso() })),

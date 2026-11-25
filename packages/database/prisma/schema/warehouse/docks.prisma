@@ -16,6 +16,15 @@ enum WmsVehicleClass {
 }
 
 /// Tonnes and pallets are never added or converted (pallet weight varies).
+/// Loading equipment of a dock door (W3.19 heavy bays).
+enum WmsDockEquipment {
+  STANDARD
+  HOPPER
+  CONVEYOR
+  SCALE
+  WEIGHBRIDGE
+}
+
 enum WmsCapacityUnit {
   TONNES
   PALLETS
@@ -55,6 +64,7 @@ model WmsDockDoor {
   vehicleClass    WmsVehicleClass
   capacityPerDay  Decimal           @db.Decimal(10, 2)
   /// Locked while open bookings exist.
+  equipment       WmsDockEquipment  @default(STANDARD)
   capacityUnit    WmsCapacityUnit
   opensAt         String?           @db.VarChar(5)
   closesAt        String?           @db.VarChar(5)

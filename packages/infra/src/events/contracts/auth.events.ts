@@ -15,6 +15,7 @@ export const AUTH_EVENTS = {
   userRegistered: 'user.registered.v1',
   userStatusChanged: 'user.status_changed.v1',
   userDeleted: 'user.deleted.v1',
+  userProfileUpdated: 'user.profile_updated.v1',
   sessionCompromised: 'auth.session_compromised.v1',
 } as const;
 
@@ -54,6 +55,20 @@ export interface UserDeletedV1 {
   deletedByUserId: string | null;
 }
 
+/**
+ * The user changed their own profile (`PATCH /me`, phone change). Carries the CURRENT values so
+ * consumers keep their snapshots (e.g. farm-service `farm_owners.fullName/phone`) in sync.
+ */
+export interface UserProfileUpdatedV1 {
+  userId: string;
+  userType: UserTypeV1;
+  fullName: string;
+  /** E.164, verified. */
+  phone: string | null;
+  email: string | null;
+  changedFields: ('fullName' | 'phone' | 'email' | 'avatarUrl')[];
+}
+
 /** Refresh-token reuse was detected; the whole session family was revoked. */
 export interface SessionCompromisedV1 {
   userId: string;
@@ -69,6 +84,7 @@ export interface AuthEventMap {
   'user.registered.v1': EventEnvelope<'user.registered.v1', UserRegisteredV1>;
   'user.status_changed.v1': EventEnvelope<'user.status_changed.v1', UserStatusChangedV1>;
   'user.deleted.v1': EventEnvelope<'user.deleted.v1', UserDeletedV1>;
+  'user.profile_updated.v1': EventEnvelope<'user.profile_updated.v1', UserProfileUpdatedV1>;
   'auth.session_compromised.v1': EventEnvelope<'auth.session_compromised.v1', SessionCompromisedV1>;
 }
 

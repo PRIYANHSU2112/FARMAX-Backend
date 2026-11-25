@@ -12,6 +12,7 @@ import {
   type WritesMode,
   inventoryDeltas,
   isColumn,
+  qrPrefix,
 } from './stock.rules.js';
 
 export type MovementType = MovementInsert['type'];
@@ -51,6 +52,8 @@ export interface ApplyContext {
    * corrections that are not status changes (adjustments, owner fix, relabel, opening import).
    */
   enforce: { access: Access } | 'system' | 'none';
+  /** Do not tell inventory (cutover opening import: inventory already holds these totals). */
+  silent?: boolean;
   /** Writes modes in which this command may run (default WMS only). */
   modes?: readonly WritesMode[];
 }
@@ -240,7 +243,7 @@ export class StockEngine {
     await this.applyUnits(tx, unitOps, batchMap);
 
     // 6. Tell inventory (sellable / damaged totals), one event per warehouse.
-    for (const [warehouseId, byVar] of inv) {
+    for (const [warehouseId, byVar] of ctx.silent === true ? [] : inv) {
       const lines = [...byVar]
         .filter(([, d]) => d.sellable !== 0 || d.damaged !== 0)
         .map(([variantId, d]) => ({
@@ -299,7 +302,11 @@ export class StockEngine {
         const from = (await this.repo.maxUnitSeq(tx, batch.id)) + 1;
         const sku = skus.get(dst.variantId) ?? 'SKU';
         await this.repo.generateUnits(tx, {
-          prefix: `FX-${clean(sku)}-${clean(batch.batchNo)}-`,
+          prefix: qrPrefix(
+            batch.batchNo,
+            sku,
+            await this.repo.batchNoShared(tx, batch.batchNo, dst.variantId),
+          ),
           from,
           qty: m.qty,
           batchId: batch.id,
@@ -340,5 +347,3 @@ interface UnitOp {
 }
 
 type TransitionRow = Awaited<ReturnType<Cradle['stockRepository']['transitions']>>[number];
-
-const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, '');

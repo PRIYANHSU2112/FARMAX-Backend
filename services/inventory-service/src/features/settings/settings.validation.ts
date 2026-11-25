@@ -9,6 +9,7 @@ export const SETTING_RULES: Record<SettingKey, Joi.Schema> = {
   defaultReorderLevel: Joi.number().integer().min(0).max(1_000_000),
   maxReservationLines: Joi.number().integer().min(1).max(200),
   allowSplitAllocation: Joi.boolean(),
+  bufferFloorPct: Joi.number().integer().min(0).max(100),
 };
 
 export const SETTING_KEYS = Object.keys(SETTING_RULES) as SettingKey[];

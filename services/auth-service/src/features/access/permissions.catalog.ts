@@ -220,6 +220,12 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
       },
       { key: 'vendors.suspend', description: 'Suspend a vendor', sensitive: true, scopes: G },
       { key: 'vendors.export', description: 'Export vendor data', sensitive: true, scopes: G },
+      {
+        key: 'vendors.manage',
+        description:
+          'Maintain the warehouse vendor master and supplied SKUs (ownership model, unit QR)',
+        scopes: G,
+      },
     ],
   },
   {
@@ -557,17 +563,6 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
     ],
   },
   {
-    module: 'vendors',
-    label: 'Vendors (supply master)',
-    permissions: [
-      {
-        key: 'vendors.manage',
-        description: 'Create and edit vendors and their supplied SKUs',
-        scopes: G,
-      },
-    ],
-  },
-  {
     module: 'logistics',
     label: 'Logistics, consignments & dispatch',
     permissions: [
@@ -740,6 +735,23 @@ export const PERMISSION_CATALOG: readonly PermissionModule[] = [
         key: 'recurring_orders.manage',
         description: 'Pause, amend or cancel schedules',
         scopes: GRO,
+      },
+    ],
+  },
+  {
+    module: 'home_layout',
+    label: 'App home & categories layout (server-driven UI)',
+    permissions: [
+      { key: 'home_layout.view', description: 'View layouts, preview and history', scopes: G },
+      {
+        key: 'home_layout.manage',
+        description: 'Create and edit draft layouts, reorder sections, run the ref check',
+        scopes: G,
+      },
+      {
+        key: 'home_layout.publish',
+        description: 'Publish, schedule or roll back the live layout',
+        scopes: G,
       },
     ],
   },

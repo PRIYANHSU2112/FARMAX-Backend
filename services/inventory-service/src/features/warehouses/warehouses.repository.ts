@@ -63,6 +63,8 @@ export class WarehousesRepository {
       isAllocatable: w.isAllocatable,
       hasColdChain: w.hasColdChain,
       priority: w.priority,
+      latitude: w.latitude,
+      longitude: w.longitude,
       version: w.version,
     };
     await withPrismaErrors(() =>
@@ -127,7 +129,8 @@ export class WarehousesRepository {
       () =>
         this.db.$queryRaw<AllocationCandidate[]>`
         SELECT w."id" AS "warehouseId", w."code", c."priority" AS "coveragePriority",
-               w."priority" AS "warehousePriority", w."hasColdChain"
+               w."priority" AS "warehousePriority", w."hasColdChain", w."type"::text AS "type",
+               w."latitude"::float8 AS "lat", w."longitude"::float8 AS "lng"
         FROM "inventory_warehouse_coverage" c
         JOIN "inventory_warehouses" w ON w."id" = c."warehouseId"
         WHERE c."pinCode" = ${pinCode} AND w."isActive" AND w."isAllocatable"

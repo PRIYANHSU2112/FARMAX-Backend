@@ -7,7 +7,7 @@ import {
   uniqueViolationFields,
   withPrismaErrors,
 } from '@farmx/database';
-import type { Prisma } from '@farmx/database/client';
+import { Prisma } from '@farmx/database/client';
 import type { Cradle } from '@fastify/awilix';
 
 import type { ReservationListQuery, ReservationView } from './reservations.types.js';
@@ -180,6 +180,87 @@ export class ReservationsRepository {
         data: { releasedQty: { increment: l.qty } },
       });
     }
+  }
+
+  /** Issued at dispatch (D-57b). */
+  async addIssued(
+    tx: Tx,
+    reservationId: string,
+    lines: readonly { warehouseId: string; variantId: string; qty: number }[],
+  ): Promise<void> {
+    for (const l of lines)
+      await tx.stockReservationLine.update({
+        where: {
+          reservationId_warehouseId_variantId: {
+            reservationId,
+            warehouseId: l.warehouseId,
+            variantId: l.variantId,
+          },
+        },
+        data: { issuedQty: { increment: l.qty } },
+      });
+  }
+
+  // ── D-57b warehouse reallocation (§2a.4) + allocation reconcile (§2a.3) ──
+
+  reallocation(key: string, tx?: Tx): Promise<{ result: unknown } | null> {
+    return withPrismaErrors(() =>
+      (tx ?? this.db).stockReallocation.findUnique({ where: { key }, select: { result: true } }),
+    );
+  }
+
+  async saveReallocation(tx: Tx, key: string, reservationId: string, result: object) {
+    await tx.stockReallocation.create({
+      data: { key, reservationId, result: result },
+      select: { key: true },
+    });
+  }
+
+  /** Moves `qty` of one SKU line to another warehouse inside the same reservation. */
+  async moveLine(
+    tx: Tx,
+    reservationId: string,
+    m: { variantId: string; fromWarehouseId: string; toWarehouseId: string; qty: number },
+    fromLine: { qty: number; releasedQty: number; issuedQty: number },
+  ): Promise<void> {
+    if (fromLine.qty === m.qty && fromLine.releasedQty === 0 && fromLine.issuedQty === 0)
+      await tx.$executeRaw`DELETE FROM "inventory_reservation_lines"
+        WHERE "reservationId" = ${reservationId}::uuid AND "warehouseId" = ${m.fromWarehouseId}::uuid
+          AND "variantId" = ${m.variantId}::uuid`;
+    else
+      await tx.$executeRaw`UPDATE "inventory_reservation_lines" SET "qty" = "qty" - ${m.qty}
+        WHERE "reservationId" = ${reservationId}::uuid AND "warehouseId" = ${m.fromWarehouseId}::uuid
+          AND "variantId" = ${m.variantId}::uuid`;
+    await tx.$executeRaw`INSERT INTO "inventory_reservation_lines" ("reservationId", "warehouseId", "variantId", "qty")
+      VALUES (${reservationId}::uuid, ${m.toWarehouseId}::uuid, ${m.variantId}::uuid, ${m.qty})
+      ON CONFLICT ("reservationId", "warehouseId", "variantId")
+      DO UPDATE SET "qty" = "inventory_reservation_lines"."qty" + EXCLUDED."qty"`;
+  }
+
+  /** Held lines of live reservations at one warehouse, keyset by (reservation, SKU). */
+  openLines(
+    warehouseId: string,
+    after: { reservationId: string; variantId: string } | null,
+    limit: number,
+  ) {
+    return this.db.$queryRaw<
+      {
+        reservationId: string;
+        orderRef: string;
+        variantId: string;
+        heldQty: number;
+        issuedQty: number;
+      }[]
+    >`
+      SELECT l."reservationId", r."orderRef", l."variantId",
+        (l."qty" - l."releasedQty" - l."issuedQty")::int AS "heldQty", l."issuedQty"
+      FROM "inventory_reservation_lines" l
+      JOIN "inventory_reservations" r ON r."id" = l."reservationId"
+      WHERE l."warehouseId" = ${warehouseId}::uuid AND r."status" IN ('ACTIVE', 'COMMITTED')
+        AND (l."qty" - l."releasedQty" - l."issuedQty") > 0
+        ${after === null ? Prisma.empty : Prisma.sql`AND (l."reservationId", l."variantId") > (${after.reservationId}::uuid, ${after.variantId}::uuid)`}
+      ORDER BY l."reservationId", l."variantId"
+      LIMIT ${limit + 1}`;
   }
 
   /** ACTIVE reservations past their window, oldest first; skipped if another worker holds them. */

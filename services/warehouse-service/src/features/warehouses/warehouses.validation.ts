@@ -51,6 +51,7 @@ const fields = {
   pinCode: PIN_CODE,
   latitude: Joi.number().min(-90).max(90).precision(6).allow(null),
   longitude: Joi.number().min(-180).max(180).precision(6).allow(null),
+  tagline: Joi.string().trim().max(80).allow(null, ''),
   totalAreaSqft: Joi.number().integer().min(1).max(100_000_000).allow(null),
   capacity: CAPACITY.allow(null),
   temperatureClasses: Joi.array()

@@ -1,5 +1,7 @@
 import {
+  AppError,
   ConflictError,
+  ErrorCode,
   ForbiddenError,
   NotFoundError,
   ValidationError,
@@ -55,6 +57,31 @@ const insufficient = (line: OperationLine, what: string) =>
   new ConflictError(`Not enough ${what} stock for variant ${line.variantId}`, {
     details: { reason: 'INSUFFICIENT_STOCK', variantId: line.variantId, requested: line.qty },
   });
+
+/**
+ * D-57a single writer: after the cutover warehouse-service owns physical stock and thresholds.
+ * FROZEN (cutover running) → 423; WMS → 410 (use warehouse-service `/v1/wms/stock/*`).
+ */
+const assertInventoryWrites = (mode: 'INVENTORY' | 'FROZEN' | 'WMS'): void => {
+  if (mode === 'INVENTORY') return;
+  if (mode === 'FROZEN')
+    throw new AppError(
+      ErrorCode.CONFLICT,
+      'Stock writes are frozen for the warehouse cutover',
+      423,
+      {
+        details: { reason: 'STOCK_WRITES_FROZEN' },
+      },
+    );
+  throw new AppError(
+    ErrorCode.CONFLICT,
+    'Stock is now managed by warehouse-service (/v1/wms/stock)',
+    410,
+    {
+      details: { reason: 'MOVED_TO_WAREHOUSE_SERVICE' },
+    },
+  );
+};
 
 const staffId = (actor: Actor): string => {
   if (actor.userId === null) throw new Error('stock operations need a staff actor');
@@ -159,6 +186,7 @@ export class StockService {
 
   /** Applies a PENDING adjustment. Segregation of duties: approver ≠ requester. */
   async approveAdjustment(actor: Actor, id: string, input: DecisionInput): Promise<OperationView> {
+    assertInventoryWrites(await this.deps.settingsService.writesMode());
     const userId = staffId(actor);
     return this.deps.runInTransaction(async (tx) => {
       const op = await this.pendingAdjustment(tx, id);
@@ -241,6 +269,7 @@ export class StockService {
     variantId: string,
     input: ThresholdsInput,
   ): Promise<LevelView> {
+    assertInventoryWrites(await this.deps.settingsService.writesMode());
     const { reason, ...thresholds } = input;
     const after = await this.deps.runInTransaction(async (tx) => {
       await this.deps.warehousesService.requireExists(tx, warehouseId);
@@ -325,6 +354,54 @@ export class StockService {
     return true;
   }
 
+  /**
+   * D-57b issue at dispatch (inside the caller's tx): reserved units leave the warehouse —
+   * onHand −q and reserved −q, one SALE ledger row per line keyed by the dispatch id. Returns
+   * false when this dispatch was already issued (idempotent). A shortfall throws (roll back).
+   */
+  async issueInTx(
+    tx: Tx,
+    dispatchId: string,
+    warehouseId: string,
+    lines: readonly { variantId: string; qty: number }[],
+  ): Promise<boolean> {
+    const repo = this.deps.stockRepository;
+    if (await repo.ledgerHas(tx, 'dispatch', dispatchId)) return false;
+    const ledger: NewLedgerRow[] = [];
+    for (const l of [...lines].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
+      if (l.qty <= 0) continue;
+      const after = await repo.issue(tx, warehouseId, l.variantId, l.qty);
+      if (after === null)
+        throw new Error(
+          `issue ${String(l.qty)} of ${warehouseId}/${l.variantId}: counters out of sync`,
+        );
+      ledger.push({
+        warehouseId,
+        variantId: l.variantId,
+        type: 'SALE',
+        onHandDelta: -l.qty,
+        damagedDelta: 0,
+        onHandAfter: after.onHand,
+        damagedAfter: after.damaged,
+        refType: 'dispatch',
+        refId: dispatchId,
+        actorUserId: null,
+        requestId: null,
+      });
+    }
+    await repo.insertLedger(tx, ledger);
+    await repo.markDirty(
+      tx,
+      lines.map((l) => l.variantId),
+    );
+    return true;
+  }
+
+  /** This dispatch was already issued (ledger reference). */
+  wasIssued(tx: Tx, dispatchId: string): Promise<boolean> {
+    return this.deps.stockRepository.ledgerHas(tx, 'dispatch', dispatchId);
+  }
+
   /** Gives held units back. A shortfall here means corrupted counters → throw (roll back). */
   async releaseAllInTx(tx: Tx, moves: readonly StockMove[]): Promise<void> {
     for (const m of sortMoves(moves)) {
@@ -357,6 +434,7 @@ export class StockService {
       op: OperationView,
     ) => Promise<{ ledger: NewLedgerRow[]; status: 'APPLIED' | 'PENDING'; action: string }>,
   ): Promise<OperationResult> {
+    assertInventoryWrites(await this.deps.settingsService.writesMode());
     const userId = staffId(actor);
     const hash = requestHash({ type, ...input });
     const replay = async (): Promise<OperationResult | null> => {

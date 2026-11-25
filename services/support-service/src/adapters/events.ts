@@ -20,6 +20,29 @@ export type EventHandlerMap = Partial<
   Record<string, (event: EventEnvelope, tx: Tx) => Promise<void>>
 >;
 
+/**
+ * One inbox handler per event type: features handling the same event run in order, in the same
+ * inbox transaction (a failure in any of them retries the whole event).
+ */
+export const mergeHandlers = (
+  ...maps: EventHandlerMap[]
+): Record<string, (event: EventEnvelope, tx: Tx) => Promise<void>> => {
+  const merged: Record<string, (event: EventEnvelope, tx: Tx) => Promise<void>> = {};
+  for (const map of maps)
+    for (const [type, handler] of Object.entries(map)) {
+      if (handler === undefined) continue;
+      const previous = merged[type];
+      merged[type] =
+        previous === undefined
+          ? handler
+          : async (event, tx) => {
+              await previous(event, tx);
+              await handler(event, tx);
+            };
+    }
+  return merged;
+};
+
 /** Transactional outbox write (commits with the ticket change, or not at all). */
 export const emitSupportEvent = async <T extends SupportEventType>(
   tx: Tx,
@@ -64,7 +87,7 @@ export class EventsRuntime {
       consumer: SUPPORT_QUEUE,
       runInTransaction,
       claim: claimInboxEvent,
-      handlers: { ...this.cradle.ticketEventHandlers },
+      handlers: mergeHandlers(this.cradle.ticketEventHandlers, this.cradle.companyEventHandlers),
     });
     this.consumer = new RabbitConsumer({
       url: config.RABBITMQ_URL,

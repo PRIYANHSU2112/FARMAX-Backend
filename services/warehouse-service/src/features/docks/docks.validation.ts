@@ -12,6 +12,7 @@ const doorFields = {
   type: Joi.string().valid('UNLOADING', 'LOADING', 'BOTH'),
   vehicleClass: VEHICLE,
   capacityPerDay: Joi.number().positive().max(100_000).precision(2),
+  equipment: Joi.string().valid('STANDARD', 'HOPPER', 'CONVEYOR', 'SCALE', 'WEIGHBRIDGE'),
   capacityUnit: Joi.string().valid('TONNES', 'PALLETS'),
   opensAt: TIME.allow(null),
   closesAt: TIME.allow(null),
