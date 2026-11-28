@@ -1,0 +1,532 @@
+{
+  "run": "1IMWL",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T06:39:36.312Z",
+  "per": 5,
+  "db": {
+    "verified": 10,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "layout": [
+      {
+        "id": "01a220e1-954c-744a-9afb-6d9d85b22dab",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220e1-97c4-7013-9539-b8257a719f44",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220e1-9a3a-770b-98ef-68f07129957d",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220e1-9cb1-7719-9acb-e9e48a66da63",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220e1-9f1b-709f-a8b8-3021734c8505",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/home/layouts",
+          "status": 200,
+          "ms": 695,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/home/layouts?limit=2",
+          "status": 200,
+          "ms": 84,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/home/layouts?limit=101",
+          "status": 422,
+          "ms": 9,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/home/layouts?page=HOME",
+          "status": 200,
+          "ms": 84,
+          "ok": true,
+          "note": "20 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/home/layouts?status=DRAFT",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "20 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 667,
+          "ok": true,
+          "id": "01a220e1-954c-744a-9afb-6d9d85b22dab"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 626,
+          "ok": true,
+          "id": "01a220e1-97c4-7013-9539-b8257a719f44"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 625,
+          "ok": true,
+          "id": "01a220e1-9a3a-770b-98ef-68f07129957d"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 627,
+          "ok": true,
+          "id": "01a220e1-9cb1-7719-9acb-e9e48a66da63"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 616,
+          "ok": true,
+          "id": "01a220e1-9f1b-709f-a8b8-3021734c8505"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-954c-744a-9afb-6d9d85b22dab",
+          "status": 200,
+          "ms": 220,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-97c4-7013-9539-b8257a719f44",
+          "status": 200,
+          "ms": 221,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-9a3a-770b-98ef-68f07129957d",
+          "status": 200,
+          "ms": 213,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-9cb1-7719-9acb-e9e48a66da63",
+          "status": 200,
+          "ms": 214,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-9f1b-709f-a8b8-3021734c8505",
+          "status": 200,
+          "ms": 214,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/home/layouts/{id}",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220e1-954c-744a-9afb-6d9d85b22dab",
+          "status": 200,
+          "ms": 620,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220e1-97c4-7013-9539-b8257a719f44",
+          "status": 200,
+          "ms": 618,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220e1-9a3a-770b-98ef-68f07129957d",
+          "status": 200,
+          "ms": 610,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220e1-9cb1-7719-9acb-e9e48a66da63",
+          "status": 200,
+          "ms": 619,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220e1-9f1b-709f-a8b8-3021734c8505",
+          "status": 200,
+          "ms": 624,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 422,
+          "expect": [401],
+          "ok": false
+        },
+        {
+          "name": "customer token → 403",
+          "status": 422,
+          "expect": [403],
+          "ok": false
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}/history",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-954c-744a-9afb-6d9d85b22dab/history",
+          "status": 200,
+          "ms": 615,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}/preview",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-954c-744a-9afb-6d9d85b22dab/preview",
+          "status": 200,
+          "ms": 704,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/publish",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": "not published: the TEST record has no content (it would blank the live page)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/rollback",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "skip",
+      "skipReason": "state action \"rollback\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/home/layouts/{id}/sections/reorder",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/validate",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220e1-954c-744a-9afb-6d9d85b22dab/validate",
+          "status": 200,
+          "ms": 991,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/media/upload",
+      "service": "media-service",
+      "tag": "Media",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 417,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220e1-8d7a-7e95-8c2f-a9d3c42e7237.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 184,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220e1-8ed9-7719-b46b-24b391a76179.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 199,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220e1-8fac-7dc1-8658-ac32103a2db5.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 177,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220e1-907a-7c8b-8551-6cbfe847d30e.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 168,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220e1-9130-7569-a5aa-de22f9f424a5.webp"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    }
+  ],
+  "mismatches": []
+}

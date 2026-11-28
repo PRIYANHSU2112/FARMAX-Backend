@@ -62,6 +62,12 @@
   `api-gateway/src/features/docs/docs.module.ts`, `infra/docker/compose.stack.yml` (local) **and
   the PRODUCTION `docker-compose.yml`** (service block + `*_SERVICE_URL` in `x-env` + gateway
   `depends_on`). `api-gateway/tests/unit/compose.test.ts` fails until all are done.
+- **Keep Docker files in sync:** any change to `infra/docker/compose.yml` (postgres, redis-cache,
+  redis-queue, rabbitmq: image, version, ports, env, volumes, healthcheck, config files) or to
+  `infra/docker/compose.stack.yml` is made in the **same task** in the root PRODUCTION
+  `docker-compose.yml` (and `docker-compose.prod.yml` if it is affected). Never update one side
+  only. Keep the intended differences: production binds no host ports for internal services and
+  takes secrets from `.env`.
 
 ## Folder structure
 

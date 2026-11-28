@@ -1,0 +1,1187 @@
+{
+  "run": "ZH8YA",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T05:42:32.338Z",
+  "per": 5,
+  "db": {
+    "verified": 40,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "tree": [],
+    "children": [],
+    "bannerplacement": [
+      {
+        "id": "01a220ad-4844-7ec0-be05-a17bb659603d",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220ad-4a1a-7bec-b605-a5d7225db991",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220ad-4bef-7235-ab5b-386ef09812fa",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220ad-4db1-78fc-a687-6e462fbc93b4",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220ad-4f7d-7066-a972-8dfa446b852e",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      }
+    ],
+    "category": [
+      {
+        "id": "01a220ad-4794-7c96-a47a-0497214c2c28",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220ad-4a83-76c6-88b8-ce1962a49416",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220ad-4d42-7715-93b7-b78948d17f6a",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220ad-5001-7b1c-998f-213fb4281435",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220ad-52bf-79d2-b7ae-3426ee7e6641",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      }
+    ],
+    "banner": [
+      {
+        "id": "01a220ad-55ce-7956-a8a4-506da3721d8f",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220ad-57bd-70a4-8c14-23f8737e6c3c",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220ad-598a-7ca3-aba5-3eff7c9bed01",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220ad-5b57-72be-b943-65318c9d8fcc",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220ad-5d46-703e-b04f-6026ee0a6820",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      }
+    ],
+    "brand": [
+      {
+        "id": "01a220ad-47af-7a34-aa84-817c51784668",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220ad-49a0-729d-9e02-1fb9ddb3bfe7",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220ad-4b61-775d-b642-3a4186a49074",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220ad-4d21-790c-acef-62bb0025e36d",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220ad-4ed8-7a56-ab7d-41c8f66b706a",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 200,
+          "ms": 153,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/banner-placements?limit=2",
+          "status": 200,
+          "ms": 90,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/banner-placements?limit=101",
+          "status": 422,
+          "ms": 12,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/banner-placements?q=TEST-AUTO",
+          "status": 200,
+          "ms": 103,
+          "ok": true,
+          "note": "15 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banner-placements",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 704,
+          "ok": true,
+          "id": "01a220ad-4844-7ec0-be05-a17bb659603d"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 468,
+          "ok": true,
+          "id": "01a220ad-4a1a-7bec-b605-a5d7225db991"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 460,
+          "ok": true,
+          "id": "01a220ad-4bef-7235-ab5b-386ef09812fa"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 453,
+          "ok": true,
+          "id": "01a220ad-4db1-78fc-a687-6e462fbc93b4"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220ad-4f7d-7066-a972-8dfa446b852e"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4844-7ec0-be05-a17bb659603d",
+          "status": 200,
+          "ms": 93,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4a1a-7bec-b605-a5d7225db991",
+          "status": 200,
+          "ms": 86,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4bef-7235-ab5b-386ef09812fa",
+          "status": 200,
+          "ms": 104,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4db1-78fc-a687-6e462fbc93b4",
+          "status": 200,
+          "ms": 113,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4f7d-7066-a972-8dfa446b852e",
+          "status": 200,
+          "ms": 98,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4844-7ec0-be05-a17bb659603d",
+          "status": 200,
+          "ms": 482,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4a1a-7bec-b605-a5d7225db991",
+          "status": 200,
+          "ms": 511,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4bef-7235-ab5b-386ef09812fa",
+          "status": 200,
+          "ms": 463,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4db1-78fc-a687-6e462fbc93b4",
+          "status": 200,
+          "ms": 488,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4f7d-7066-a972-8dfa446b852e",
+          "status": 200,
+          "ms": 479,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220ad-4844-7ec0-be05-a17bb659603d/history",
+          "status": 200,
+          "ms": 95,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banner-placements/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "state action \"status\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/banners",
+          "status": 200,
+          "ms": 614,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/banners?limit=2",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/banners?limit=101",
+          "status": 422,
+          "ms": 13,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/banners?q=TEST-AUTO",
+          "status": 200,
+          "ms": 105,
+          "ok": true,
+          "note": "10 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/banners?state=LIVE",
+          "status": 200,
+          "ms": 90,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banners",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 404,
+          "ms": 420,
+          "ok": false,
+          "error": "NOT_FOUND: Banner placement not found",
+          "body": "{\"placementId\":\"a404735a-4c1d-4321-8237-a14a92acf9ed\",\"title\":\"TEST-AUTO Banner 1 ZH8YA\",\"subtitle\":\"Up to 20% off on ND vaccines\",\"imageUrl\":\"https://cdn.farmx.in/banners/winter-sale.webp\",\"mobileImageUrl\":\"https://cdn.farmx.in/banners/winter-sale-m.webp\",\"actionType\":\"NONE\",\"sortOrder\":10,\"isActive\":false,\"startDate\":\"2027-01-28T05:42:36.402Z\",\"endDate\":\"2027-02-27T05:42:36.407Z\",\"reason\":\"Winter campaign hero banner\"}",
+          "unresolvedFk": ["placement", "actionTarget"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 449,
+          "ok": true,
+          "id": "01a220ad-55ce-7956-a8a4-506da3721d8f"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220ad-57bd-70a4-8c14-23f8737e6c3c"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 447,
+          "ok": true,
+          "id": "01a220ad-598a-7ca3-aba5-3eff7c9bed01"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 453,
+          "ok": true,
+          "id": "01a220ad-5b57-72be-b943-65318c9d8fcc"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 443,
+          "ok": true,
+          "id": "01a220ad-5d46-703e-b04f-6026ee0a6820"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-55ce-7956-a8a4-506da3721d8f",
+          "status": 200,
+          "ms": 86,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-57bd-70a4-8c14-23f8737e6c3c",
+          "status": 200,
+          "ms": 103,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-598a-7ca3-aba5-3eff7c9bed01",
+          "status": 200,
+          "ms": 98,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-5b57-72be-b943-65318c9d8fcc",
+          "status": 200,
+          "ms": 109,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-5d46-703e-b04f-6026ee0a6820",
+          "status": 200,
+          "ms": 100,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220ad-55ce-7956-a8a4-506da3721d8f",
+          "status": 200,
+          "ms": 799,
+          "ok": true,
+          "note": "DB banners: 10 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220ad-57bd-70a4-8c14-23f8737e6c3c",
+          "status": 200,
+          "ms": 488,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220ad-598a-7ca3-aba5-3eff7c9bed01",
+          "status": 200,
+          "ms": 472,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220ad-5b57-72be-b943-65318c9d8fcc",
+          "status": 200,
+          "ms": 449,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220ad-5d46-703e-b04f-6026ee0a6820",
+          "status": 200,
+          "ms": 439,
+          "ok": true,
+          "note": "DB banners: 10 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220ad-55ce-7956-a8a4-506da3721d8f/history",
+          "status": 200,
+          "ms": 97,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banners/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "state action \"status\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banners/reorder",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/brands",
+          "status": 200,
+          "ms": 618,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/brands?limit=2",
+          "status": 200,
+          "ms": 98,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/brands?limit=101",
+          "status": 422,
+          "ms": 15,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/brands?q=TEST-AUTO",
+          "status": 200,
+          "ms": 101,
+          "ok": true,
+          "note": "15 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/brands",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 584,
+          "ok": true,
+          "id": "01a220ad-47af-7a34-aa84-817c51784668"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220ad-49a0-729d-9e02-1fb9ddb3bfe7"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 450,
+          "ok": true,
+          "id": "01a220ad-4b61-775d-b642-3a4186a49074"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 445,
+          "ok": true,
+          "id": "01a220ad-4d21-790c-acef-62bb0025e36d"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 441,
+          "ok": true,
+          "id": "01a220ad-4ed8-7a56-ab7d-41c8f66b706a"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-47af-7a34-aa84-817c51784668",
+          "status": 200,
+          "ms": 100,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-49a0-729d-9e02-1fb9ddb3bfe7",
+          "status": 200,
+          "ms": 94,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-4b61-775d-b642-3a4186a49074",
+          "status": 200,
+          "ms": 96,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-4d21-790c-acef-62bb0025e36d",
+          "status": 200,
+          "ms": 117,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-4ed8-7a56-ab7d-41c8f66b706a",
+          "status": 200,
+          "ms": 526,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220ad-47af-7a34-aa84-817c51784668",
+          "status": 200,
+          "ms": 651,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220ad-49a0-729d-9e02-1fb9ddb3bfe7",
+          "status": 200,
+          "ms": 647,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220ad-4b61-775d-b642-3a4186a49074",
+          "status": 200,
+          "ms": 598,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220ad-4d21-790c-acef-62bb0025e36d",
+          "status": 200,
+          "ms": 576,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220ad-4ed8-7a56-ab7d-41c8f66b706a",
+          "status": 200,
+          "ms": 588,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220ad-47af-7a34-aa84-817c51784668/history",
+          "status": 200,
+          "ms": 580,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/brands/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "skip",
+      "skipReason": "state action \"status\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/categories",
+          "status": 200,
+          "ms": 602,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/categories?limit=2",
+          "status": 200,
+          "ms": 101,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/categories?limit=101",
+          "status": 422,
+          "ms": 13,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/categories?q=TEST-AUTO",
+          "status": 200,
+          "ms": 109,
+          "ok": true,
+          "note": "10 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 712,
+          "ok": true,
+          "id": "01a220ad-4794-7c96-a47a-0497214c2c28"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 715,
+          "ok": true,
+          "id": "01a220ad-4a83-76c6-88b8-ce1962a49416"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 703,
+          "ok": true,
+          "id": "01a220ad-4d42-7715-93b7-b78948d17f6a"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 700,
+          "ok": true,
+          "id": "01a220ad-5001-7b1c-998f-213fb4281435"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 719,
+          "ok": true,
+          "id": "01a220ad-52bf-79d2-b7ae-3426ee7e6641"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-4794-7c96-a47a-0497214c2c28",
+          "status": 200,
+          "ms": 161,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-4a83-76c6-88b8-ce1962a49416",
+          "status": 200,
+          "ms": 182,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-4d42-7715-93b7-b78948d17f6a",
+          "status": 200,
+          "ms": 165,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-5001-7b1c-998f-213fb4281435",
+          "status": 200,
+          "ms": 158,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-52bf-79d2-b7ae-3426ee7e6641",
+          "status": 200,
+          "ms": 156,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220ad-4794-7c96-a47a-0497214c2c28",
+          "status": 200,
+          "ms": 767,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220ad-4a83-76c6-88b8-ce1962a49416",
+          "status": 200,
+          "ms": 659,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220ad-4d42-7715-93b7-b78948d17f6a",
+          "status": 200,
+          "ms": 686,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220ad-5001-7b1c-998f-213fb4281435",
+          "status": 200,
+          "ms": 681,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220ad-52bf-79d2-b7ae-3426ee7e6641",
+          "status": 200,
+          "ms": 728,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220ad-4794-7c96-a47a-0497214c2c28/history",
+          "status": 200,
+          "ms": 95,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories/{id}/move",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "state action \"move\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories/reorder",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/tree",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/categories/tree",
+          "status": 200,
+          "ms": 87,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    }
+  ],
+  "mismatches": []
+}

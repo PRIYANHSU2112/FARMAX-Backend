@@ -403,6 +403,102 @@ const metaEx = {
   ttlSeconds: 30,
 };
 
+const FUTURE = '⏳ Future: always null for now';
+const deepLink = Joi.string().example('farmx://category/feed');
+const categoriesPage = Joi.object({
+  categories: Joi.array().items(
+    Joi.object({
+      id: Joi.string().guid(),
+      name: Joi.string(),
+      slug: Joi.string(),
+      imageUrl: Joi.string().uri().allow(null),
+      subtitle: Joi.string().allow(null).description(FUTURE),
+      badge: Joi.string().allow(null).description(`e.g. "Coming Soon". ${FUTURE}`),
+      deepLink,
+    }).meta({ className: 'HomeCategoryCard' }),
+  ),
+  flock: Joi.object({
+    stages: Joi.array().items(
+      Joi.object({ code: Joi.string(), label: Joi.string(), deepLink }).meta({
+        className: 'HomeFlockStageChip',
+      }),
+    ),
+    currentStage: Joi.string().allow(null).description(FUTURE),
+    shedLabel: Joi.string().allow(null).description(FUTURE),
+    ageWeeks: Joi.number().integer().allow(null).description(FUTURE),
+    birdCount: Joi.number()
+      .integer()
+      .allow(null)
+      .description('Bird capacity of the farmer’s farm; null for guests'),
+    productsForStage: Joi.number().integer().allow(null).description(FUTURE),
+  }).meta({ className: 'HomeFlock' }),
+  problems: Joi.array().items(
+    Joi.object({
+      id: Joi.string().guid(),
+      name: Joi.string(),
+      slug: Joi.string(),
+      iconUrl: Joi.string().uri().allow(null),
+      productCount: Joi.number().integer(),
+      deepLink,
+    }).meta({ className: 'HomeProblemCard' }),
+  ),
+  makers: Joi.array().items(
+    Joi.object({
+      id: Joi.string().guid(),
+      name: Joi.string(),
+      slug: Joi.string(),
+      logoUrl: Joi.string().uri().allow(null),
+      initials: Joi.string().description('Avatar text when there is no logo'),
+      deepLink,
+    }).meta({ className: 'HomeMaker' }),
+  ),
+}).meta({ className: 'HomeCategoriesPage' });
+
+const categoriesPageEx = {
+  categories: [
+    {
+      id: IDS.product,
+      name: 'Feed',
+      slug: 'feed',
+      imageUrl: 'https://cdn.farmx.in/categories/feed.png',
+      subtitle: null,
+      badge: null,
+      deepLink: 'farmx://category/feed',
+    },
+  ],
+  flock: {
+    stages: [
+      { code: 'BROODER', label: 'Brooding', deepLink: 'farmx://products?flockStage=BROODER' },
+      { code: 'PRE_LAYER', label: 'Pre-lay', deepLink: 'farmx://products?flockStage=PRE_LAYER' },
+    ],
+    currentStage: null,
+    shedLabel: null,
+    ageWeeks: null,
+    birdCount: 18500,
+    productsForStage: null,
+  },
+  problems: [
+    {
+      id: IDS.product,
+      name: 'Respiratory',
+      slug: 'respiratory',
+      iconUrl: 'https://cdn.farmx.in/icons/respiratory.png',
+      productCount: 14,
+      deepLink: 'farmx://products?diseaseSlug=respiratory',
+    },
+  ],
+  makers: [
+    {
+      id: IDS.product,
+      name: 'Godavari Bio',
+      slug: 'godavari-bio',
+      logoUrl: null,
+      initials: 'GB',
+      deepLink: `farmx://products?brandId=${IDS.product}`,
+    },
+  ],
+};
+
 const pub = (extra: Omit<RouteDocs, 'tag' | 'auth' | 'public'>): RouteDocs => ({
   tag: HOME_TAG,
   auth: AUTH_OPTIONAL,
@@ -475,6 +571,22 @@ export const HOME_DOCS = {
       headers: ETAG_OUT,
     },
     errors: [422, 503],
+  }),
+  categoriesPage: pub({
+    operationId: 'getHomeCategoriesPage',
+    summary: 'All Categories screen (one call)',
+    description:
+      'Fixed-shape data for the Categories page: root categories (catalog), flock-stage chips (FLOCK_STAGE lookups) with the farmer’s bird count, Shop by Problem (diseases with ≥1 product, max 12) and Verified makers (featured brands, max 9). The four shared parts load in parallel from short caches (60 s, stale copy 10 min); a part that fails or misses the 350 ms budget comes back empty and is named in `meta.degraded` (still 200). ⏳ Future (always null for now): category `subtitle` / `badge` ("Coming Soon"), `flock.currentStage` / `shedLabel` / `ageWeeks` / `productsForStage`. The cart badge is not here (order-service cart).',
+    rateLimit: LAYOUT_RATE,
+    headers: CLIENT_HEADERS,
+    success: {
+      status: 200,
+      description: 'Categories page (304 when `If-None-Match` matches)',
+      data: categoriesPage,
+      meta: homeMeta,
+      example: ok(categoriesPageEx, { ...metaEx, ttlSeconds: 60 }),
+      headers: ETAG_OUT,
+    },
   }),
   sectionsBatch: pub({
     operationId: 'getHomeSectionsBatch',

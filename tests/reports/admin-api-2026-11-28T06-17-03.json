@@ -1,0 +1,4910 @@
+{
+  "run": "0PN4A",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T06:17:03.564Z",
+  "per": 5,
+  "db": {
+    "verified": 111,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "tree": [],
+    "children": [],
+    "bannerplacement": [
+      {
+        "id": "01a220cd-0e34-73e4-8f99-f4cfc9f75355",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220cd-0fde-7c3a-8fe4-afee0f0585d0",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220cd-1184-7bb8-ad58-1263cf428b3e",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220cd-1361-7644-bf52-a2cd99de576b",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      },
+      {
+        "id": "01a220cd-1528-79d5-9a5e-059b16c2978e",
+        "table": "banner_placements",
+        "op": "POST /v1/admin/catalog/banner-placements"
+      }
+    ],
+    "disease": [
+      {
+        "id": "01a220cd-1559-71e9-8a2b-88c405ccba7d",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220cd-171d-76cd-9f4f-30450705153f",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220cd-18c6-706f-8879-f56e8e4f3b99",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220cd-1a88-77c5-944b-d189de124942",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220cd-1c36-717f-968f-9baf31322bd1",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      }
+    ],
+    "product": [
+      {
+        "id": "01a220cd-211c-7818-a815-b30d716fc051",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products"
+      },
+      {
+        "id": "01a220cd-2f31-71f7-b17d-d0f9b472d887",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products"
+      },
+      {
+        "id": "01a220cd-440a-787f-b3c3-027748583194",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products"
+      },
+      {
+        "id": "01a220cd-4fb3-7265-b8c7-e12837476eac",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products"
+      },
+      {
+        "id": "01a220cd-641c-7d4f-951d-83f010bc4695",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products"
+      }
+    ],
+    "banner": [
+      {
+        "id": "01a220cd-1b09-71eb-b37e-08c389df9e7f",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220cd-1cf1-7f34-ad29-12e434c4b5ed",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220cd-1eba-7104-9a5c-38f0724479a2",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220cd-2083-7c84-b42f-477fb5ab65c2",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      },
+      {
+        "id": "01a220cd-2269-7e52-ac6f-8a3914cfe38f",
+        "table": "banners",
+        "op": "POST /v1/admin/catalog/banners"
+      }
+    ],
+    "category": [
+      {
+        "id": "01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220cd-10e2-7ce1-9680-7bd978b00d1e",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220cd-1389-7391-b640-977d4d124430",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220cd-160a-7824-a431-820aa5c4020c",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      },
+      {
+        "id": "01a220cd-1893-7253-9895-f15303386996",
+        "table": "categories",
+        "op": "POST /v1/admin/catalog/categories"
+      }
+    ],
+    "brand": [
+      {
+        "id": "01a220cd-0e48-73c3-bc27-cac398e5f689",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220cd-101d-7c61-ab68-265845656db7",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220cd-11c9-7abc-a142-2477698d407f",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220cd-138b-789e-a8e7-03861154045f",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      },
+      {
+        "id": "01a220cd-1536-715a-98cc-3f99d7350f34",
+        "table": "brands",
+        "op": "POST /v1/admin/catalog/brands"
+      }
+    ],
+    "lookup": [
+      {
+        "id": "01a220cd-0df5-712f-99ef-e7133561b74c",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220cd-0f73-7410-87e5-1359e7b4adef",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220cd-10e2-77e8-b332-bbc74ac91dee",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220cd-124d-772c-a935-45689fb2e0e2",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220cd-13af-72ba-b5b2-4913e8e1887e",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "dosageform": [
+      {
+        "id": "01a220cd-0df5-712f-99ef-e7133561b74c",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "route": [
+      {
+        "id": "01a220cd-0f73-7410-87e5-1359e7b4adef",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "specy": [
+      {
+        "id": "01a220cd-10e2-77e8-b332-bbc74ac91dee",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "unit": [
+      {
+        "id": "01a220cd-124d-772c-a935-45689fb2e0e2",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "flockstage": [
+      {
+        "id": "01a220cd-13af-72ba-b5b2-4913e8e1887e",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "layout": [
+      {
+        "id": "01a220cd-170e-753b-9153-3f9865d2da1e",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220cd-1973-7392-9e01-06bd853d427a",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220cd-1bf3-71cd-a3d2-a0b7fac322bd",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220cd-1e64-726c-978e-7df6c5a6c74e",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      },
+      {
+        "id": "01a220cd-20d4-77c8-9083-4f4f3fdbf384",
+        "table": "home_configurations",
+        "op": "POST /v1/admin/home/layouts"
+      }
+    ],
+    "address": [
+      {
+        "id": "01a220a0-a79d-7c09-85bc-79119cbc9e15",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8569-719f-847a-7cac39f44888",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-ef42-715d-b608-77c69a7736cf",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-57bd-73ba-8d63-f759778586d4",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220a0-a999-79a6-a876-3bc38cff6039",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8859-71e4-97de-fdb0b2a87218",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f269-7e65-9ad2-7fb5a93dd186",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-599d-7d41-a0b8-6e5ecb21350c",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220a0-ab85-7e74-baf5-cc1e048ccb53",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8be0-77e7-8324-e614568bbb02",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f477-7ebf-8544-3b131c562493",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5b4f-75ac-9724-d26fc91fcf33",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220a0-ad9a-7aa8-b0bf-292b91470da9",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8f17-7e21-a4e8-330ecd2b4e04",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f694-73dd-b97a-d15c833b5acc",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5cfa-7e5c-8784-bd1845b42742",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220a0-af99-74ef-9bc5-ab57fa10600c",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-9240-7a7d-af41-5ee122da66ef",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f89a-74c5-b9ce-b5e750e3efec",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5eb5-7bec-929d-bc1e7f9c1f37",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f573-7fc4-a0bb-523db42d32a4",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f783-777f-b225-75a821d2c044",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f963-77a2-b163-e367d9da3c03",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-fb52-743a-bab1-e0528be9decd",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-fd3e-70b9-ac4e-ffeb01389b81",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "home": [
+      {
+        "id": "01a220a0-a79d-7c09-85bc-79119cbc9e15",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8569-719f-847a-7cac39f44888",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-ef42-715d-b608-77c69a7736cf",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-57bd-73ba-8d63-f759778586d4",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f573-7fc4-a0bb-523db42d32a4",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "farm": [
+      {
+        "id": "01a220a0-a999-79a6-a876-3bc38cff6039",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8859-71e4-97de-fdb0b2a87218",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f269-7e65-9ad2-7fb5a93dd186",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-599d-7d41-a0b8-6e5ecb21350c",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f783-777f-b225-75a821d2c044",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "warehouse": [
+      {
+        "id": "01a220a0-ab85-7e74-baf5-cc1e048ccb53",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8be0-77e7-8324-e614568bbb02",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f477-7ebf-8544-3b131c562493",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5b4f-75ac-9724-d26fc91fcf33",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-f963-77a2-b163-e367d9da3c03",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "office": [
+      {
+        "id": "01a220a0-ad9a-7aa8-b0bf-292b91470da9",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-8f17-7e21-a4e8-330ecd2b4e04",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f694-73dd-b97a-d15c833b5acc",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5cfa-7e5c-8784-bd1845b42742",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-fb52-743a-bab1-e0528be9decd",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "other": [
+      {
+        "id": "01a220a0-af99-74ef-9bc5-ab57fa10600c",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22097-9240-7a7d-af41-5ee122da66ef",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22096-f89a-74c5-b9ce-b5e750e3efec",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a22095-5eb5-7bec-929d-bc1e7f9c1f37",
+        "op": "GET /v1/me/addresses"
+      },
+      {
+        "id": "01a220cc-fd3e-70b9-ac4e-ffeb01389b81",
+        "table": "user_addresses",
+        "op": "POST /v1/me/addresses"
+      }
+    ],
+    "wishlist": [
+      {
+        "id": "01a220cd-0324-7665-8a60-053f8293536c",
+        "table": "wishlist_items",
+        "op": "POST /v1/me/wishlist"
+      },
+      {
+        "id": "01a220cd-05a1-77e0-931b-3e702728f82a",
+        "table": "wishlist_items",
+        "op": "POST /v1/me/wishlist"
+      },
+      {
+        "id": "01a220cd-0823-7a43-af82-0d30321a111c",
+        "table": "wishlist_items",
+        "op": "POST /v1/me/wishlist"
+      },
+      {
+        "id": "01a220cd-0aaf-781e-ad27-bae67b4814d7",
+        "table": "wishlist_items",
+        "op": "POST /v1/me/wishlist"
+      },
+      {
+        "id": "01a220cd-0c53-7ff5-98ca-40db3da180aa",
+        "table": "wishlist_items",
+        "op": "POST /v1/me/wishlist"
+      }
+    ],
+    "productattribute": [
+      {
+        "id": "01a220cd-173a-7117-aa64-ec6e6ec5eacd",
+        "table": "category_attributes",
+        "op": "POST /v1/admin/catalog/product-attributes"
+      },
+      {
+        "id": "01a220cd-1908-71ca-a96d-9babdf3a422c",
+        "table": "category_attributes",
+        "op": "POST /v1/admin/catalog/product-attributes"
+      },
+      {
+        "id": "01a220cd-1af2-731f-893f-8cc9d37ba3dc",
+        "table": "category_attributes",
+        "op": "POST /v1/admin/catalog/product-attributes"
+      },
+      {
+        "id": "01a220cd-1cad-7339-949e-22c8e298e6e4",
+        "table": "category_attributes",
+        "op": "POST /v1/admin/catalog/product-attributes"
+      },
+      {
+        "id": "01a220cd-1e6b-735f-88f1-e4fca2b03423",
+        "table": "category_attributes",
+        "op": "POST /v1/admin/catalog/product-attributes"
+      }
+    ],
+    "variant": [
+      {
+        "id": "01a220cd-211c-7818-a815-b30d716fc051",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products/{id}/variants"
+      },
+      {
+        "id": "01a220cd-2f31-71f7-b17d-d0f9b472d887",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products/{id}/variants"
+      },
+      {
+        "id": "01a220cd-440a-787f-b3c3-027748583194",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products/{id}/variants"
+      },
+      {
+        "id": "01a220cd-4fb3-7265-b8c7-e12837476eac",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products/{id}/variants"
+      },
+      {
+        "id": "01a220cd-641c-7d4f-951d-83f010bc4695",
+        "table": "products",
+        "op": "POST /v1/admin/catalog/products/{id}/variants"
+      }
+    ],
+    "media": [
+      {
+        "id": "01a220cd-7e4e-76d3-a3cf-38ce392b4b99",
+        "table": "product_media",
+        "op": "POST /v1/admin/catalog/products/{id}/media"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 200,
+          "ms": 106,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/banner-placements?limit=2",
+          "status": 200,
+          "ms": 103,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/banner-placements?limit=101",
+          "status": 422,
+          "ms": 11,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/banner-placements?q=TEST-AUTO",
+          "status": 200,
+          "ms": 104,
+          "ok": true,
+          "note": "20 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banner-placements",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 447,
+          "ok": true,
+          "id": "01a220cd-0e34-73e4-8f99-f4cfc9f75355"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 423,
+          "ok": true,
+          "id": "01a220cd-0fde-7c3a-8fe4-afee0f0585d0"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 456,
+          "ok": true,
+          "id": "01a220cd-1184-7bb8-ad58-1263cf428b3e"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 458,
+          "ok": true,
+          "id": "01a220cd-1361-7644-bf52-a2cd99de576b"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banner-placements",
+          "status": 201,
+          "ms": 462,
+          "ok": true,
+          "id": "01a220cd-1528-79d5-9a5e-059b16c2978e"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0e34-73e4-8f99-f4cfc9f75355",
+          "status": 200,
+          "ms": 500,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0fde-7c3a-8fe4-afee0f0585d0",
+          "status": 200,
+          "ms": 81,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1184-7bb8-ad58-1263cf428b3e",
+          "status": 200,
+          "ms": 80,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1361-7644-bf52-a2cd99de576b",
+          "status": 200,
+          "ms": 79,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1528-79d5-9a5e-059b16c2978e",
+          "status": 200,
+          "ms": 78,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0e34-73e4-8f99-f4cfc9f75355",
+          "status": 200,
+          "ms": 722,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0fde-7c3a-8fe4-afee0f0585d0",
+          "status": 200,
+          "ms": 425,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1184-7bb8-ad58-1263cf428b3e",
+          "status": 200,
+          "ms": 453,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1361-7644-bf52-a2cd99de576b",
+          "status": 200,
+          "ms": 469,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1528-79d5-9a5e-059b16c2978e",
+          "status": 200,
+          "ms": 418,
+          "ok": true,
+          "note": "DB banner_placements: 7 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/banner-placements/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banner-placements/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0e34-73e4-8f99-f4cfc9f75355/history",
+          "status": 200,
+          "ms": 530,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banner-placements/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0e34-73e4-8f99-f4cfc9f75355/status",
+          "status": 200,
+          "ms": 312,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-0fde-7c3a-8fe4-afee0f0585d0/status",
+          "status": 200,
+          "ms": 307,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1184-7bb8-ad58-1263cf428b3e/status",
+          "status": 200,
+          "ms": 285,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1361-7644-bf52-a2cd99de576b/status",
+          "status": 200,
+          "ms": 303,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banner-placements/01a220cd-1528-79d5-9a5e-059b16c2978e/status",
+          "status": 200,
+          "ms": 321,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/banners",
+          "status": 200,
+          "ms": 559,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/banners?limit=2",
+          "status": 200,
+          "ms": 111,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/banners?limit=101",
+          "status": 422,
+          "ms": 14,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/banners?q=TEST-AUTO",
+          "status": 200,
+          "ms": 113,
+          "ok": true,
+          "note": "20 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/banners?state=LIVE",
+          "status": 200,
+          "ms": 91,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banners",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 483,
+          "ok": true,
+          "id": "01a220cd-1b09-71eb-b37e-08c389df9e7f"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 458,
+          "ok": true,
+          "id": "01a220cd-1cf1-7f34-ad29-12e434c4b5ed"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220cd-1eba-7104-9a5c-38f0724479a2"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 428,
+          "ok": true,
+          "id": "01a220cd-2083-7c84-b42f-477fb5ab65c2"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/banners",
+          "status": 201,
+          "ms": 429,
+          "ok": true,
+          "id": "01a220cd-2269-7e52-ac6f-8a3914cfe38f"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-1b09-71eb-b37e-08c389df9e7f",
+          "status": 200,
+          "ms": 502,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-1cf1-7f34-ad29-12e434c4b5ed",
+          "status": 200,
+          "ms": 80,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-1eba-7104-9a5c-38f0724479a2",
+          "status": 200,
+          "ms": 79,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-2083-7c84-b42f-477fb5ab65c2",
+          "status": 200,
+          "ms": 85,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-2269-7e52-ac6f-8a3914cfe38f",
+          "status": 200,
+          "ms": 82,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220cd-1b09-71eb-b37e-08c389df9e7f",
+          "status": 200,
+          "ms": 446,
+          "ok": true,
+          "note": "DB banners: 10 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220cd-1cf1-7f34-ad29-12e434c4b5ed",
+          "status": 200,
+          "ms": 417,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220cd-1eba-7104-9a5c-38f0724479a2",
+          "status": 200,
+          "ms": 433,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220cd-2083-7c84-b42f-477fb5ab65c2",
+          "status": 200,
+          "ms": 435,
+          "ok": true,
+          "note": "DB banners: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/banners/01a220cd-2269-7e52-ac6f-8a3914cfe38f",
+          "status": 200,
+          "ms": 403,
+          "ok": true,
+          "note": "DB banners: 1 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/banners/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/banners/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/banners/01a220cd-1b09-71eb-b37e-08c389df9e7f/history",
+          "status": 200,
+          "ms": 518,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/banners/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banners/01a220cd-1b09-71eb-b37e-08c389df9e7f/status",
+          "status": 200,
+          "ms": 752,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banners/01a220cd-1cf1-7f34-ad29-12e434c4b5ed/status",
+          "status": 200,
+          "ms": 285,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banners/01a220cd-1eba-7104-9a5c-38f0724479a2/status",
+          "status": 200,
+          "ms": 295,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banners/01a220cd-2083-7c84-b42f-477fb5ab65c2/status",
+          "status": 200,
+          "ms": 333,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/banners/01a220cd-2269-7e52-ac6f-8a3914cfe38f/status",
+          "status": 200,
+          "ms": 306,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/banners/reorder",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Banners",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/brands",
+          "status": 200,
+          "ms": 572,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/brands?limit=2",
+          "status": 200,
+          "ms": 114,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/brands?limit=101",
+          "status": 422,
+          "ms": 18,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/brands?q=TEST-AUTO",
+          "status": 200,
+          "ms": 109,
+          "ok": true,
+          "note": "20 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/brands",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 503,
+          "ok": true,
+          "id": "01a220cd-0e48-73c3-bc27-cac398e5f689"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 430,
+          "ok": true,
+          "id": "01a220cd-101d-7c61-ab68-265845656db7"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 446,
+          "ok": true,
+          "id": "01a220cd-11c9-7abc-a142-2477698d407f"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 436,
+          "ok": true,
+          "id": "01a220cd-138b-789e-a8e7-03861154045f"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/brands",
+          "status": 201,
+          "ms": 465,
+          "ok": true,
+          "id": "01a220cd-1536-715a-98cc-3f99d7350f34"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-0e48-73c3-bc27-cac398e5f689",
+          "status": 200,
+          "ms": 539,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-101d-7c61-ab68-265845656db7",
+          "status": 200,
+          "ms": 83,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-11c9-7abc-a142-2477698d407f",
+          "status": 200,
+          "ms": 78,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-138b-789e-a8e7-03861154045f",
+          "status": 200,
+          "ms": 84,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-1536-715a-98cc-3f99d7350f34",
+          "status": 200,
+          "ms": 82,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220cd-0e48-73c3-bc27-cac398e5f689",
+          "status": 200,
+          "ms": 605,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220cd-101d-7c61-ab68-265845656db7",
+          "status": 200,
+          "ms": 560,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220cd-11c9-7abc-a142-2477698d407f",
+          "status": 200,
+          "ms": 572,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220cd-138b-789e-a8e7-03861154045f",
+          "status": 200,
+          "ms": 555,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/brands/01a220cd-1536-715a-98cc-3f99d7350f34",
+          "status": 200,
+          "ms": 563,
+          "ok": true,
+          "note": "DB brands: 11 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/brands/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/brands/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/brands/01a220cd-0e48-73c3-bc27-cac398e5f689/history",
+          "status": 200,
+          "ms": 524,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/brands/{id}/status",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Brands",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/brands/01a220cd-0e48-73c3-bc27-cac398e5f689/status",
+          "status": 200,
+          "ms": 891,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/brands/01a220cd-101d-7c61-ab68-265845656db7/status",
+          "status": 200,
+          "ms": 292,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/brands/01a220cd-11c9-7abc-a142-2477698d407f/status",
+          "status": 200,
+          "ms": 495,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/brands/01a220cd-138b-789e-a8e7-03861154045f/status",
+          "status": 200,
+          "ms": 315,
+          "ok": true
+        },
+        {
+          "phase": "F enable status",
+          "url": "/v1/admin/catalog/brands/01a220cd-1536-715a-98cc-3f99d7350f34/status",
+          "status": 200,
+          "ms": 439,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/categories",
+          "status": 200,
+          "ms": 562,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/categories?limit=2",
+          "status": 200,
+          "ms": 115,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/categories?limit=101",
+          "status": 422,
+          "ms": 16,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/categories?q=TEST-AUTO",
+          "status": 200,
+          "ms": 112,
+          "ok": true,
+          "note": "20 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 611,
+          "ok": true,
+          "id": "01a220cd-0e37-7bc5-b0b6-f8c09c1b0737"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 701,
+          "ok": true,
+          "id": "01a220cd-10e2-7ce1-9680-7bd978b00d1e"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 641,
+          "ok": true,
+          "id": "01a220cd-1389-7391-b640-977d4d124430"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 651,
+          "ok": true,
+          "id": "01a220cd-160a-7824-a431-820aa5c4020c"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/categories",
+          "status": 201,
+          "ms": 666,
+          "ok": true,
+          "id": "01a220cd-1893-7253-9895-f15303386996"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+          "status": 200,
+          "ms": 165,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-10e2-7ce1-9680-7bd978b00d1e",
+          "status": 200,
+          "ms": 149,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-1389-7391-b640-977d4d124430",
+          "status": 200,
+          "ms": 151,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-160a-7824-a431-820aa5c4020c",
+          "status": 200,
+          "ms": 154,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-1893-7253-9895-f15303386996",
+          "status": 200,
+          "ms": 148,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+          "status": 200,
+          "ms": 711,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220cd-10e2-7ce1-9680-7bd978b00d1e",
+          "status": 200,
+          "ms": 649,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220cd-1389-7391-b640-977d4d124430",
+          "status": 200,
+          "ms": 618,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220cd-160a-7824-a431-820aa5c4020c",
+          "status": 200,
+          "ms": 647,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/categories/01a220cd-1893-7253-9895-f15303386996",
+          "status": 200,
+          "ms": 656,
+          "ok": true,
+          "note": "DB categories: 7 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/categories/{id}",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/{id}/history",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/categories/01a220cd-0e37-7bc5-b0b6-f8c09c1b0737/history",
+          "status": 200,
+          "ms": 94,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories/{id}/move",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "state action \"move\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/categories/reorder",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/categories/tree",
+      "service": "catalog-service",
+      "tag": "Admin · Catalog Categories",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/categories/tree",
+          "status": 200,
+          "ms": 69,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+          "status": 200,
+          "ms": 100,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-10e2-7ce1-9680-7bd978b00d1e",
+          "status": 200,
+          "ms": 87,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-1389-7391-b640-977d4d124430",
+          "status": 200,
+          "ms": 82,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-160a-7824-a431-820aa5c4020c",
+          "status": 200,
+          "ms": 82,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-1893-7253-9895-f15303386996",
+          "status": 200,
+          "ms": 81,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+          "status": 200,
+          "ms": 427,
+          "ok": true,
+          "note": "DB categories: 0 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-10e2-7ce1-9680-7bd978b00d1e",
+          "status": 200,
+          "ms": 427,
+          "ok": true,
+          "note": "DB categories: 0 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-1389-7391-b640-977d4d124430",
+          "status": 200,
+          "ms": 453,
+          "ok": true,
+          "note": "DB categories: 0 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-160a-7824-a431-820aa5c4020c",
+          "status": 200,
+          "ms": 429,
+          "ok": true,
+          "note": "DB categories: 0 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/compliance-profiles/01a220cd-1893-7253-9895-f15303386996",
+          "status": 200,
+          "ms": 430,
+          "ok": true,
+          "note": "DB categories: 0 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/diseases",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 200,
+          "ms": 115,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/diseases?q=TEST-AUTO",
+          "status": 200,
+          "ms": 132,
+          "ok": true,
+          "note": "20 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/diseases",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 438,
+          "ok": true,
+          "id": "01a220cd-1559-71e9-8a2b-88c405ccba7d"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 443,
+          "ok": true,
+          "id": "01a220cd-171d-76cd-9f4f-30450705153f"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 425,
+          "ok": true,
+          "id": "01a220cd-18c6-706f-8879-f56e8e4f3b99"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 444,
+          "ok": true,
+          "id": "01a220cd-1a88-77c5-944b-d189de124942"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 429,
+          "ok": true,
+          "id": "01a220cd-1c36-717f-968f-9baf31322bd1"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1559-71e9-8a2b-88c405ccba7d",
+          "status": 200,
+          "ms": 85,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220cd-171d-76cd-9f4f-30450705153f",
+          "status": 200,
+          "ms": 90,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220cd-18c6-706f-8879-f56e8e4f3b99",
+          "status": 200,
+          "ms": 85,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1a88-77c5-944b-d189de124942",
+          "status": 200,
+          "ms": 80,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1c36-717f-968f-9baf31322bd1",
+          "status": 200,
+          "ms": 84,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1559-71e9-8a2b-88c405ccba7d",
+          "status": 200,
+          "ms": 648,
+          "ok": true,
+          "note": "DB diseases: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220cd-171d-76cd-9f4f-30450705153f",
+          "status": 200,
+          "ms": 655,
+          "ok": true,
+          "note": "DB diseases: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220cd-18c6-706f-8879-f56e8e4f3b99",
+          "status": 200,
+          "ms": 683,
+          "ok": true,
+          "note": "DB diseases: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1a88-77c5-944b-d189de124942",
+          "status": 200,
+          "ms": 646,
+          "ok": true,
+          "note": "DB diseases: 7 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220cd-1c36-717f-968f-9baf31322bd1",
+          "status": 200,
+          "ms": 617,
+          "ok": true,
+          "note": "DB diseases: 7 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/lookups",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 200,
+          "ms": 579,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/lookups?q=TEST-AUTO",
+          "status": 200,
+          "ms": 118,
+          "ok": true,
+          "note": "20 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/lookups?group=DOSAGE_FORM",
+          "status": 200,
+          "ms": 96,
+          "ok": true,
+          "note": "15 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/lookups",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 402,
+          "ok": true,
+          "id": "01a220cd-0df5-712f-99ef-e7133561b74c"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 367,
+          "ok": true,
+          "id": "01a220cd-0f73-7410-87e5-1359e7b4adef"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 364,
+          "ok": true,
+          "id": "01a220cd-10e2-77e8-b332-bbc74ac91dee"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 359,
+          "ok": true,
+          "id": "01a220cd-124d-772c-a935-45689fb2e0e2"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 354,
+          "ok": true,
+          "id": "01a220cd-13af-72ba-b5b2-4913e8e1887e"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220cd-0df5-712f-99ef-e7133561b74c",
+          "status": 200,
+          "ms": 83,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220cd-0f73-7410-87e5-1359e7b4adef",
+          "status": 200,
+          "ms": 80,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220cd-10e2-77e8-b332-bbc74ac91dee",
+          "status": 200,
+          "ms": 118,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220cd-124d-772c-a935-45689fb2e0e2",
+          "status": 200,
+          "ms": 145,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220cd-13af-72ba-b5b2-4913e8e1887e",
+          "status": 200,
+          "ms": 121,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220cd-0df5-712f-99ef-e7133561b74c",
+          "status": 200,
+          "ms": 366,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220cd-0f73-7410-87e5-1359e7b4adef",
+          "status": 200,
+          "ms": 366,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220cd-10e2-77e8-b332-bbc74ac91dee",
+          "status": 200,
+          "ms": 362,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220cd-124d-772c-a935-45689fb2e0e2",
+          "status": 200,
+          "ms": 386,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220cd-13af-72ba-b5b2-4913e8e1887e",
+          "status": 200,
+          "ms": 357,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/product-attributes",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/product-attributes?categoryId=01a220cd-0e37-7bc5-b0b6-f8c09c1b0737",
+          "status": 200,
+          "ms": 81,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/product-attributes",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 201,
+          "ms": 449,
+          "ok": true,
+          "id": "01a220cd-173a-7117-aa64-ec6e6ec5eacd"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 201,
+          "ms": 431,
+          "ok": true,
+          "id": "01a220cd-1908-71ca-a96d-9babdf3a422c"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 201,
+          "ms": 463,
+          "ok": true,
+          "id": "01a220cd-1af2-731f-893f-8cc9d37ba3dc"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 201,
+          "ms": 441,
+          "ok": true,
+          "id": "01a220cd-1cad-7339-949e-22c8e298e6e4"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 201,
+          "ms": 454,
+          "ok": true,
+          "id": "01a220cd-1e6b-735f-88f1-e4fca2b03423"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/product-attributes/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/product-attributes/01a220cd-173a-7117-aa64-ec6e6ec5eacd",
+          "status": 200,
+          "ms": 353,
+          "ok": true,
+          "note": "DB category_attributes: 5 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/product-attributes/01a220cd-1908-71ca-a96d-9babdf3a422c",
+          "status": 200,
+          "ms": 356,
+          "ok": true,
+          "note": "DB category_attributes: 5 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/product-attributes/01a220cd-1af2-731f-893f-8cc9d37ba3dc",
+          "status": 200,
+          "ms": 357,
+          "ok": true,
+          "note": "DB category_attributes: 5 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/product-attributes/01a220cd-1cad-7339-949e-22c8e298e6e4",
+          "status": 200,
+          "ms": 396,
+          "ok": true,
+          "note": "DB category_attributes: 5 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/product-attributes/01a220cd-1e6b-735f-88f1-e4fca2b03423",
+          "status": 200,
+          "ms": 363,
+          "ok": true,
+          "note": "DB category_attributes: 5 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/product-attributes/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/products",
+          "status": 200,
+          "ms": 161,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/products?limit=2",
+          "status": 200,
+          "ms": 157,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/products?limit=101",
+          "status": 422,
+          "ms": 7,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/products?q=TEST-AUTO",
+          "status": 200,
+          "ms": 154,
+          "ok": true,
+          "note": "5 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/products?status=DRAFT",
+          "status": 200,
+          "ms": 164,
+          "ok": true,
+          "note": "5 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 201,
+          "ms": 3623,
+          "ok": true,
+          "id": "01a220cd-211c-7818-a815-b30d716fc051"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 201,
+          "ms": 3450,
+          "ok": true,
+          "id": "01a220cd-2f31-71f7-b17d-d0f9b472d887"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 409,
+          "ms": 915,
+          "ok": false,
+          "error": "CONFLICT: Already in use: barcode",
+          "trail": ["409 Already in use: barcode", "409 Already in use: barcode"],
+          "body": "{\"name\":\"TEST-AUTO Product 13 0PN4A\",\"slug\":\"test-auto-product-0pn4a-626\",\"shortDescription\":\"TEST-AUTO Short Description for Product #3 — automated QA run 0PN4A, verified by the Swagger admin API suite.\",\"description\":\"TEST-AUTO Description for Product #3 — automated QA run 0PN4A, verified by the Swagger admin API suite.\",\"categoryId\":\"01a220cd-1389-7391-b640-977d4d124430\",\"brandId\":\"01a220cd-11c9-7abc-a142-2477698d407f\",\"genericName\":\"TEST-AUTO Product 13 0PN4A\",\"dosageFormId\":\"01a220cd-0df5-712f-99ef-e7133561b74c\",\"routeIds\":[\"01a220cd-0f73-7410-87e5-1359e7b4adef\"],\"speciesIds\":[\"01a220cd-1…",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 201,
+          "ms": 2901,
+          "ok": true,
+          "id": "01a220cd-440a-787f-b3c3-027748583194"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 201,
+          "ms": 3190,
+          "ok": true,
+          "id": "01a220cd-4fb3-7265-b8c7-e12837476eac"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 409,
+          "ms": 1002,
+          "ok": false,
+          "error": "CONFLICT: Already in use: barcode",
+          "trail": ["409 Already in use: barcode", "409 Already in use: barcode"],
+          "body": "{\"name\":\"TEST-AUTO Product 16 0PN4A\",\"slug\":\"test-auto-product-0pn4a-810\",\"shortDescription\":\"TEST-AUTO Short Description for Product #6 — automated QA run 0PN4A, verified by the Swagger admin API suite.\",\"description\":\"TEST-AUTO Description for Product #6 — automated QA run 0PN4A, verified by the Swagger admin API suite.\",\"categoryId\":\"01a220cd-0e37-7bc5-b0b6-f8c09c1b0737\",\"brandId\":\"01a220cd-0e48-73c3-bc27-cac398e5f689\",\"genericName\":\"TEST-AUTO Product 16 0PN4A\",\"dosageFormId\":\"01a220cd-0df5-712f-99ef-e7133561b74c\",\"routeIds\":[\"01a220cd-0f73-7410-87e5-1359e7b4adef\"],\"speciesIds\":[\"01a220cd-1…",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 201,
+          "ms": 3686,
+          "ok": true,
+          "id": "01a220cd-641c-7d4f-951d-83f010bc4695"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 7,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051",
+          "status": 200,
+          "ms": 298,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887",
+          "status": 200,
+          "ms": 238,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194",
+          "status": 200,
+          "ms": 239,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac",
+          "status": 200,
+          "ms": 237,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695",
+          "status": 200,
+          "ms": 243,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051",
+          "status": 409,
+          "ms": 5185,
+          "ok": false,
+          "error": "CONFLICT: The product was changed by someone else; reload and retry",
+          "trail": [
+            "422 Validation failed [{\"path\":\"productionStages[0]\",\"message\":\"Unknown FLOCK_STAGE code \\\"TA0PN4A1268\\\"\"}]",
+            "409 The product was changed by someone else; reload and retry"
+          ],
+          "body": "{\"withdrawalEggDays\":10,\"reason\":\"Updated per revised label from manufacturer\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887",
+          "status": 200,
+          "ms": 3013,
+          "ok": true,
+          "note": "DB products: 1 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194",
+          "status": 200,
+          "ms": 3347,
+          "ok": true,
+          "note": "DB products: 1 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac",
+          "status": 200,
+          "ms": 3714,
+          "ok": true,
+          "note": "DB products: 1 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695",
+          "status": 200,
+          "ms": 3189,
+          "ok": true,
+          "note": "DB products: 1 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PARTIAL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/approve",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "approval needs a second person (approver ≠ submitter): not automated",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}/compliance",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/compliance",
+          "status": 200,
+          "ms": 390,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/discontinue",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"discontinue\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/flags",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/flags",
+          "status": 200,
+          "ms": 3440,
+          "ok": true
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/flags",
+          "status": 200,
+          "ms": 1692,
+          "ok": true
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/flags",
+          "status": 200,
+          "ms": 1644,
+          "ok": true
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac/flags",
+          "status": 200,
+          "ms": 1873,
+          "ok": true
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695/flags",
+          "status": 200,
+          "ms": 1705,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}/history",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/history",
+          "status": 200,
+          "ms": 88,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/media",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/media",
+          "status": 201,
+          "ms": 3952,
+          "ok": true,
+          "id": "01a220cd-7e4e-76d3-a3cf-38ce392b4b99"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/media",
+          "status": 404,
+          "ms": 1974,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "trail": [
+            "422 Validation failed [{\"path\":\"body.docType\",\"message\":\"\\\"docType\\\" is required\"}]",
+            "404 Variant not found"
+          ],
+          "body": "{\"kind\":\"DOCUMENT\",\"url\":\"https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ebce-709d-bad2-abf26c1e78ad.webp\",\"mediaId\":\"01a220cd-7e4e-76d3-a3cf-38ce392b4b99\",\"title\":\"TEST-AUTO Media 2 0PN4A\",\"variantId\":\"01a220cd-211c-7818-a815-b30d716fc051\",\"isPrimary\":false,\"sortOrder\":2,\"reason\":\"Manufacturer leaflet v3\",\"docType\":\"SDS\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/media",
+          "status": 404,
+          "ms": 1317,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"kind\":\"IMAGE\",\"url\":\"https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ec92-7337-b5e6-e23be46c807c.webp\",\"mediaId\":\"01a220cd-7e4e-76d3-a3cf-38ce392b4b99\",\"title\":\"TEST-AUTO Media 3 0PN4A\",\"variantId\":\"01a220cd-440a-787f-b3c3-027748583194\",\"isPrimary\":false,\"sortOrder\":3,\"reason\":\"Manufacturer leaflet v3\"}",
+          "unresolvedFk": []
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 422,
+          "expect": [401],
+          "ok": false
+        },
+        {
+          "name": "customer token → 403",
+          "status": 422,
+          "expect": [403],
+          "ok": false
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 1,
+      "note": null,
+      "attempts": 3,
+      "status": "PARTIAL"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/media/{mediaId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/media/01a220cd-7e4e-76d3-a3cf-38ce392b4b99",
+          "status": 200,
+          "ms": 4502,
+          "ok": true,
+          "note": "DB product_media: 3 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}/media/{mediaId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/reinstate",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"reinstate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/reject",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"reject\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/submit",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "F enable submit",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/submit",
+          "status": 422,
+          "ms": 1510,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Regulatory requirements not met [{\"path\":\"drugSchedule\",\"message\":\"[R4] Schedule must be one of G in this category\"},{\"path\":\"drugSchedule\",\"message\":\"[R7] An antimicrobial cannot be OTC\"},{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"}]",
+          "trail": [
+            "422 Regulatory requirements not met [{\"path\":\"drugSchedule\",\"message\":\"[R4] Schedule must be one of G in this category\"},{\"path\":\"drugSchedule\",\"message\":\"[R7] An antimicrobial cannot be OTC\"},{\"p…",
+            "422 Regulatory requirements not met [{\"path\":\"drugSchedule\",\"message\":\"[R4] Schedule must be one of G in this category\"},{\"path\":\"drugSchedule\",\"message\":\"[R7] An antimicrobial cannot be OTC\"},{\"p…",
+            "422 Regulatory requirements not met [{\"path\":\"drugSchedule\",\"message\":\"[R4] Schedule must be one of G in this category\"},{\"path\":\"drugSchedule\",\"message\":\"[R7] An antimicrobial cannot be OTC\"},{\"p…",
+            "422 Regulatory requirements not met [{\"path\":\"drugSchedule\",\"message\":\"[R4] Schedule must be one of G in this category\"},{\"path\":\"drugSchedule\",\"message\":\"[R7] An antimicrobial cannot be OTC\"},{\"p…"
+          ],
+          "body": "{\"reason\":\"Reviewed licences and label against the dossier\"}"
+        },
+        {
+          "phase": "F enable submit",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/submit",
+          "status": 422,
+          "ms": 1501,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"},{\"path\":\"media\",\"message\":\"[R12] TDS document is required in this category\"},{\"path\":\"media\",\"message\":\"[R13] A primary product image is required\"}]",
+          "trail": [
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…"
+          ],
+          "body": "{\"reason\":\"Reviewed licences and label against the dossier\"}"
+        },
+        {
+          "phase": "F enable submit",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/submit",
+          "status": 422,
+          "ms": 1497,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Regulatory requirements not met [{\"path\":\"storageMaxTempC\",\"message\":\"[R9] Frozen maximum must be ≤ −15 °C\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"},{\"path\":\"media\",\"message\":\"[R12] MSDS document is required in this category\"},{\"path\":\"media\",\"message\":\"[R13] A primary product image is required\"}]",
+          "trail": [
+            "422 Regulatory requirements not met [{\"path\":\"storageMaxTempC\",\"message\":\"[R9] Frozen maximum must be ≤ −15 °C\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"…",
+            "422 Regulatory requirements not met [{\"path\":\"storageMaxTempC\",\"message\":\"[R9] Frozen maximum must be ≤ −15 °C\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"…",
+            "422 Regulatory requirements not met [{\"path\":\"storageMaxTempC\",\"message\":\"[R9] Frozen maximum must be ≤ −15 °C\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"…",
+            "422 Regulatory requirements not met [{\"path\":\"storageMaxTempC\",\"message\":\"[R9] Frozen maximum must be ≤ −15 °C\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"…"
+          ],
+          "body": "{\"reason\":\"Reviewed licences and label against the dossier\"}"
+        },
+        {
+          "phase": "F enable submit",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac/submit",
+          "status": 422,
+          "ms": 1495,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R11] A safety data sheet (SDS/MSDS) is required\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"},{\"path\":\"media\",\"message\":\"[R12] LEAFLET document is required in this category\"},{\"path\":\"media\",\"message\":\"[R13] A primary product image i…",
+          "trail": [
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R11] A safety data sheet (SDS/MSDS…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R11] A safety data sheet (SDS/MSDS…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R11] A safety data sheet (SDS/MSDS…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R11] A safety data sheet (SDS/MSDS…"
+          ],
+          "body": "{\"reason\":\"Reviewed licences and label against the dossier\"}"
+        },
+        {
+          "phase": "F enable submit",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695/submit",
+          "status": 422,
+          "ms": 1553,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is required in this category\"},{\"path\":\"media\",\"message\":\"[R12] TDS document is required in this category\"},{\"path\":\"media\",\"message\":\"[R13] A primary product image is required\"}]",
+          "trail": [
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…",
+            "422 Regulatory requirements not met [{\"path\":\"temperatureClass\",\"message\":\"[R8] This category must be cold chain (CC_REF or CC_FRZ)\"},{\"path\":\"media\",\"message\":\"[R12] CERTIFICATE document is requi…"
+          ],
+          "body": "{\"reason\":\"Reviewed licences and label against the dossier\"}"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/suspend",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"suspend\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/variants",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/variants",
+          "status": 201,
+          "ms": 2612,
+          "ok": true,
+          "id": "01a220cd-211c-7818-a815-b30d716fc051"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/variants",
+          "status": 201,
+          "ms": 2315,
+          "ok": true,
+          "id": "01a220cd-2f31-71f7-b17d-d0f9b472d887"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/variants",
+          "status": 201,
+          "ms": 2260,
+          "ok": true,
+          "id": "01a220cd-440a-787f-b3c3-027748583194"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac/variants",
+          "status": 201,
+          "ms": 2404,
+          "ok": true,
+          "id": "01a220cd-4fb3-7265-b8c7-e12837476eac"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695/variants",
+          "status": 201,
+          "ms": 2344,
+          "ok": true,
+          "id": "01a220cd-641c-7d4f-951d-83f010bc4695"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/variants/01a220cd-211c-7818-a815-b30d716fc051",
+          "status": 404,
+          "ms": 5099,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"sku\":\"TA0PN4A1309\",\"barcode\":\"25814703\",\"name\":\"TEST-AUTO Variant 6 0PN4A\",\"packSize\":60,\"packUnitId\":\"01a220cd-124d-772c-a935-45689fb2e0e2\",\"unitsPerPack\":60,\"mrp\":1199,\"minOrderQty\":12,\"maxOrderQty\":600,\"isB2cEligible\":false,\"weightGrams\":31,\"lengthMm\":7,\"widthMm\":7,\"heightMm\":7,\"hsnCode\":\"30023000\",\"gstRate\":18,\"isActive\":true,\"sortOrder\":6,\"reason\":\"MRP revised on new label\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/variants/01a220cd-2f31-71f7-b17d-d0f9b472d887",
+          "status": 404,
+          "ms": 1295,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"sku\":\"TA0PN4A1423\",\"barcode\":\"03692581\",\"name\":\"TEST-AUTO Variant 7 0PN4A\",\"packSize\":70,\"packUnitId\":\"01a220cd-124d-772c-a935-45689fb2e0e2\",\"unitsPerPack\":70,\"mrp\":1199,\"minOrderQty\":14,\"maxOrderQty\":700,\"isB2cEligible\":true,\"weightGrams\":32,\"lengthMm\":8,\"widthMm\":8,\"heightMm\":8,\"hsnCode\":\"30023000\",\"gstRate\":28,\"isActive\":true,\"sortOrder\":7,\"reason\":\"MRP revised on new label\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/variants/01a220cd-440a-787f-b3c3-027748583194",
+          "status": 404,
+          "ms": 1306,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"sku\":\"TA0PN4A1563\",\"barcode\":\"03692581\",\"name\":\"TEST-AUTO Variant 8 0PN4A\",\"packSize\":80,\"packUnitId\":\"01a220cd-124d-772c-a935-45689fb2e0e2\",\"unitsPerPack\":80,\"mrp\":1199,\"minOrderQty\":16,\"maxOrderQty\":800,\"isB2cEligible\":false,\"weightGrams\":33,\"lengthMm\":9,\"widthMm\":9,\"heightMm\":9,\"hsnCode\":\"30023000\",\"gstRate\":0,\"isActive\":true,\"sortOrder\":8,\"reason\":\"MRP revised on new label\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac/variants/01a220cd-4fb3-7265-b8c7-e12837476eac",
+          "status": 404,
+          "ms": 1261,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"sku\":\"TA0PN4A1722\",\"barcode\":\"36925814\",\"name\":\"TEST-AUTO Variant 9 0PN4A\",\"packSize\":90,\"packUnitId\":\"01a220cd-124d-772c-a935-45689fb2e0e2\",\"unitsPerPack\":90,\"mrp\":1199,\"minOrderQty\":18,\"maxOrderQty\":900,\"isB2cEligible\":true,\"weightGrams\":34,\"lengthMm\":10,\"widthMm\":10,\"heightMm\":10,\"hsnCode\":\"30023000\",\"gstRate\":0.1,\"isActive\":true,\"sortOrder\":9,\"reason\":\"MRP revised on new label\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695/variants/01a220cd-641c-7d4f-951d-83f010bc4695",
+          "status": 404,
+          "ms": 1653,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"sku\":\"TA0PN4A1849\",\"barcode\":\"25814703\",\"name\":\"TEST-AUTO Variant 10 0PN4A\",\"packSize\":100,\"packUnitId\":\"01a220cd-124d-772c-a935-45689fb2e0e2\",\"unitsPerPack\":100,\"mrp\":1199,\"minOrderQty\":20,\"maxOrderQty\":1000,\"isB2cEligible\":false,\"weightGrams\":35,\"lengthMm\":11,\"widthMm\":11,\"heightMm\":11,\"hsnCode\":\"30023000\",\"gstRate\":0.25,\"isActive\":true,\"sortOrder\":10,\"reason\":\"MRP revised on new label\"}"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}/default",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "enable",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "F enable default",
+          "url": "/v1/admin/catalog/products/01a220cd-211c-7818-a815-b30d716fc051/variants/01a220cd-211c-7818-a815-b30d716fc051/default",
+          "status": 404,
+          "ms": 1357,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"reason\":\"1 L is the best-selling pack\"}"
+        },
+        {
+          "phase": "F enable default",
+          "url": "/v1/admin/catalog/products/01a220cd-2f31-71f7-b17d-d0f9b472d887/variants/01a220cd-2f31-71f7-b17d-d0f9b472d887/default",
+          "status": 404,
+          "ms": 1389,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"reason\":\"1 L is the best-selling pack\"}"
+        },
+        {
+          "phase": "F enable default",
+          "url": "/v1/admin/catalog/products/01a220cd-440a-787f-b3c3-027748583194/variants/01a220cd-440a-787f-b3c3-027748583194/default",
+          "status": 404,
+          "ms": 1365,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"reason\":\"1 L is the best-selling pack\"}"
+        },
+        {
+          "phase": "F enable default",
+          "url": "/v1/admin/catalog/products/01a220cd-4fb3-7265-b8c7-e12837476eac/variants/01a220cd-4fb3-7265-b8c7-e12837476eac/default",
+          "status": 404,
+          "ms": 1378,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"reason\":\"1 L is the best-selling pack\"}"
+        },
+        {
+          "phase": "F enable default",
+          "url": "/v1/admin/catalog/products/01a220cd-641c-7d4f-951d-83f010bc4695/variants/01a220cd-641c-7d4f-951d-83f010bc4695/default",
+          "status": 404,
+          "ms": 1389,
+          "ok": false,
+          "error": "NOT_FOUND: Variant not found",
+          "body": "{\"reason\":\"1 L is the best-selling pack\"}"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews",
+          "status": 200,
+          "ms": 507,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/reviews?limit=2",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "page1 0 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/reviews?limit=101",
+          "status": 422,
+          "ms": 7,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/reviews?q=TEST-AUTO",
+          "status": 200,
+          "ms": 160,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews?status=PENDING",
+          "status": 200,
+          "ms": 92,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D sort",
+          "url": "/v1/admin/catalog/reviews?sort=newest",
+          "status": 200,
+          "ms": 96,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/{id}",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": "no record id available for review",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/approve",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "approval needs a second person (approver ≠ submitter): not automated",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/hide",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"hide\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/{id}/history",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": "no record id available for review",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/reject",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"reject\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/restore",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"restore\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/analytics",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews/analytics",
+          "status": 200,
+          "ms": 24,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/bulk-status",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"bulk-status\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/products/{productId}/summary",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/reviews/products/01a220cd-211c-7818-a815-b30d716fc051/summary",
+          "status": 200,
+          "ms": 131,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/reports",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews/reports",
+          "status": 200,
+          "ms": 80,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/reviews/reports?limit=2",
+          "status": 200,
+          "ms": 96,
+          "ok": true,
+          "note": "page1 0 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/reviews/reports?limit=101",
+          "status": 422,
+          "ms": 7,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews/reports?status=OPEN",
+          "status": 200,
+          "ms": 85,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews/reports?reason=SPAM",
+          "status": 200,
+          "ms": 90,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/reports/{id}/resolve",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"resolve\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/customers/{userId}/addresses",
+      "service": "user-service",
+      "tag": "Admin · Customer addresses & wishlist",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/customers/01a22095-0095-72cd-a2de-d123bc5abeea/addresses",
+          "status": 200,
+          "ms": 548,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/customers/{userId}/addresses/{id}/history",
+      "service": "user-service",
+      "tag": "Admin · Customer addresses & wishlist",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/customers/01a22095-0095-72cd-a2de-d123bc5abeea/addresses/01a220a0-a79d-7c09-85bc-79119cbc9e15/history",
+          "status": 200,
+          "ms": 622,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/customers/{userId}/wishlist",
+      "service": "user-service",
+      "tag": "Admin · Customer addresses & wishlist",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/customers/01a22095-0095-72cd-a2de-d123bc5abeea/wishlist",
+          "status": 200,
+          "ms": 509,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/home/layouts",
+          "status": 200,
+          "ms": 527,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/home/layouts?limit=2",
+          "status": 200,
+          "ms": 86,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/home/layouts?limit=101",
+          "status": 422,
+          "ms": 10,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/home/layouts?page=HOME",
+          "status": 200,
+          "ms": 87,
+          "ok": true,
+          "note": "7 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/home/layouts?status=DRAFT",
+          "status": 200,
+          "ms": 89,
+          "ok": true,
+          "note": "10 rows"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 619,
+          "ok": true,
+          "id": "01a220cd-170e-753b-9153-3f9865d2da1e"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 626,
+          "ok": true,
+          "id": "01a220cd-1973-7392-9e01-06bd853d427a"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 620,
+          "ok": true,
+          "id": "01a220cd-1bf3-71cd-a3d2-a0b7fac322bd"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 639,
+          "ok": true,
+          "id": "01a220cd-1e64-726c-978e-7df6c5a6c74e"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/home/layouts",
+          "status": 201,
+          "ms": 619,
+          "ok": true,
+          "id": "01a220cd-20d4-77c8-9083-4f4f3fdbf384"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "empty body → 422",
+          "status": 422,
+          "expect": [422],
+          "ok": true
+        }
+      ],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-170e-753b-9153-3f9865d2da1e",
+          "status": 200,
+          "ms": 615,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-1973-7392-9e01-06bd853d427a",
+          "status": 200,
+          "ms": 214,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-1bf3-71cd-a3d2-a0b7fac322bd",
+          "status": 200,
+          "ms": 223,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-1e64-726c-978e-7df6c5a6c74e",
+          "status": 200,
+          "ms": 205,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-20d4-77c8-9083-4f4f3fdbf384",
+          "status": 200,
+          "ms": 215,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        },
+        {
+          "name": "malformed id → 400/422",
+          "status": 422,
+          "expect": [400, 404, 422],
+          "ok": true
+        },
+        {
+          "name": "unknown id → 404",
+          "status": 404,
+          "expect": [404],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/home/layouts/{id}",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220cd-170e-753b-9153-3f9865d2da1e",
+          "status": 200,
+          "ms": 717,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220cd-1973-7392-9e01-06bd853d427a",
+          "status": 200,
+          "ms": 674,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220cd-1bf3-71cd-a3d2-a0b7fac322bd",
+          "status": 200,
+          "ms": 676,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220cd-1e64-726c-978e-7df6c5a6c74e",
+          "status": 200,
+          "ms": 675,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/home/layouts/01a220cd-20d4-77c8-9083-4f4f3fdbf384",
+          "status": 200,
+          "ms": 664,
+          "ok": true,
+          "note": "DB home_configurations: 2 fields checked"
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 422,
+          "expect": [401],
+          "ok": false
+        },
+        {
+          "name": "customer token → 403",
+          "status": 422,
+          "expect": [403],
+          "ok": false
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}/history",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-170e-753b-9153-3f9865d2da1e/history",
+          "status": 200,
+          "ms": 597,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/home/layouts/{id}/preview",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-170e-753b-9153-3f9865d2da1e/preview",
+          "status": 200,
+          "ms": 223,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/publish",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "skip",
+      "skipReason": "state action \"publish\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/rollback",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "skip",
+      "skipReason": "state action \"rollback\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/home/layouts/{id}/sections/reorder",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "skip",
+      "skipReason": "state action \"reorder\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/home/layouts/{id}/validate",
+      "service": "user-service",
+      "tag": "Admin · Home layouts",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/home/layouts/01a220cd-170e-753b-9153-3f9865d2da1e/validate",
+          "status": 200,
+          "ms": 528,
+          "ok": true
+        }
+      ],
+      "negatives": [
+        {
+          "name": "no token → 401",
+          "status": 401,
+          "expect": [401],
+          "ok": true
+        },
+        {
+          "name": "customer token → 403",
+          "status": 403,
+          "expect": [403],
+          "ok": true
+        }
+      ],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/media/upload",
+      "service": "media-service",
+      "tag": "Media",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 434,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ea3d-72ea-abaa-fb27f882d4bd.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 189,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ebce-709d-bad2-abf26c1e78ad.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 174,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ec92-7337-b5e6-e23be46c807c.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 241,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ed77-7024-b865-40888b5b217a.webp"
+        },
+        {
+          "phase": "B upload",
+          "url": "/v1/media/upload",
+          "status": 201,
+          "ms": 196,
+          "ok": true,
+          "note": "https://satyakabir-bucket.sgp1.digitaloceanspaces.com/dev/01a220cc-ee58-7f4a-84a1-05a02e32e1ba.webp"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    }
+  ],
+  "mismatches": [
+    {
+      "endpoint": "GET /v1/admin/catalog/products/{id}",
+      "id": "01a220cd-2f31-71f7-b17d-d0f9b472d887",
+      "field": "isPrescriptionRequired",
+      "sent": false,
+      "got": true
+    },
+    {
+      "endpoint": "GET /v1/admin/catalog/products/{id}",
+      "id": "01a220cd-440a-787f-b3c3-027748583194",
+      "field": "isPrescriptionRequired",
+      "sent": false,
+      "got": true
+    }
+  ]
+}

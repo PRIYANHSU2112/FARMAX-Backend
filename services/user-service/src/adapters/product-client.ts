@@ -19,6 +19,21 @@ export interface ProductCard {
   [field: string]: unknown;
 }
 
+/** product-service "Shop by Problem" card (`GET /catalog/diseases`). */
+export interface PublicDisease {
+  id: string;
+  name: string;
+  slug: string;
+  iconUrl: string | null;
+  productCount: number;
+}
+
+/** product-service FLOCK_STAGE lookup (`GET /catalog/lookups?group=FLOCK_STAGE`). */
+export interface FlockStage {
+  code: string;
+  label: string;
+}
+
 const CARD_TTL_SECONDS = 120;
 /** Cached marker for an id product-service does not know (avoids re-asking for 120 s). */
 const MISSING = '0';
@@ -104,22 +119,35 @@ export class ProductClient {
     return { items: body.data ?? [], nextCursor: body.meta?.nextCursor ?? null };
   }
 
-  /** Active disease ids (Shop by Problem), for the home ref check. */
-  async diseaseIds(timeoutMs: number): Promise<Set<string>> {
-    const body = await getJson<{ data?: { id: string }[] }>(
-      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/diseases`,
+  /**
+   * Active diseases (Shop by Problem cards), in product-service order. `hideEmpty` = only
+   * diseases with ≥1 storefront-visible product.
+   */
+  async diseases(timeoutMs: number, hideEmpty = false): Promise<PublicDisease[]> {
+    const body = await getJson<{ data?: PublicDisease[] }>(
+      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/diseases${hideEmpty ? '?hideEmpty=true' : ''}`,
       { timeoutMs },
     );
-    return new Set((body.data ?? []).map((d) => d.id));
+    return body.data ?? [];
+  }
+
+  /** Active disease ids (Shop by Problem), for the home ref check. */
+  async diseaseIds(timeoutMs: number): Promise<Set<string>> {
+    return new Set((await this.diseases(timeoutMs)).map((d) => d.id));
+  }
+
+  /** Active FLOCK_STAGE lookups (code + label), in product-service order. */
+  async flockStages(timeoutMs: number): Promise<FlockStage[]> {
+    const body = await getJson<{ data?: FlockStage[] }>(
+      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/lookups?group=FLOCK_STAGE`,
+      { timeoutMs },
+    );
+    return (body.data ?? []).map(({ code, label }) => ({ code, label }));
   }
 
   /** Active FLOCK_STAGE lookup codes, for the home ref check. */
   async flockStageCodes(timeoutMs: number): Promise<Set<string>> {
-    const body = await getJson<{ data?: { code: string }[] }>(
-      `${this.deps.config.PRODUCT_SERVICE_URL}/catalog/lookups?group=FLOCK_STAGE`,
-      { timeoutMs },
-    );
-    return new Set((body.data ?? []).map((l) => l.code));
+    return new Set((await this.flockStages(timeoutMs)).map((l) => l.code));
   }
 
   private async fetchCards(ids: string[], timeoutMs: number): Promise<ProductCard[]> {

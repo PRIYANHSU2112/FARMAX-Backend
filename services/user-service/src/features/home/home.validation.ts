@@ -172,6 +172,9 @@ const PAGE = Joi.string()
 
 export const layoutSchema = { querystring: Joi.object({ page: PAGE }) };
 
+/** `GET /home/categories` takes no query (unknown params are stripped, like every route). */
+export const categoriesPageSchema = { querystring: Joi.object({}) };
+
 export const sectionsBatchSchema = {
   querystring: Joi.object({
     page: PAGE,

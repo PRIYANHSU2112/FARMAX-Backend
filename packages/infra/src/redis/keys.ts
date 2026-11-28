@@ -235,9 +235,15 @@ export const userKeys = {
     ),
   /** Home SDUI: farmer context (farm → territory, depot, farm type). TTL 10 min. */
   homeContext: (userId: string, farmId: string) => userKeyspace.key('home', 'ctx', userId, farmId),
-  /** Home SDUI: catalog data (a banner placement, root categories). TTL 60 s (`stale` 10 min). */
-  homeCatalog: (kind: 'banner' | 'categories', id: string, stale = false) =>
-    userKeyspace.key('home', stale ? 'cat-stale' : 'cat', kind, id),
+  /**
+   * Home SDUI + Categories page: catalog data (a banner placement, root categories, Shop by
+   * Problem diseases, featured brands, flock stages). TTL 60 s (`stale` 10 min).
+   */
+  homeCatalog: (
+    kind: 'banner' | 'categories' | 'diseases' | 'brands' | 'stages',
+    id: string,
+    stale = false,
+  ) => userKeyspace.key('home', stale ? 'cat-stale' : 'cat', kind, id),
   /** Home SDUI: one allowlisted feed (per user, or `shared`). Short TTL. */
   homeFeed: (feedKey: string, scope: string) => userKeyspace.key('home', 'feed', feedKey, scope),
 };

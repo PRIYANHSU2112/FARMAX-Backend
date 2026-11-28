@@ -1,0 +1,3278 @@
+{
+  "run": "ZM9B1",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T05:46:26.077Z",
+  "per": 5,
+  "db": {
+    "verified": 43,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "summary": [],
+    "warehouse": [
+      {
+        "id": "01a220b0-db18-709d-adf4-dfab1cb9f756",
+        "table": "warehouse_warehouses",
+        "op": "POST /v1/admin/warehouses"
+      }
+    ],
+    "mother": [],
+    "depot": [
+      {
+        "id": "01a220b0-db18-709d-adf4-dfab1cb9f756",
+        "table": "warehouse_warehouses",
+        "op": "POST /v1/admin/warehouses"
+      }
+    ],
+    "dockdoor": [
+      {
+        "id": "01a220b0-e221-7367-8dd6-7d359b859ddf",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e430-7016-a9d3-577a4a4922e5",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e5f8-749f-bd2c-9c24880deac9",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e7c6-71b7-bfe8-930f734acd56",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e97a-732b-b8c4-44acc0bb2c94",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      }
+    ],
+    "unloading": [
+      {
+        "id": "01a220b0-e221-7367-8dd6-7d359b859ddf",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e7c6-71b7-bfe8-930f734acd56",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      }
+    ],
+    "holiday": [
+      {
+        "id": "01a220b0-e225-727d-a0ba-9040a2903ccc",
+        "table": "warehouse_holidays",
+        "op": "POST /v1/admin/warehouses/{id}/holidays"
+      },
+      {
+        "id": "01a220b0-e435-7409-8aaa-59baab7ac121",
+        "table": "warehouse_holidays",
+        "op": "POST /v1/admin/warehouses/{id}/holidays"
+      },
+      {
+        "id": "01a220b0-e5f3-7555-9359-def5d211081c",
+        "table": "warehouse_holidays",
+        "op": "POST /v1/admin/warehouses/{id}/holidays"
+      },
+      {
+        "id": "01a220b0-e7bd-708b-80ad-fafda27ca3fd",
+        "table": "warehouse_holidays",
+        "op": "POST /v1/admin/warehouses/{id}/holidays"
+      },
+      {
+        "id": "01a220b0-e974-72fc-ae3d-2f1e440f5845",
+        "table": "warehouse_holidays",
+        "op": "POST /v1/admin/warehouses/{id}/holidays"
+      }
+    ],
+    "loading": [
+      {
+        "id": "01a220b0-e430-7016-a9d3-577a4a4922e5",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      },
+      {
+        "id": "01a220b0-e97a-732b-b8c4-44acc0bb2c94",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      }
+    ],
+    "both": [
+      {
+        "id": "01a220b0-e5f8-749f-bd2c-9c24880deac9",
+        "table": "warehouse_dock_doors",
+        "op": "POST /v1/admin/warehouses/{id}/dock-doors"
+      }
+    ],
+    "stagingarea": [
+      {
+        "id": "01a220b0-e6d4-77aa-aa9d-893f5d8d6e9a",
+        "table": "warehouse_staging_areas",
+        "op": "POST /v1/admin/warehouses/{id}/staging-areas"
+      },
+      {
+        "id": "01a220b0-e89d-72b9-a8f3-698720741fc5",
+        "table": "warehouse_staging_areas",
+        "op": "POST /v1/admin/warehouses/{id}/staging-areas"
+      },
+      {
+        "id": "01a220b0-ea5d-75b8-b48a-9f2e6237f28c",
+        "table": "warehouse_staging_areas",
+        "op": "POST /v1/admin/warehouses/{id}/staging-areas"
+      },
+      {
+        "id": "01a220b0-ec1c-700d-9c41-ad60a6e2c665",
+        "table": "warehouse_staging_areas",
+        "op": "POST /v1/admin/warehouses/{id}/staging-areas"
+      },
+      {
+        "id": "01a220b0-edd9-766e-b690-1cd614f99780",
+        "table": "warehouse_staging_areas",
+        "op": "POST /v1/admin/warehouses/{id}/staging-areas"
+      }
+    ],
+    "yardslot": [
+      {
+        "id": "01a220b0-eb2d-762d-a952-a4923437a03e",
+        "table": "warehouse_yard_slots",
+        "op": "POST /v1/admin/warehouses/{id}/yard-slots"
+      },
+      {
+        "id": "01a220b0-ece0-740b-9148-eb864a415041",
+        "table": "warehouse_yard_slots",
+        "op": "POST /v1/admin/warehouses/{id}/yard-slots"
+      },
+      {
+        "id": "01a220b0-eea5-701e-886b-a78984017278",
+        "table": "warehouse_yard_slots",
+        "op": "POST /v1/admin/warehouses/{id}/yard-slots"
+      },
+      {
+        "id": "01a220b0-f07c-71fb-988e-99386f7bfff6",
+        "table": "warehouse_yard_slots",
+        "op": "POST /v1/admin/warehouses/{id}/yard-slots"
+      },
+      {
+        "id": "01a220b0-f254-77da-be3b-a621a6ef9d2f",
+        "table": "warehouse_yard_slots",
+        "op": "POST /v1/admin/warehouses/{id}/yard-slots"
+      }
+    ],
+    "zone": [
+      {
+        "id": "01a220b0-ec68-72af-ad48-04fedd78bfb2",
+        "table": "warehouse_zones",
+        "op": "POST /v1/admin/warehouses/{id}/zones"
+      },
+      {
+        "id": "01a220b0-ee14-724e-aeb1-be9f2c2cdf64",
+        "table": "warehouse_zones",
+        "op": "POST /v1/admin/warehouses/{id}/zones"
+      },
+      {
+        "id": "01a220b0-efc8-775d-8ce2-ad6ed247500f",
+        "table": "warehouse_zones",
+        "op": "POST /v1/admin/warehouses/{id}/zones"
+      },
+      {
+        "id": "01a220b0-f188-71ed-b909-58591026998c",
+        "table": "warehouse_zones",
+        "op": "POST /v1/admin/warehouses/{id}/zones"
+      },
+      {
+        "id": "01a220b0-f36c-712e-b129-00fb36faf6cb",
+        "table": "warehouse_zones",
+        "op": "POST /v1/admin/warehouses/{id}/zones"
+      }
+    ],
+    "storagerule": [
+      {
+        "id": "01a220b0-f12a-76fc-9052-9c2442d8b413",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b0-f392-77ad-bd5b-5b8462403077",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-dce8-741c-884d-33d672344a19",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-df80-725b-8d94-5bcc91e3830b",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-e412-7449-bbc0-3db859882de4",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      }
+    ],
+    "hazardclass": [
+      {
+        "id": "01a220b0-f12a-76fc-9052-9c2442d8b413",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-dce8-741c-884d-33d672344a19",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-e412-7449-bbc0-3db859882de4",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      }
+    ],
+    "foodgradezone": [
+      {
+        "id": "01a220b0-f392-77ad-bd5b-5b8462403077",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      },
+      {
+        "id": "01a220b1-df80-725b-8d94-5bcc91e3830b",
+        "table": "warehouse_storage_rules",
+        "op": "POST /v1/admin/warehouses/{id}/storage-rules"
+      }
+    ],
+    "shift": [
+      {
+        "id": "01a220b1-db6e-7267-9011-c2152ed6bc79",
+        "table": "warehouse_shifts",
+        "op": "POST /v1/admin/warehouses/{id}/shifts"
+      },
+      {
+        "id": "01a220b2-bde3-7112-90af-04b0e7aa721b",
+        "table": "warehouse_shifts",
+        "op": "POST /v1/admin/warehouses/{id}/shifts"
+      },
+      {
+        "id": "01a220b2-c8b3-72a1-972e-9789932e4943",
+        "table": "warehouse_shifts",
+        "op": "POST /v1/admin/warehouses/{id}/shifts"
+      },
+      {
+        "id": "01a220b2-cb06-77ed-8f4b-678654135f5e",
+        "table": "warehouse_shifts",
+        "op": "POST /v1/admin/warehouses/{id}/shifts"
+      },
+      {
+        "id": "01a220b3-a8fb-75fd-aae1-76fea86bb690",
+        "table": "warehouse_shifts",
+        "op": "POST /v1/admin/warehouses/{id}/shifts"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses",
+          "status": 200,
+          "ms": 967,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/warehouses?limit=2",
+          "status": 200,
+          "ms": 158,
+          "ok": true,
+          "note": "page1 2 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/warehouses?limit=101",
+          "status": 422,
+          "ms": 9,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/warehouses?q=TEST-AUTO",
+          "status": 200,
+          "ms": 161,
+          "ok": true,
+          "note": "1 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses?type=MOTHER",
+          "status": 200,
+          "ms": 166,
+          "ok": true,
+          "note": "1 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses?status=SETUP",
+          "status": 200,
+          "ms": 154,
+          "ok": true,
+          "note": "1 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 154,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 11 ZM9B1\",\"type\":\"MOTHER\",\"phone\":\"+919860770023\",\"email\":\"test.auto.zm9b1.26@example.com\",\"addressLine\":\"Plot 11, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":16.57,\"longitude\":81.55,\"tagline\":\"TEST-AUTO Tagline 1 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":true,\"priority\":1,\"code\":\"TAZM9B136\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["parentWarehouse", "managerUser"]
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/warehouses",
+          "status": 201,
+          "ms": 902,
+          "ok": true,
+          "id": "01a220b0-db18-709d-adf4-dfab1cb9f756"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 163,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 13 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770086\",\"email\":\"test.auto.zm9b1.89@example.com\",\"addressLine\":\"Plot 13, Poultry Farm Road, Eluru\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Eluru\",\"stateCode\":\"37\",\"pinCode\":\"533101\",\"latitude\":16.63,\"longitude\":81.61,\"tagline\":\"TEST-AUTO Tagline 3 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"CC_REF\"],\"isAllocatable\":true,\"priority\":3,\"code\":\"TAZM9B199\",\"district\":\"Eluru\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 163,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 4 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770128\",\"email\":\"test.auto.zm9b1.131@example.com\",\"addressLine\":\"Plot 14, Poultry Farm Road, Nuzvid\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Nuzvid\",\"stateCode\":\"37\",\"pinCode\":\"521201\",\"latitude\":16.66,\"longitude\":81.64,\"tagline\":\"TEST-AUTO Tagline 4 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":4,\"code\":\"TAZM9B1141\",\"district\":\"Krishna\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 223,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 15 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770192\",\"email\":\"test.auto.zm9b1.195@example.com\",\"addressLine\":\"Plot 15, Poultry Farm Road, Rajahmundry\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Rajahmundry\",\"stateCode\":\"37\",\"pinCode\":\"534001\",\"latitude\":16.69,\"longitude\":81.67,\"tagline\":\"TEST-AUTO Tagline 5 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"HAZ\"],\"isAllocatable\":true,\"priority\":5,\"code\":\"TAZM9B1205\",\"district\":\"East Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 156,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 6 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770256\",\"email\":\"test.auto.zm9b1.259@example.com\",\"addressLine\":\"Plot 16, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":16.72,\"longitude\":81.7,\"tagline\":\"TEST-AUTO Tagline 6 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":6,\"code\":\"TAZM9B1269\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 168,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 17 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770320\",\"email\":\"test.auto.zm9b1.323@example.com\",\"addressLine\":\"Plot 17, Poultry Farm Road, Tanuku\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Tanuku\",\"stateCode\":\"37\",\"pinCode\":\"534211\",\"latitude\":16.75,\"longitude\":81.73,\"tagline\":\"TEST-AUTO Tagline 7 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB_CTL\"],\"isAllocatable\":true,\"priority\":7,\"code\":\"TAZM9B1333\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 149,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 8 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770679\",\"email\":\"test.auto.zm9b1.682@example.com\",\"addressLine\":\"Plot 18, Poultry Farm Road, Eluru\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Eluru\",\"stateCode\":\"37\",\"pinCode\":\"533101\",\"latitude\":16.78,\"longitude\":81.76,\"tagline\":\"TEST-AUTO Tagline 8 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":8,\"code\":\"TAZM9B1692\",\"district\":\"Eluru\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 165,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 19 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770737\",\"email\":\"test.auto.zm9b1.740@example.com\",\"addressLine\":\"Plot 19, Poultry Farm Road, Nuzvid\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Nuzvid\",\"stateCode\":\"37\",\"pinCode\":\"521201\",\"latitude\":16.81,\"longitude\":81.79,\"tagline\":\"TEST-AUTO Tagline 9 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"CC_FRZ\"],\"isAllocatable\":true,\"priority\":9,\"code\":\"TAZM9B1750\",\"district\":\"Krishna\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 154,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 10 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860770822\",\"email\":\"test.auto.zm9b1.825@example.com\",\"addressLine\":\"Plot 20, Poultry Farm Road, Rajahmundry\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Rajahmundry\",\"stateCode\":\"37\",\"pinCode\":\"534001\",\"latitude\":16.84,\"longitude\":81.82,\"tagline\":\"TEST-AUTO Tagline 10 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":10,\"code\":\"TAZM9B1835\",\"district\":\"East Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 159,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 21 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771048\",\"email\":\"test.auto.zm9b1.1051@example.com\",\"addressLine\":\"Plot 21, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":16.87,\"longitude\":81.85,\"tagline\":\"TEST-AUTO Tagline 11 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":true,\"priority\":11,\"code\":\"TAZM9B11061\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 148,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 12 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771105\",\"email\":\"test.auto.zm9b1.1108@example.com\",\"addressLine\":\"Plot 22, Poultry Farm Road, Tanuku\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Tanuku\",\"stateCode\":\"37\",\"pinCode\":\"534211\",\"latitude\":16.9,\"longitude\":81.88,\"tagline\":\"TEST-AUTO Tagline 12 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":12,\"code\":\"TAZM9B11118\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 146,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 23 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771160\",\"email\":\"test.auto.zm9b1.1163@example.com\",\"addressLine\":\"Plot 23, Poultry Farm Road, Eluru\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Eluru\",\"stateCode\":\"37\",\"pinCode\":\"533101\",\"latitude\":16.93,\"longitude\":81.91,\"tagline\":\"TEST-AUTO Tagline 13 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"CC_REF\"],\"isAllocatable\":true,\"priority\":13,\"code\":\"TAZM9B11173\",\"district\":\"Eluru\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 156,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 14 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771396\",\"email\":\"test.auto.zm9b1.1399@example.com\",\"addressLine\":\"Plot 24, Poultry Farm Road, Nuzvid\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Nuzvid\",\"stateCode\":\"37\",\"pinCode\":\"521201\",\"latitude\":16.96,\"longitude\":81.94,\"tagline\":\"TEST-AUTO Tagline 14 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":14,\"code\":\"TAZM9B11409\",\"district\":\"Krishna\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 158,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 25 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771479\",\"email\":\"test.auto.zm9b1.1482@example.com\",\"addressLine\":\"Plot 25, Poultry Farm Road, Rajahmundry\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Rajahmundry\",\"stateCode\":\"37\",\"pinCode\":\"534001\",\"latitude\":16.99,\"longitude\":81.97,\"tagline\":\"TEST-AUTO Tagline 15 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"HAZ\"],\"isAllocatable\":true,\"priority\":15,\"code\":\"TAZM9B11492\",\"district\":\"East Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 238,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 16 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771546\",\"email\":\"test.auto.zm9b1.1549@example.com\",\"addressLine\":\"Plot 26, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":17.02,\"longitude\":82,\"tagline\":\"TEST-AUTO Tagline 16 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":16,\"code\":\"TAZM9B11559\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 180,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 27 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771698\",\"email\":\"test.auto.zm9b1.1701@example.com\",\"addressLine\":\"Plot 27, Poultry Farm Road, Tanuku\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Tanuku\",\"stateCode\":\"37\",\"pinCode\":\"534211\",\"latitude\":17.05,\"longitude\":82.03,\"tagline\":\"TEST-AUTO Tagline 17 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB_CTL\"],\"isAllocatable\":true,\"priority\":17,\"code\":\"TAZM9B11711\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 180,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 18 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771755\",\"email\":\"test.auto.zm9b1.1758@example.com\",\"addressLine\":\"Plot 28, Poultry Farm Road, Eluru\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Eluru\",\"stateCode\":\"37\",\"pinCode\":\"533101\",\"latitude\":17.08,\"longitude\":82.06,\"tagline\":\"TEST-AUTO Tagline 18 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"TONNES\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":false,\"priority\":18,\"code\":\"TAZM9B11768\",\"district\":\"Eluru\"}",
+          "unresolvedFk": ["managerUser"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 201,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 29 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771817\",\"email\":\"test.auto.zm9b1.1820@example.com\",\"addressLine\":\"Plot 29, Poultry Farm Road, Nuzvid\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Nuzvid\",\"stateCode\":\"37\",\"pinCode\":\"521201\",\"latitude\":17.11,\"longitude\":82.09,\"tagline\":\"TEST-AUTO Tagline 19 ZM9B1\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"CC_FRZ\"],\"isAllocatable\":true,\"priority\":19,\"code\":\"TAZM9B11830\",\"district\":\"Krishna\"}",
+          "unresolvedFk": ["managerUser"]
+        }
+      ],
+      "negatives": [],
+      "created": 1,
+      "note": "no record for FK: managerUser",
+      "attempts": 19,
+      "status": "PARTIAL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756",
+          "status": 200,
+          "ms": 680,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756",
+          "status": 409,
+          "ms": 591,
+          "ok": false,
+          "error": "CONFLICT: The warehouse was changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 6 ZM9B1\",\"type\":\"MOTHER\",\"parentWarehouseId\":\"01a220b0-db18-709d-adf4-dfab1cb9f756\",\"phone\":\"+919860771893\",\"email\":\"test.auto.zm9b1.1896@example.com\",\"addressLine\":\"Plot 16, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":16.72,\"longitude\":81.7,\"tagline\":\"TEST-AUTO Tagline 6 ZM9B1\",\"totalAreaSqft\":750,\"capacity\":{\"value\":750,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB_CTL\"],\"isAllocatable\":false,\"priority\":6,\"district\":\"West Godavari\",\"expectedVersion\":7,\"confirm\":[\"capacityKg\"…"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/activate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"activate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/bins",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/bins",
+          "status": 200,
+          "ms": 358,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/bins/{binId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for bin",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/bins/{binId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/calendar",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/calendar",
+          "status": 200,
+          "ms": 660,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/cutoffs",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/cutoffs",
+          "status": 200,
+          "ms": 854,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/deactivate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"deactivate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-bookings",
+          "status": 500,
+          "ms": 266,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/cancel",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"cancel\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/complete",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"complete\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/start",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"start\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-doors",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 500,
+          "ms": 270,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-doors",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 201,
+          "ms": 653,
+          "ok": true,
+          "id": "01a220b0-e221-7367-8dd6-7d359b859ddf"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 201,
+          "ms": 474,
+          "ok": true,
+          "id": "01a220b0-e430-7016-a9d3-577a4a4922e5"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 201,
+          "ms": 465,
+          "ok": true,
+          "id": "01a220b0-e5f8-749f-bd2c-9c24880deac9"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 201,
+          "ms": 440,
+          "ok": true,
+          "id": "01a220b0-e7c6-71b7-bfe8-930f734acd56"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors",
+          "status": 201,
+          "ms": 433,
+          "ok": true,
+          "id": "01a220b0-e97a-732b-b8c4-44acc0bb2c94"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e221-7367-8dd6-7d359b859ddf",
+          "status": 409,
+          "ms": 708,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Door 6 ZM9B1\",\"type\":\"UNLOADING\",\"vehicleClass\":\"HEAVY_TRUCK\",\"capacityPerDay\":60,\"equipment\":\"HOPPER\",\"capacityUnit\":\"TONNES\",\"opensAt\":\"09:00\",\"closesAt\":\"18:00\",\"status\":\"ACTIVE\",\"expectedVersion\":7}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e430-7016-a9d3-577a4a4922e5",
+          "status": 409,
+          "ms": 362,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Door 7 ZM9B1\",\"type\":\"LOADING\",\"vehicleClass\":\"ANY\",\"capacityPerDay\":70,\"equipment\":\"CONVEYOR\",\"capacityUnit\":\"PALLETS\",\"opensAt\":\"09:00\",\"closesAt\":\"18:00\",\"status\":\"ACTIVE\",\"expectedVersion\":8}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e5f8-749f-bd2c-9c24880deac9",
+          "status": 409,
+          "ms": 371,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Door 8 ZM9B1\",\"type\":\"BOTH\",\"vehicleClass\":\"MINI_TRUCK\",\"capacityPerDay\":80,\"equipment\":\"SCALE\",\"capacityUnit\":\"TONNES\",\"opensAt\":\"09:00\",\"closesAt\":\"18:00\",\"status\":\"ACTIVE\",\"expectedVersion\":9}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e7c6-71b7-bfe8-930f734acd56",
+          "status": 409,
+          "ms": 342,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Door 9 ZM9B1\",\"type\":\"UNLOADING\",\"vehicleClass\":\"TRUCK\",\"capacityPerDay\":90,\"equipment\":\"WEIGHBRIDGE\",\"capacityUnit\":\"PALLETS\",\"opensAt\":\"09:00\",\"closesAt\":\"18:00\",\"status\":\"ACTIVE\",\"expectedVersion\":10}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e97a-732b-b8c4-44acc0bb2c94",
+          "status": 409,
+          "ms": 339,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Door 10 ZM9B1\",\"type\":\"LOADING\",\"vehicleClass\":\"HEAVY_TRUCK\",\"capacityPerDay\":100,\"equipment\":\"STANDARD\",\"capacityUnit\":\"TONNES\",\"opensAt\":\"09:00\",\"closesAt\":\"18:00\",\"status\":\"ACTIVE\",\"expectedVersion\":11}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}/bookings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e221-7367-8dd6-7d359b859ddf/bookings",
+          "status": 500,
+          "ms": 450,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"refNo\":\"TAZM9B1571\",\"direction\":\"INBOUND\",\"loadQty\":10,\"plannedStart\":\"2026-11-30T05:46:37.215Z\",\"plannedEnd\":\"2026-12-29T05:46:37.215Z\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e430-7016-a9d3-577a4a4922e5/bookings",
+          "status": 500,
+          "ms": 515,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"refNo\":\"TAZM9B1933\",\"direction\":\"OUTBOUND\",\"loadQty\":20,\"plannedStart\":\"2026-12-01T05:47:37.920Z\",\"plannedEnd\":\"2026-12-30T05:47:37.920Z\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e5f8-749f-bd2c-9c24880deac9/bookings",
+          "status": 500,
+          "ms": 513,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"refNo\":\"TAZM9B11190\",\"direction\":\"INBOUND\",\"loadQty\":30,\"plannedStart\":\"2026-12-02T05:48:34.905Z\",\"plannedEnd\":\"2026-12-31T05:48:34.905Z\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e7c6-71b7-bfe8-930f734acd56/bookings",
+          "status": 500,
+          "ms": 470,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"refNo\":\"TAZM9B11509\",\"direction\":\"INBOUND\",\"loadQty\":40,\"plannedStart\":\"2026-12-03T05:48:37.767Z\",\"plannedEnd\":\"2027-01-01T05:48:37.767Z\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e97a-732b-b8c4-44acc0bb2c94/bookings",
+          "status": 422,
+          "ms": 359,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.direction\",\"message\":\"a LOADING door cannot take INBOUND\"}]",
+          "body": "{\"refNo\":\"TAZM9B11807\",\"direction\":\"INBOUND\",\"loadQty\":50,\"plannedStart\":\"2026-12-04T05:49:37.231Z\",\"plannedEnd\":\"2027-01-02T05:49:37.231Z\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-doors/01a220b0-e221-7367-8dd6-7d359b859ddf/bookings",
+          "status": 500,
+          "ms": 416,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"refNo\":\"TAZM9B11868\",\"direction\":\"INBOUND\",\"loadQty\":60,\"plannedStart\":\"2026-12-05T05:49:37.965Z\",\"plannedEnd\":\"2027-01-03T05:49:37.965Z\"}",
+          "unresolvedFk": []
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "attempts": 6,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-yard",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/dock-yard",
+          "status": 500,
+          "ms": 763,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/gate-settings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/gate-settings",
+          "status": 200,
+          "ms": 192,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/gate-settings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/gate-settings",
+          "status": 200,
+          "ms": 1438,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/holidays",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays",
+          "status": 201,
+          "ms": 649,
+          "ok": true,
+          "id": "01a220b0-e225-727d-a0ba-9040a2903ccc"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays",
+          "status": 201,
+          "ms": 475,
+          "ok": true,
+          "id": "01a220b0-e435-7409-8aaa-59baab7ac121"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220b0-e5f3-7555-9359-def5d211081c"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays",
+          "status": 201,
+          "ms": 446,
+          "ok": true,
+          "id": "01a220b0-e7bd-708b-80ad-fafda27ca3fd"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays",
+          "status": 201,
+          "ms": 431,
+          "ok": true,
+          "id": "01a220b0-e974-72fc-ae3d-2f1e440f5845"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/holidays/{holidayId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays/01a220b0-e225-727d-a0ba-9040a2903ccc",
+          "status": 200,
+          "ms": 543,
+          "ok": false,
+          "note": "DB warehouse_holidays: 6 fields checked, MISMATCH limitedFrom: sent 09:00 / db null; limitedTo: sent 18:00 / db null",
+          "body": "{\"date\":\"2026-12-05\",\"name\":\"TEST-AUTO Holiday 6 ZM9B1\",\"reason\":\"TEST-AUTO Reason for Holiday #6 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"mode\":\"CLOSED\",\"limitedFrom\":\"09:00\",\"limitedTo\":\"18:00\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays/01a220b0-e435-7409-8aaa-59baab7ac121",
+          "status": 200,
+          "ms": 507,
+          "ok": true,
+          "note": "DB warehouse_holidays: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays/01a220b0-e5f3-7555-9359-def5d211081c",
+          "status": 200,
+          "ms": 503,
+          "ok": false,
+          "note": "DB warehouse_holidays: 6 fields checked, MISMATCH limitedFrom: sent 09:00 / db null; limitedTo: sent 18:00 / db null",
+          "body": "{\"date\":\"2026-12-07\",\"name\":\"TEST-AUTO Holiday 8 ZM9B1\",\"reason\":\"TEST-AUTO Reason for Holiday #8 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"mode\":\"CLOSED\",\"limitedFrom\":\"09:00\",\"limitedTo\":\"18:00\"}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays/01a220b0-e7bd-708b-80ad-fafda27ca3fd",
+          "status": 200,
+          "ms": 515,
+          "ok": true,
+          "note": "DB warehouse_holidays: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/holidays/01a220b0-e974-72fc-ae3d-2f1e440f5845",
+          "status": 200,
+          "ms": 904,
+          "ok": false,
+          "note": "DB warehouse_holidays: 6 fields checked, MISMATCH limitedFrom: sent 09:00 / db null; limitedTo: sent 18:00 / db null",
+          "body": "{\"date\":\"2026-12-09\",\"name\":\"TEST-AUTO Holiday 10 ZM9B1\",\"reason\":\"TEST-AUTO Reason for Holiday #10 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"mode\":\"CLOSED\",\"limitedFrom\":\"09:00\",\"limitedTo\":\"18:00\"}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PARTIAL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/holidays/{holidayId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/limit",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"limit\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/operating-hours",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/operating-hours",
+          "status": 422,
+          "ms": 90,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.days\",\"message\":\"give all 7 weekdays once each\"}]",
+          "body": "{\"days\":[{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true},{\"isoDay\":7,\"isOpen\":true}]}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/orders",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Orders",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/orders",
+          "status": 200,
+          "ms": 662,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/overview",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Stats",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/overview",
+          "status": 200,
+          "ms": 652,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/racks",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/racks",
+          "status": 200,
+          "ms": 377,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for rack",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}/bins",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned rack (no test parent created)",
+      "attempts": 0,
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/reactivate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"reactivate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 200,
+          "ms": 242,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 459,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"HIGH\",\"pins\":[\"534101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 365,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"MEDIUM\",\"pins\":[\"534211\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 353,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Eluru\",\"priority\":\"LOW\",\"pins\":[\"533101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 370,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Krishna\",\"priority\":\"HIGH\",\"pins\":[\"521201\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 398,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"East Godavari\",\"priority\":\"MEDIUM\",\"pins\":[\"534001\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 397,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"LOW\",\"pins\":[\"534101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 355,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"HIGH\",\"pins\":[\"534211\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 407,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Eluru\",\"priority\":\"MEDIUM\",\"pins\":[\"533101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 354,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Krishna\",\"priority\":\"LOW\",\"pins\":[\"521201\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 375,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"East Godavari\",\"priority\":\"HIGH\",\"pins\":[\"534001\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 354,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"MEDIUM\",\"pins\":[\"534101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 368,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"LOW\",\"pins\":[\"534211\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 378,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Eluru\",\"priority\":\"HIGH\",\"pins\":[\"533101\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 363,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"Krishna\",\"priority\":\"MEDIUM\",\"pins\":[\"521201\"]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas",
+          "status": 409,
+          "ms": 358,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":3,\"stateCode\":\"37\",\"district\":\"East Godavari\",\"priority\":\"LOW\",\"pins\":[\"534001\"]}",
+          "unresolvedFk": []
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "attempts": 15,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-e6d4-77aa-aa9d-893f5d8d6e9a",
+          "status": 404,
+          "ms": 228,
+          "ok": false,
+          "error": "NOT_FOUND: Service area not found"
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-e89d-72b9-a8f3-698720741fc5",
+          "status": 404,
+          "ms": 155,
+          "ok": false,
+          "error": "NOT_FOUND: Service area not found"
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-ea5d-75b8-b48a-9f2e6237f28c",
+          "status": 404,
+          "ms": 149,
+          "ok": false,
+          "error": "NOT_FOUND: Service area not found"
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-ec1c-700d-9c41-ad60a6e2c665",
+          "status": 404,
+          "ms": 163,
+          "ok": false,
+          "error": "NOT_FOUND: Service area not found"
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-edd9-766e-b690-1cd614f99780",
+          "status": 404,
+          "ms": 153,
+          "ok": false,
+          "error": "NOT_FOUND: Service area not found"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-e6d4-77aa-aa9d-893f5d8d6e9a",
+          "status": 409,
+          "ms": 380,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":7,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"HIGH\",\"addPins\":[\"281470\"],\"removePins\":[\"725814\"]}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-e89d-72b9-a8f3-698720741fc5",
+          "status": 409,
+          "ms": 388,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":8,\"stateCode\":\"37\",\"district\":\"West Godavari\",\"priority\":\"MEDIUM\",\"addPins\":[\"669258\"],\"removePins\":[\"203692\"]}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-ea5d-75b8-b48a-9f2e6237f28c",
+          "status": 409,
+          "ms": 402,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":9,\"stateCode\":\"37\",\"district\":\"Eluru\",\"priority\":\"LOW\",\"addPins\":[\"814703\"],\"removePins\":[\"458147\"]}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-ec1c-700d-9c41-ad60a6e2c665",
+          "status": 409,
+          "ms": 839,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":10,\"stateCode\":\"37\",\"district\":\"Krishna\",\"priority\":\"HIGH\",\"addPins\":[\"670369\"],\"removePins\":[\"214703\"]}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/service-areas/01a220b0-edd9-766e-b690-1cd614f99780",
+          "status": 409,
+          "ms": 367,
+          "ok": false,
+          "error": "CONFLICT: The service areas were changed by someone else; reload and retry",
+          "body": "{\"expectedVersion\":11,\"stateCode\":\"37\",\"district\":\"East Godavari\",\"priority\":\"MEDIUM\",\"addPins\":[\"436925\"],\"removePins\":[\"970369\"]}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}/reassign",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "state action \"reassign\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/shifts",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 81,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 1 ZM9B1\",\"startsAt\":\"18:47\",\"endsAt\":\"12:01\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 87,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 2 ZM9B1\",\"startsAt\":\"07:56\",\"endsAt\":\"01:10\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 85,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 3 ZM9B1\",\"startsAt\":\"09:18\",\"endsAt\":\"03:32\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 91,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 4 ZM9B1\",\"startsAt\":\"09:18\",\"endsAt\":\"03:32\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 201,
+          "ms": 444,
+          "ok": true,
+          "id": "01a220b1-db6e-7267-9011-c2152ed6bc79"
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 93,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 6 ZM9B1\",\"startsAt\":\"07:16\",\"endsAt\":\"01:30\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 139,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 7 ZM9B1\",\"startsAt\":\"09:18\",\"endsAt\":\"03:32\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 201,
+          "ms": 430,
+          "ok": true,
+          "id": "01a220b2-bde3-7112-90af-04b0e7aa721b"
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 84,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 9 ZM9B1\",\"startsAt\":\"09:58\",\"endsAt\":\"03:12\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 86,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 10 ZM9B1\",\"startsAt\":\"16:05\",\"endsAt\":\"10:29\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 422,
+          "ms": 83,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.endsAt\",\"message\":\"must be after startsAt (or mark the shift overnight)\"}]",
+          "body": "{\"name\":\"TEST-AUTO Shift 11 ZM9B1\",\"startsAt\":\"16:45\",\"endsAt\":\"10:09\",\"isoDays\":[7]}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 201,
+          "ms": 414,
+          "ok": true,
+          "id": "01a220b2-c8b3-72a1-972e-9789932e4943"
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 201,
+          "ms": 409,
+          "ok": true,
+          "id": "01a220b2-cb06-77ed-8f4b-678654135f5e"
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts",
+          "status": 201,
+          "ms": 536,
+          "ok": true,
+          "id": "01a220b3-a8fb-75fd-aae1-76fea86bb690"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 14,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/shifts/{shiftId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts/01a220b1-db6e-7267-9011-c2152ed6bc79",
+          "status": 409,
+          "ms": 356,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Shift 6 ZM9B1\",\"startsAt\":\"10:29\",\"endsAt\":\"14:43\",\"overnight\":true,\"breakStartsAt\":\"18:07\",\"breakEndsAt\":\"12:21\",\"isoDays\":[7],\"teamName\":\"TEST-AUTO Shift 6 ZM9B1\",\"dockDoorIds\":[\"01a220b0-e221-7367-8dd6-7d359b859ddf\"],\"status\":\"ACTIVE\",\"expectedVersion\":7}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts/01a220b2-bde3-7112-90af-04b0e7aa721b",
+          "status": 409,
+          "ms": 368,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Shift 7 ZM9B1\",\"startsAt\":\"01:10\",\"endsAt\":\"05:34\",\"overnight\":true,\"breakStartsAt\":\"09:58\",\"breakEndsAt\":\"03:12\",\"isoDays\":[7],\"teamName\":\"TEST-AUTO Shift 7 ZM9B1\",\"dockDoorIds\":[\"01a220b0-e430-7016-a9d3-577a4a4922e5\"],\"status\":\"ACTIVE\",\"expectedVersion\":8}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts/01a220b2-c8b3-72a1-972e-9789932e4943",
+          "status": 409,
+          "ms": 365,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Shift 8 ZM9B1\",\"startsAt\":\"10:09\",\"endsAt\":\"14:23\",\"overnight\":true,\"breakStartsAt\":\"18:47\",\"breakEndsAt\":\"12:01\",\"isoDays\":[7],\"teamName\":\"TEST-AUTO Shift 8 ZM9B1\",\"dockDoorIds\":[\"01a220b0-e5f8-749f-bd2c-9c24880deac9\"],\"status\":\"ACTIVE\",\"expectedVersion\":9}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts/01a220b2-cb06-77ed-8f4b-678654135f5e",
+          "status": 409,
+          "ms": 368,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Shift 9 ZM9B1\",\"startsAt\":\"12:21\",\"endsAt\":\"16:45\",\"overnight\":true,\"breakStartsAt\":\"10:09\",\"breakEndsAt\":\"14:23\",\"isoDays\":[7],\"teamName\":\"TEST-AUTO Shift 9 ZM9B1\",\"dockDoorIds\":[\"01a220b0-e7c6-71b7-bfe8-930f734acd56\"],\"status\":\"ACTIVE\",\"expectedVersion\":10}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/shifts/01a220b3-a8fb-75fd-aae1-76fea86bb690",
+          "status": 409,
+          "ms": 352,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Shift 10 ZM9B1\",\"startsAt\":\"14:43\",\"endsAt\":\"18:07\",\"overnight\":true,\"breakStartsAt\":\"12:21\",\"breakEndsAt\":\"16:45\",\"isoDays\":[7],\"teamName\":\"TEST-AUTO Shift 10 ZM9B1\",\"dockDoorIds\":[\"01a220b0-e97a-732b-b8c4-44acc0bb2c94\"],\"status\":\"ACTIVE\",\"expectedVersion\":11}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/shifts/{shiftId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/staging-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 200,
+          "ms": 164,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/staging-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 201,
+          "ms": 483,
+          "ok": true,
+          "id": "01a220b0-e6d4-77aa-aa9d-893f5d8d6e9a"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 201,
+          "ms": 452,
+          "ok": true,
+          "id": "01a220b0-e89d-72b9-a8f3-698720741fc5"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 201,
+          "ms": 450,
+          "ok": true,
+          "id": "01a220b0-ea5d-75b8-b48a-9f2e6237f28c"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 201,
+          "ms": 447,
+          "ok": true,
+          "id": "01a220b0-ec1c-700d-9c41-ad60a6e2c665"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas",
+          "status": 201,
+          "ms": 449,
+          "ok": true,
+          "id": "01a220b0-edd9-766e-b690-1cd614f99780"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/staging-areas/{stagingId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/staging-areas/01a220b0-e6d4-77aa-aa9d-893f5d8d6e9a",
+          "status": 200,
+          "ms": 442,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/staging-areas/{stagingId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/stock-by-category",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Stats",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/stock-by-category",
+          "status": 200,
+          "ms": 153,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage-rules",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 200,
+          "ms": 575,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/storage-rules",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 422,
+          "ms": 114,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.keepAwayCategoryIds\",\"message\":\"say what to keep it away from\"}]",
+          "body": "{\"name\":\"TEST-AUTO Storagerule 1 ZM9B1\",\"subjectCategoryIds\":[\"05a40b9f-1773-41dc-945b-e5bfe638ad87\"],\"type\":\"SEGREGATION\"}",
+          "unresolvedFk": ["subjectCategory", "keepAwayCategory"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 201,
+          "ms": 585,
+          "ok": true,
+          "id": "01a220b0-f12a-76fc-9052-9c2442d8b413"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 201,
+          "ms": 612,
+          "ok": true,
+          "id": "01a220b0-f392-77ad-bd5b-5b8462403077"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 422,
+          "ms": 149,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.keepAwayCategoryIds\",\"message\":\"say what to keep it away from\"}]",
+          "body": "{\"name\":\"TEST-AUTO Storagerule 4 ZM9B1\",\"subjectCategoryIds\":[\"42b725fd-c3fe-47be-b604-1840f5e0800b\"],\"type\":\"SEGREGATION\"}",
+          "unresolvedFk": ["subjectCategory", "keepAwayCategory"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 422,
+          "ms": 108,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.keepAwayCategoryIds\",\"message\":\"say what to keep it away from\"}]",
+          "body": "{\"name\":\"TEST-AUTO Storagerule 5 ZM9B1\",\"subjectCategoryIds\":[\"9be9ffd2-880f-4457-87b5-86e8a0c0b8ca\"],\"type\":\"SEGREGATION\"}",
+          "unresolvedFk": ["subjectCategory", "keepAwayCategory"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 201,
+          "ms": 632,
+          "ok": true,
+          "id": "01a220b1-dce8-741c-884d-33d672344a19"
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 201,
+          "ms": 627,
+          "ok": true,
+          "id": "01a220b1-df80-725b-8d94-5bcc91e3830b"
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 422,
+          "ms": 102,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.keepAwayCategoryIds\",\"message\":\"say what to keep it away from\"}]",
+          "body": "{\"name\":\"TEST-AUTO Storagerule 8 ZM9B1\",\"subjectCategoryIds\":[\"128d9431-d72f-43d5-92ec-7d6f5e712351\"],\"type\":\"SEGREGATION\"}",
+          "unresolvedFk": ["subjectCategory", "keepAwayCategory"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 422,
+          "ms": 88,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"body.keepAwayCategoryIds\",\"message\":\"say what to keep it away from\"}]",
+          "body": "{\"name\":\"TEST-AUTO Storagerule 9 ZM9B1\",\"subjectCategoryIds\":[\"ef60f116-6c85-417c-b2cc-0e8331627594\"],\"type\":\"SEGREGATION\"}",
+          "unresolvedFk": ["subjectCategory", "keepAwayCategory"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules",
+          "status": 201,
+          "ms": 567,
+          "ok": true,
+          "id": "01a220b1-e412-7449-bbc0-3db859882de4"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 10,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/{ruleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/01a220b0-f12a-76fc-9052-9c2442d8b413",
+          "status": 409,
+          "ms": 354,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Rule 6 ZM9B1\",\"allowedZoneId\":\"01a220b0-ec68-72af-ad48-04fedd78bfb2\",\"minDistance\":1,\"minDistanceUnit\":\"METRES\",\"notes\":\"TEST-AUTO Notes for Rule #6 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"status\":\"ACTIVE\",\"expectedVersion\":7}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/01a220b0-f392-77ad-bd5b-5b8462403077",
+          "status": 409,
+          "ms": 363,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Rule 7 ZM9B1\",\"allowedZoneId\":\"01a220b0-ee14-724e-aeb1-be9f2c2cdf64\",\"minDistance\":1,\"minDistanceUnit\":\"FEET\",\"notes\":\"TEST-AUTO Notes for Rule #7 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"status\":\"ACTIVE\",\"expectedVersion\":8}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/01a220b1-dce8-741c-884d-33d672344a19",
+          "status": 409,
+          "ms": 371,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Rule 8 ZM9B1\",\"allowedZoneId\":\"01a220b0-efc8-775d-8ce2-ad6ed247500f\",\"minDistance\":1,\"minDistanceUnit\":\"METRES\",\"notes\":\"TEST-AUTO Notes for Rule #8 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"status\":\"ACTIVE\",\"expectedVersion\":9}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/01a220b1-df80-725b-8d94-5bcc91e3830b",
+          "status": 409,
+          "ms": 375,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Rule 9 ZM9B1\",\"allowedZoneId\":\"01a220b0-f188-71ed-b909-58591026998c\",\"minDistance\":2,\"minDistanceUnit\":\"FEET\",\"notes\":\"TEST-AUTO Notes for Rule #9 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"status\":\"ACTIVE\",\"expectedVersion\":10}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/01a220b1-e412-7449-bbc0-3db859882de4",
+          "status": 409,
+          "ms": 361,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Rule 10 ZM9B1\",\"allowedZoneId\":\"01a220b0-f36c-712e-b129-00fb36faf6cb\",\"minDistance\":2,\"minDistanceUnit\":\"METRES\",\"notes\":\"TEST-AUTO Notes for Rule #10 — automated QA run ZM9B1, verified by the Swagger admin API suite.\",\"status\":\"ACTIVE\",\"expectedVersion\":11}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/{ruleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/summary",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage-rules/summary",
+          "status": 200,
+          "ms": 171,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage/layout",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/storage/layout",
+          "status": 200,
+          "ms": 305,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/team",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 200,
+          "ms": 717,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/team",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 340,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Ravi Kumar\",\"email\":\"test.auto.zm9b1.534@example.com\",\"roleId\":\"979446e1-e652-4f05-8d7f-6fbc8842cbfd\"}",
+          "unresolvedFk": ["role", "shift"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 324,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Lakshmi Devi\",\"email\":\"test.auto.zm9b1.576@example.com\",\"roleId\":\"ef1b8379-7b31-47c8-ae2d-eb00b7ff8882\"}",
+          "unresolvedFk": ["role", "shift"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 313,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Srinivas Rao\",\"email\":\"test.auto.zm9b1.633@example.com\",\"roleId\":\"31c1cc92-471d-4d5a-8456-1dfc5443b94b\"}",
+          "unresolvedFk": ["role", "shift"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 395,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Padma Reddy\",\"email\":\"test.auto.zm9b1.868@example.com\",\"roleId\":\"3f60044c-d05f-4029-abba-2864ddfa0cd9\"}",
+          "unresolvedFk": ["role", "shift"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 344,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Venkatesh Naidu\",\"email\":\"test.auto.zm9b1.957@example.com\",\"roleId\":\"d71e5b87-9a7b-465a-941b-2ee7f30f35c8\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 400,
+          "ms": 311,
+          "ok": false,
+          "error": "BAD_REQUEST: This role cannot be granted at a warehouse",
+          "body": "{\"fullName\":\"Ravi Kumar\",\"email\":\"test.auto.zm9b1.1002@example.com\",\"roleId\":\"a6b0f34f-2d72-404e-b640-5022a7d0da2c\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 22,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Lakshmi Devi\",\"email\":\"test.auto.zm9b1.1310@example.com\",\"roleId\":\"b1b03e82-08fe-488a-83eb-035c31379763\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 18,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Srinivas Rao\",\"email\":\"test.auto.zm9b1.1313@example.com\",\"phone\":\"+919860771315\",\"roleId\":\"515606a1-5968-41ee-a9ad-c4fae00e78b9\",\"workAreas\":[\"DISPATCH\"],\"shiftId\":\"01a220b2-bde3-7112-90af-04b0e7aa721b\",\"jobTitle\":\"TEST-AUTO Team 8 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 19,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Padma Reddy\",\"email\":\"test.auto.zm9b1.1320@example.com\",\"phone\":\"+919860771322\",\"roleId\":\"ae887e14-1b88-44de-a9c8-542632a774d3\",\"workAreas\":[\"RECEIVING\"],\"shiftId\":\"01a220b1-db6e-7267-9011-c2152ed6bc79\",\"jobTitle\":\"TEST-AUTO Team 9 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 20,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Venkatesh Naidu\",\"email\":\"test.auto.zm9b1.1417@example.com\",\"phone\":\"+919860771419\",\"roleId\":\"d1fed6ba-14ae-4e23-8dd2-7aa561f07fd3\",\"workAreas\":[\"STORAGE\"],\"shiftId\":\"01a220b2-bde3-7112-90af-04b0e7aa721b\",\"jobTitle\":\"TEST-AUTO Team 10 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 18,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Ravi Kumar\",\"email\":\"test.auto.zm9b1.1424@example.com\",\"phone\":\"+919860771426\",\"roleId\":\"aa00f055-0384-4473-8b5b-add0ea72907a\",\"workAreas\":[\"PICKING\"],\"shiftId\":\"01a220b1-db6e-7267-9011-c2152ed6bc79\",\"jobTitle\":\"TEST-AUTO Team 11 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 31,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Lakshmi Devi\",\"email\":\"test.auto.zm9b1.1431@example.com\",\"phone\":\"+919860771433\",\"roleId\":\"10e1f57b-4a8e-4950-8f04-129137bc1b5e\",\"workAreas\":[\"DISPATCH\"],\"shiftId\":\"01a220b2-bde3-7112-90af-04b0e7aa721b\",\"jobTitle\":\"TEST-AUTO Team 12 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 38,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Srinivas Rao\",\"email\":\"test.auto.zm9b1.1673@example.com\",\"phone\":\"+919860771675\",\"roleId\":\"0e7a71a0-699d-45e5-808b-518a22403bdc\",\"workAreas\":[\"RECEIVING\"],\"shiftId\":\"01a220b2-c8b3-72a1-972e-9789932e4943\",\"jobTitle\":\"TEST-AUTO Team 13 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 17,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Padma Reddy\",\"email\":\"test.auto.zm9b1.1680@example.com\",\"phone\":\"+919860771682\",\"roleId\":\"f41523e2-ede8-4a2b-b157-62464af8e1d8\",\"workAreas\":[\"STORAGE\"],\"shiftId\":\"01a220b2-cb06-77ed-8f4b-678654135f5e\",\"jobTitle\":\"TEST-AUTO Team 14 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/team",
+          "status": 429,
+          "ms": 17,
+          "ok": false,
+          "error": "RATE_LIMITED: Too many requests",
+          "body": "{\"fullName\":\"Venkatesh Naidu\",\"email\":\"test.auto.zm9b1.1687@example.com\",\"phone\":\"+919860771689\",\"roleId\":\"7e361ad9-6a52-45f2-9f38-d9b71e9bfafb\",\"workAreas\":[\"PICKING\"],\"shiftId\":\"01a220b3-a8fb-75fd-aae1-76fea86bb690\",\"jobTitle\":\"TEST-AUTO Team 15 ZM9B1\"}",
+          "unresolvedFk": ["role"]
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": "no record for FK: role",
+      "attempts": 15,
+      "status": "FAIL"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/documents",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/documents",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/resend-invite",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "skip",
+      "skipReason": "state action \"resend-invite\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 162,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 330,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"code\":\"TAZM9B1393\",\"name\":\"TEST-AUTO Weighscale 1 ZM9B1\",\"maxCapacityKg\":260,\"divisionKg\":26,\"calibratedAt\":\"2026-11-30\",\"calibrationValidUntil\":\"2026-12-29\",\"status\":\"ACTIVE\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 1104,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"code\":\"TAZM9B1662\",\"name\":\"TEST-AUTO Weighscale 2 ZM9B1\",\"maxCapacityKg\":270,\"divisionKg\":27,\"calibratedAt\":\"2026-12-01\",\"calibrationValidUntil\":\"2026-12-30\",\"status\":\"ACTIVE\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 724,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"code\":\"TAZM9B11031\",\"name\":\"TEST-AUTO Weighscale 3 ZM9B1\",\"maxCapacityKg\":280,\"divisionKg\":28,\"calibratedAt\":\"2026-12-02\",\"calibrationValidUntil\":\"2026-12-31\",\"status\":\"ACTIVE\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 354,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"code\":\"TAZM9B11364\",\"name\":\"TEST-AUTO Weighscale 4 ZM9B1\",\"maxCapacityKg\":290,\"divisionKg\":29,\"calibratedAt\":\"2026-12-03\",\"calibrationValidUntil\":\"2027-01-01\",\"status\":\"ACTIVE\"}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/weigh-scales",
+          "status": 500,
+          "ms": 317,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error",
+          "body": "{\"code\":\"TAZM9B11666\",\"name\":\"TEST-AUTO Weighscale 5 ZM9B1\",\"maxCapacityKg\":300,\"divisionKg\":30,\"calibratedAt\":\"2026-12-04\",\"calibrationValidUntil\":\"2027-01-02\",\"status\":\"ACTIVE\"}",
+          "unresolvedFk": []
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "attempts": 5,
+      "status": "FAIL"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales/{scaleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for scale",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales/{scaleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/yard-slots",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 200,
+          "ms": 159,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 201,
+          "ms": 447,
+          "ok": true,
+          "id": "01a220b0-eb2d-762d-a952-a4923437a03e"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 201,
+          "ms": 437,
+          "ok": true,
+          "id": "01a220b0-ece0-740b-9148-eb864a415041"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 201,
+          "ms": 456,
+          "ok": true,
+          "id": "01a220b0-eea5-701e-886b-a78984017278"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 201,
+          "ms": 466,
+          "ok": true,
+          "id": "01a220b0-f07c-71fb-988e-99386f7bfff6"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots",
+          "status": 201,
+          "ms": 459,
+          "ok": true,
+          "id": "01a220b0-f254-77da-be3b-a621a6ef9d2f"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots/01a220b0-eb2d-762d-a952-a4923437a03e",
+          "status": 200,
+          "ms": 489,
+          "ok": true,
+          "note": "DB warehouse_yard_slots: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots/01a220b0-ece0-740b-9148-eb864a415041",
+          "status": 200,
+          "ms": 507,
+          "ok": true,
+          "note": "DB warehouse_yard_slots: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots/01a220b0-eea5-701e-886b-a78984017278",
+          "status": 200,
+          "ms": 481,
+          "ok": true,
+          "note": "DB warehouse_yard_slots: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots/01a220b0-f07c-71fb-988e-99386f7bfff6",
+          "status": 200,
+          "ms": 498,
+          "ok": true,
+          "note": "DB warehouse_yard_slots: 2 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/yard-slots/01a220b0-f254-77da-be3b-a621a6ef9d2f",
+          "status": 200,
+          "ms": 478,
+          "ok": true,
+          "note": "DB warehouse_yard_slots: 2 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}/occupy",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"occupy\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}/release",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"release\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/zones",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 200,
+          "ms": 166,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/zones",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 201,
+          "ms": 429,
+          "ok": true,
+          "id": "01a220b0-ec68-72af-ad48-04fedd78bfb2"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 201,
+          "ms": 428,
+          "ok": true,
+          "id": "01a220b0-ee14-724e-aeb1-be9f2c2cdf64"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 201,
+          "ms": 434,
+          "ok": true,
+          "id": "01a220b0-efc8-775d-8ce2-ad6ed247500f"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 201,
+          "ms": 460,
+          "ok": true,
+          "id": "01a220b0-f188-71ed-b909-58591026998c"
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones",
+          "status": 201,
+          "ms": 501,
+          "ok": true,
+          "id": "01a220b0-f36c-712e-b129-00fb36faf6cb"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "attempts": 5,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ec68-72af-ad48-04fedd78bfb2",
+          "status": 409,
+          "ms": 371,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Zone 6 ZM9B1\",\"temperatureClass\":\"AMB_CTL\",\"minTempC\":1,\"maxTempC\":60,\"isSecure\":false,\"isFoodGrade\":false,\"status\":\"ACTIVE\",\"sortOrder\":6,\"expectedVersion\":7}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ee14-724e-aeb1-be9f2c2cdf64",
+          "status": 409,
+          "ms": 366,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Zone 7 ZM9B1\",\"temperatureClass\":\"CC_REF\",\"minTempC\":1,\"maxTempC\":60,\"isSecure\":true,\"isFoodGrade\":true,\"status\":\"ACTIVE\",\"sortOrder\":7,\"expectedVersion\":8}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-efc8-775d-8ce2-ad6ed247500f",
+          "status": 409,
+          "ms": 364,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Zone 8 ZM9B1\",\"temperatureClass\":\"CC_FRZ\",\"minTempC\":1,\"maxTempC\":60,\"isSecure\":false,\"isFoodGrade\":false,\"status\":\"ACTIVE\",\"sortOrder\":8,\"expectedVersion\":9}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f188-71ed-b909-58591026998c",
+          "status": 409,
+          "ms": 373,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Zone 9 ZM9B1\",\"temperatureClass\":\"HAZ\",\"minTempC\":1,\"maxTempC\":60,\"isSecure\":true,\"isFoodGrade\":true,\"status\":\"ACTIVE\",\"sortOrder\":9,\"expectedVersion\":10}"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f36c-712e-b129-00fb36faf6cb",
+          "status": 409,
+          "ms": 365,
+          "ok": false,
+          "error": "CONFLICT: Changed by someone else; reload and retry",
+          "body": "{\"name\":\"TEST-AUTO Zone 10 ZM9B1\",\"temperatureClass\":\"AMB\",\"minTempC\":1,\"maxTempC\":60,\"isSecure\":false,\"isFoodGrade\":false,\"status\":\"ACTIVE\",\"sortOrder\":10,\"expectedVersion\":11}"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}/racks",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ec68-72af-ad48-04fedd78bfb2/racks",
+          "status": 409,
+          "ms": 91,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1585: 260.00 kg / 2.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1585\",\"maxWeightKg\":260,\"volumeM3\":2,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":10,\"maxWeightKg\":260,\"volumeM3\":2}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ee14-724e-aeb1-be9f2c2cdf64/racks",
+          "status": 409,
+          "ms": 118,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1612: 270.00 kg / 3.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1612\",\"maxWeightKg\":270,\"volumeM3\":3,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":20,\"maxWeightKg\":270,\"volumeM3\":3}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-efc8-775d-8ce2-ad6ed247500f/racks",
+          "status": 409,
+          "ms": 116,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1627: 280.00 kg / 4.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1627\",\"maxWeightKg\":280,\"volumeM3\":4,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":30,\"maxWeightKg\":280,\"volumeM3\":4}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f188-71ed-b909-58591026998c/racks",
+          "status": 409,
+          "ms": 134,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1951: 290.00 kg / 5.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1951\",\"maxWeightKg\":290,\"volumeM3\":5,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":40,\"maxWeightKg\":290,\"volumeM3\":5}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f36c-712e-b129-00fb36faf6cb/racks",
+          "status": 409,
+          "ms": 90,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1967: 300.00 kg / 6.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1967\",\"maxWeightKg\":300,\"volumeM3\":6,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":50,\"maxWeightKg\":300,\"volumeM3\":6}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r3",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ec68-72af-ad48-04fedd78bfb2/racks",
+          "status": 409,
+          "ms": 90,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B1987: 310.00 kg / 7.000 m³ left",
+          "body": "{\"code\":\"TAZM9B1987\",\"maxWeightKg\":310,\"volumeM3\":7,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":60,\"maxWeightKg\":310,\"volumeM3\":7}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ee14-724e-aeb1-be9f2c2cdf64/racks",
+          "status": 409,
+          "ms": 88,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11268: 320.00 kg / 8.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11268\",\"maxWeightKg\":320,\"volumeM3\":8,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":70,\"maxWeightKg\":320,\"volumeM3\":8}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-efc8-775d-8ce2-ad6ed247500f/racks",
+          "status": 409,
+          "ms": 85,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11293: 330.00 kg / 9.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11293\",\"maxWeightKg\":330,\"volumeM3\":9,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":80,\"maxWeightKg\":330,\"volumeM3\":9}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r4",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f188-71ed-b909-58591026998c/racks",
+          "status": 409,
+          "ms": 85,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11326: 340.00 kg / 10.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11326\",\"maxWeightKg\":340,\"volumeM3\":10,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":90,\"maxWeightKg\":340,\"volumeM3\":10}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f36c-712e-b129-00fb36faf6cb/racks",
+          "status": 409,
+          "ms": 118,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11603: 350.00 kg / 11.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11603\",\"maxWeightKg\":350,\"volumeM3\":11,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":100,\"maxWeightKg\":350,\"volumeM3\":11}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ec68-72af-ad48-04fedd78bfb2/racks",
+          "status": 409,
+          "ms": 148,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11618: 360.00 kg / 12.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11618\",\"maxWeightKg\":360,\"volumeM3\":12,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":110,\"maxWeightKg\":360,\"volumeM3\":12}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r5",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-ee14-724e-aeb1-be9f2c2cdf64/racks",
+          "status": 409,
+          "ms": 87,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11628: 370.00 kg / 13.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11628\",\"maxWeightKg\":370,\"volumeM3\":13,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":120,\"maxWeightKg\":370,\"volumeM3\":13}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-efc8-775d-8ce2-ad6ed247500f/racks",
+          "status": 409,
+          "ms": 84,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11802: 380.00 kg / 14.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11802\",\"maxWeightKg\":380,\"volumeM3\":14,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":130,\"maxWeightKg\":380,\"volumeM3\":14}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f188-71ed-b909-58591026998c/racks",
+          "status": 409,
+          "ms": 105,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11837: 390.00 kg / 15.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11837\",\"maxWeightKg\":390,\"volumeM3\":15,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":140,\"maxWeightKg\":390,\"volumeM3\":15}}",
+          "unresolvedFk": []
+        },
+        {
+          "phase": "B create r6",
+          "url": "/v1/admin/warehouses/01a220b0-db18-709d-adf4-dfab1cb9f756/zones/01a220b0-f36c-712e-b129-00fb36faf6cb/racks",
+          "status": 409,
+          "ms": 107,
+          "ok": false,
+          "error": "CONFLICT: Bins would exceed rack TAZM9B11853: 400.00 kg / 16.000 m³ left",
+          "body": "{\"code\":\"TAZM9B11853\",\"maxWeightKg\":400,\"volumeM3\":16,\"status\":\"ACTIVE\",\"generateBins\":{\"count\":150,\"maxWeightKg\":400,\"volumeM3\":16}}",
+          "unresolvedFk": []
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "attempts": 15,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/code-availability",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/code-availability?code=TAZM9B11878",
+          "status": 200,
+          "ms": 100,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/coverage/{pinCode}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for coverage",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/export.csv",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/export.csv",
+          "status": 200,
+          "ms": 963,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/warehouses/export.csv?q=TEST-AUTO",
+          "status": 200,
+          "ms": 160,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses/export.csv?type=MOTHER",
+          "status": 200,
+          "ms": 173,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses/export.csv?status=SETUP",
+          "status": 200,
+          "ms": 184,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/lookups",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/lookups",
+          "status": 200,
+          "ms": 33,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/lookups/districts",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/lookups/districts?stateCode=37",
+          "status": 200,
+          "ms": 94,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/summary",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/summary",
+          "status": 200,
+          "ms": 958,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/team/roles",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/team/roles",
+          "status": 200,
+          "ms": 360,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    }
+  ],
+  "mismatches": []
+}

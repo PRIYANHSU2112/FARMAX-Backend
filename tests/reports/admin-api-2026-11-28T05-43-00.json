@@ -1,0 +1,1235 @@
+{
+  "run": "ZHUC7",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T05:43:00.057Z",
+  "per": 5,
+  "db": {
+    "verified": 20,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "disease": [
+      {
+        "id": "01a220ad-b04a-71ad-9896-7a2ef4583de4",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220ad-b204-77de-894c-28830c93ca46",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220ad-b3c4-778a-b304-25faac2ecd7d",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220ad-b577-75dc-b14a-a4aa346251c4",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      },
+      {
+        "id": "01a220ad-b738-77a8-be62-e9753b5292cd",
+        "table": "diseases",
+        "op": "POST /v1/admin/catalog/diseases"
+      }
+    ],
+    "lookup": [
+      {
+        "id": "01a220ad-afe5-701e-91a3-0f9679726a15",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220ad-b150-735a-afa5-6b77eb85c437",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220ad-b2b0-73e8-a929-00527a66ddfa",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220ad-b40f-74fe-a1ff-38bd327fd652",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      },
+      {
+        "id": "01a220ad-b569-7350-b239-2254f35d2ac3",
+        "table": "product_lookups",
+        "op": "POST /v1/admin/catalog/lookups"
+      }
+    ],
+    "product": []
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for category",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for category",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/compliance-profiles/{categoryId}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/diseases",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 200,
+          "ms": 578,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/diseases?q=TEST-AUTO",
+          "status": 200,
+          "ms": 99,
+          "ok": true,
+          "note": "10 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/diseases",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 492,
+          "ok": true,
+          "id": "01a220ad-b04a-71ad-9896-7a2ef4583de4"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 443,
+          "ok": true,
+          "id": "01a220ad-b204-77de-894c-28830c93ca46"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 442,
+          "ok": true,
+          "id": "01a220ad-b3c4-778a-b304-25faac2ecd7d"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 434,
+          "ok": true,
+          "id": "01a220ad-b577-75dc-b14a-a4aa346251c4"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/diseases",
+          "status": 201,
+          "ms": 448,
+          "ok": true,
+          "id": "01a220ad-b738-77a8-be62-e9753b5292cd"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b04a-71ad-9896-7a2ef4583de4",
+          "status": 200,
+          "ms": 95,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b204-77de-894c-28830c93ca46",
+          "status": 200,
+          "ms": 167,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b3c4-778a-b304-25faac2ecd7d",
+          "status": 200,
+          "ms": 130,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b577-75dc-b14a-a4aa346251c4",
+          "status": 200,
+          "ms": 91,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b738-77a8-be62-e9753b5292cd",
+          "status": 200,
+          "ms": 79,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b04a-71ad-9896-7a2ef4583de4",
+          "status": 200,
+          "ms": 679,
+          "ok": true,
+          "note": "DB diseases: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b204-77de-894c-28830c93ca46",
+          "status": 200,
+          "ms": 668,
+          "ok": true,
+          "note": "DB diseases: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b3c4-778a-b304-25faac2ecd7d",
+          "status": 200,
+          "ms": 677,
+          "ok": true,
+          "note": "DB diseases: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b577-75dc-b14a-a4aa346251c4",
+          "status": 200,
+          "ms": 609,
+          "ok": true,
+          "note": "DB diseases: 6 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/diseases/01a220ad-b738-77a8-be62-e9753b5292cd",
+          "status": 200,
+          "ms": 617,
+          "ok": true,
+          "note": "DB diseases: 6 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/diseases/{id}",
+      "service": "product-service",
+      "tag": "Admin · Diseases",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/lookups",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 200,
+          "ms": 601,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/lookups?q=TEST-AUTO",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "10 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/lookups?group=DOSAGE_FORM",
+          "status": 200,
+          "ms": 97,
+          "ok": true,
+          "note": "13 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/lookups",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 386,
+          "ok": true,
+          "id": "01a220ad-afe5-701e-91a3-0f9679726a15"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 360,
+          "ok": true,
+          "id": "01a220ad-b150-735a-afa5-6b77eb85c437"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 351,
+          "ok": true,
+          "id": "01a220ad-b2b0-73e8-a929-00527a66ddfa"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 348,
+          "ok": true,
+          "id": "01a220ad-b40f-74fe-a1ff-38bd327fd652"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/lookups",
+          "status": 201,
+          "ms": 348,
+          "ok": true,
+          "id": "01a220ad-b569-7350-b239-2254f35d2ac3"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220ad-afe5-701e-91a3-0f9679726a15",
+          "status": 200,
+          "ms": 90,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b150-735a-afa5-6b77eb85c437",
+          "status": 200,
+          "ms": 163,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b2b0-73e8-a929-00527a66ddfa",
+          "status": 200,
+          "ms": 133,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b40f-74fe-a1ff-38bd327fd652",
+          "status": 200,
+          "ms": 93,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b569-7350-b239-2254f35d2ac3",
+          "status": 200,
+          "ms": 83,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220ad-afe5-701e-91a3-0f9679726a15",
+          "status": 200,
+          "ms": 355,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b150-735a-afa5-6b77eb85c437",
+          "status": 200,
+          "ms": 348,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b2b0-73e8-a929-00527a66ddfa",
+          "status": 200,
+          "ms": 350,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b40f-74fe-a1ff-38bd327fd652",
+          "status": 200,
+          "ms": 352,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        },
+        {
+          "phase": "E update",
+          "url": "/v1/admin/catalog/lookups/01a220ad-b569-7350-b239-2254f35d2ac3",
+          "status": 200,
+          "ms": 384,
+          "ok": true,
+          "note": "DB product_lookups: 4 fields checked"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/lookups/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Lookups",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/product-attributes",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/product-attributes?categoryId=da0fcd4b-dfe9-429f-b358-2857044a7250",
+          "status": 404,
+          "ms": 26,
+          "ok": false,
+          "error": "NOT_FOUND: Category not found"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/product-attributes",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 404,
+          "ms": 532,
+          "ok": false,
+          "error": "NOT_FOUND: Category not found",
+          "body": "{\"categoryId\":\"39c56367-fd13-4d8b-863f-68e79af2a31c\",\"key\":\"taZHUC771\",\"label\":\"TEST-AUTO Productattribute 1 ZHUC7\",\"dataType\":\"SELECT\",\"unit\":\"TEST-AUTO Unit 1 ZHU\",\"options\":[\"Lasota\"],\"isRequired\":true,\"isFilterable\":true,\"sortOrder\":1,\"reason\":\"Strain is the main buying criterion for ND vaccines\"}",
+          "unresolvedFk": ["category"]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/product-attributes",
+          "status": 404,
+          "ms": 96,
+          "ok": false,
+          "error": "NOT_FOUND: Category not found",
+          "body": "{\"categoryId\":\"e3a5eaa4-3639-4eff-b830-ed29bc4be42c\",\"key\":\"taZHUC7270\",\"label\":\"TEST-AUTO Productattribute 1 ZHUC7\",\"dataType\":\"SELECT\",\"unit\":\"TEST-AUTO Unit 1 ZHU\",\"options\":[\"Lasota\"],\"isRequired\":true,\"isFilterable\":true,\"sortOrder\":1,\"reason\":\"Strain is the main buying criterion for ND vaccines\"}",
+          "unresolvedFk": ["category"]
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": "unresolved FK: category",
+      "status": "FAIL"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/product-attributes/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for productattribute",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/product-attributes/{id}",
+      "service": "product-service",
+      "tag": "Admin · Product Attributes & Compliance",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/products",
+          "status": 200,
+          "ms": 634,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/products?limit=2",
+          "status": 200,
+          "ms": 157,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/products?limit=101",
+          "status": 422,
+          "ms": 6,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/products?q=TEST-AUTO",
+          "status": 200,
+          "ms": 144,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/products?status=DRAFT",
+          "status": 200,
+          "ms": 150,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/catalog/products",
+          "status": 422,
+          "ms": 100,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"categoryId\",\"message\":\"Category not found or inactive\"}]",
+          "body": "{\"name\":\"TEST-AUTO Product 1 ZHUC7\",\"categoryId\":\"b5c5a713-8c03-44d6-9e8e-d15c60031f8b\",\"brandId\":\"dfb3e1b1-1587-4704-b77e-7963f24178c8\",\"genericName\":\"TEST-AUTO Product 1 ZHUC7\",\"productionStages\":[\"GROWER\"],\"diseaseIds\":[\"01a220ad-b04a-71ad-9896-7a2ef4583de4\"],\"indications\":\"CRD, E. coli infections, fowl cholera, infectious coryza.\",\"dosageInstructions\":\"0.5 ml per litre of drinking water for 3–5 days.\",\"withdrawalMeatDays\":7,\"withdrawalEggDays\":7,\"manufacturerName\":\"TEST-AUTO Product 1 ZHUC7\",\"drugSchedule\":\"H\",\"registrationAuthority\":\"CDSCO\",\"registrationNo\":\"AP37AB1148\",\"drugLicenseNo\":\"M…",
+          "unresolvedFk": [
+            "category",
+            "brand",
+            "dosageForm",
+            "route",
+            "species",
+            "disease",
+            "unit",
+            "perUnit",
+            "packUnit"
+          ]
+        },
+        {
+          "phase": "B create r2",
+          "url": "/v1/admin/catalog/products",
+          "status": 422,
+          "ms": 100,
+          "ok": false,
+          "error": "VALIDATION_ERROR: Validation failed [{\"path\":\"categoryId\",\"message\":\"Category not found or inactive\"}]",
+          "body": "{\"name\":\"TEST-AUTO Product 1 ZHUC7\",\"categoryId\":\"420f4b55-f447-41da-97c8-9906028ef110\",\"brandId\":\"56d4bec1-c5ee-4571-96a9-f7e3333e40e0\",\"genericName\":\"TEST-AUTO Product 1 ZHUC7\",\"productionStages\":[\"GROWER\"],\"diseaseIds\":[\"01a220ad-b04a-71ad-9896-7a2ef4583de4\"],\"indications\":\"CRD, E. coli infections, fowl cholera, infectious coryza.\",\"dosageInstructions\":\"0.5 ml per litre of drinking water for 3–5 days.\",\"withdrawalMeatDays\":7,\"withdrawalEggDays\":7,\"manufacturerName\":\"TEST-AUTO Product 1 ZHUC7\",\"drugSchedule\":\"H\",\"registrationAuthority\":\"CDSCO\",\"registrationNo\":\"AP37AB1332\",\"drugLicenseNo\":\"M…",
+          "unresolvedFk": [
+            "category",
+            "brand",
+            "dosageForm",
+            "route",
+            "species",
+            "unit",
+            "perUnit",
+            "packUnit"
+          ]
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": "unresolved FK: category, brand, dosageForm, route, species, unit, perUnit, packUnit",
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a20c9b-e6ae-71ac-a3c8-f2d783ee6080",
+          "status": 200,
+          "ms": 417,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for product",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/approve",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"approve\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}/compliance",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a20c9b-e6ae-71ac-a3c8-f2d783ee6080/compliance",
+          "status": 200,
+          "ms": 451,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/discontinue",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"discontinue\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/flags",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for product",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/products/{id}/history",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/products/01a20c9b-e6ae-71ac-a3c8-f2d783ee6080/history",
+          "status": 200,
+          "ms": 121,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/media",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned product (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/media/{mediaId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for product, media",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}/media/{mediaId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/reinstate",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"reinstate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/reject",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"reject\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/submit",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"submit\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/suspend",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"suspend\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/variants",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned product (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for product, variant",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/products/{id}/variants/{variantId}/default",
+      "service": "product-service",
+      "tag": "Admin · Catalog Products",
+      "kind": "skip",
+      "skipReason": "state action \"default\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews",
+          "status": 200,
+          "ms": 572,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/reviews?limit=2",
+          "status": 200,
+          "ms": 88,
+          "ok": true,
+          "note": "page1 0 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/reviews?limit=101",
+          "status": 422,
+          "ms": 18,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/catalog/reviews?q=TEST-AUTO",
+          "status": 200,
+          "ms": 163,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews?status=PENDING",
+          "status": 200,
+          "ms": 86,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D sort",
+          "url": "/v1/admin/catalog/reviews?sort=newest",
+          "status": 200,
+          "ms": 87,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/{id}",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for review",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/approve",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"approve\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/hide",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"hide\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/{id}/history",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for review",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/reject",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"reject\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/{id}/restore",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"restore\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/analytics",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews/analytics",
+          "status": 200,
+          "ms": 608,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/bulk-status",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"bulk-status\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/products/{productId}/summary",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/catalog/reviews/products/01a20c9b-e6ae-71ac-a3c8-f2d783ee6080/summary",
+          "status": 200,
+          "ms": 102,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/reviews/reports",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/catalog/reviews/reports",
+          "status": 200,
+          "ms": 304,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/catalog/reviews/reports?limit=2",
+          "status": 200,
+          "ms": 100,
+          "ok": true,
+          "note": "page1 0 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/catalog/reviews/reports?limit=101",
+          "status": 422,
+          "ms": 12,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews/reports?status=OPEN",
+          "status": 200,
+          "ms": 90,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/catalog/reviews/reports?reason=SPAM",
+          "status": 200,
+          "ms": 82,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/reviews/reports/{id}/resolve",
+      "service": "product-service",
+      "tag": "Admin · Reviews",
+      "kind": "skip",
+      "skipReason": "state action \"resolve\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    }
+  ],
+  "mismatches": []
+}

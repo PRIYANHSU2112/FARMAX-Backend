@@ -16,9 +16,10 @@ x-log: &log
       max-file: '3'
 
 # Shared by every app container: Docker hostnames override the localhost values in .env.
+# Uses DATABASE_URL from .env (e.g. Neon) when set; falls back to the in-stack postgres container.
 x-env: &env
   HOST: 0.0.0.0
-  DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+  DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}}
   REDIS_CACHE_URL: redis://redis-cache:6379
   REDIS_QUEUE_URL: redis://redis-queue:6379
   RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
@@ -129,7 +130,7 @@ services:
     command: ['pnpm', '--filter', '@farmx/database', 'run', 'db:deploy']
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,25 +139,6 @@ services:
   auth-service:
     <<: *app
     container_name: farmx-auth-service
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: auth-service
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      PORT: 3001
-      AUTH_SERVICE_PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
-      REDIS_CACHE_URL: redis://redis-cache:6379
-      REDIS_QUEUE_URL: redis://redis-queue:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
     build: { context: ., dockerfile: Dockerfile, args: { SERVICE_NAME: auth-service } }
     environment: { <<: *env, PORT: 3001, AUTH_SERVICE_PORT: 3001 }
     depends_on: *deps
@@ -172,28 +154,6 @@ services:
   farm-service:
     <<: *app
     container_name: farmx-farm-service
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: farm-service
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      PORT: 3003
-      FARM_SERVICE_PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
-      REDIS_CACHE_URL: redis://redis-cache:6379
-      # BullMQ jobs (.env.example points at localhost:6380, which is the container itself here)
-      REDIS_QUEUE_URL: redis://redis-queue:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
-      # Service-to-service calls must use compose service names, never localhost.
-      AUTH_SERVICE_URL: http://auth-service:3001
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
     build: { context: ., dockerfile: Dockerfile, args: { SERVICE_NAME: farm-service } }
     environment: { <<: *env, PORT: 3003, FARM_SERVICE_PORT: 3003 }
     depends_on: *deps
@@ -201,26 +161,6 @@ services:
   catalog-service:
     <<: *app
     container_name: farmx-catalog-service
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: catalog-service
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      PORT: 3004
-      CATALOG_SERVICE_PORT: 3004
-      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
-      REDIS_CACHE_URL: redis://redis-cache:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
-      AUTH_SERVICE_URL: http://auth-service:3001
-      PRODUCT_SERVICE_URL: http://product-service:3005
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
     build: { context: ., dockerfile: Dockerfile, args: { SERVICE_NAME: catalog-service } }
     environment: { <<: *env, PORT: 3004, CATALOG_SERVICE_PORT: 3004 }
     depends_on: *deps
@@ -228,26 +168,6 @@ services:
   product-service:
     <<: *app
     container_name: farmx-product-service
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: product-service
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      PORT: 3005
-      PRODUCT_SERVICE_PORT: 3005
-      DATABASE_URL: postgresql://${POSTGRES_USER:-farmx}:${POSTGRES_PASSWORD:-farmx}@postgres:5432/${POSTGRES_DB:-farmx}
-      REDIS_CACHE_URL: redis://redis-cache:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-farmx}:${RABBITMQ_PASSWORD:-farmx}@rabbitmq:5672
-      AUTH_SERVICE_URL: http://auth-service:3001
-      CATALOG_SERVICE_URL: http://catalog-service:3004
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
     build: { context: ., dockerfile: Dockerfile, args: { SERVICE_NAME: product-service } }
     environment: { <<: *env, PORT: 3005, PRODUCT_SERVICE_PORT: 3005 }
     depends_on: *deps

@@ -92,7 +92,7 @@ interface CachedLayout {
   nextScheduledAt: number | null;
 }
 
-interface Remembered<T> {
+export interface Remembered<T> {
   value: T;
   stale: boolean;
 }
@@ -161,7 +161,7 @@ export const cursorKey = (cursor: string | undefined): string =>
   cursor === undefined ? '-' : createHash('sha1').update(cursor).digest('hex').slice(0, 20);
 
 /** Resolves with the value, or `undefined` once `deadline` (epoch ms) passes. Never rejects. */
-const before = <T>(work: Promise<T>, deadline: number): Promise<T | undefined> =>
+export const before = <T>(work: Promise<T>, deadline: number): Promise<T | undefined> =>
   new Promise((resolve) => {
     const timer = setTimeout(
       () => {
@@ -791,8 +791,9 @@ export class HomeService {
   /**
    * Read-through with a fallback: hot in-process copy (5 s) → Redis (60 s) → `fetch` (written
    * to both the fresh key and a 10-min stale key) → on failure the stale key. null = nothing.
+   * Also used by the Categories page (`HomeCategoriesService`).
    */
-  private async remember<T>(
+  async remember<T>(
     key: string,
     staleKey: string,
     fetch: () => Promise<T>,

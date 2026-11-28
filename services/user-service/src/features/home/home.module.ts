@@ -2,6 +2,7 @@ import { defineModule } from '@farmx/common/server';
 import { asClass } from 'awilix';
 
 import { HomeAdminService } from './home.admin.service.js';
+import { HomeCategoriesService } from './home.categories.js';
 import { HomeContextService } from './home.context.js';
 import { HomeController } from './home.controller.js';
 import { HomeFeedsService } from './home.feeds.js';
@@ -16,6 +17,7 @@ declare module '@fastify/awilix' {
     homeAdminService: HomeAdminService;
     homeFeedsService: HomeFeedsService;
     homeContextService: HomeContextService;
+    homeCategoriesService: HomeCategoriesService;
     homeController: HomeController;
   }
 }
@@ -30,6 +32,7 @@ export const homeModule = defineModule({
       homeAdminService: asClass(HomeAdminService).singleton(),
       homeFeedsService: asClass(HomeFeedsService).singleton(),
       homeContextService: asClass(HomeContextService).singleton(),
+      homeCategoriesService: asClass(HomeCategoriesService).singleton(),
       homeController: asClass(HomeController).singleton(),
     });
   },

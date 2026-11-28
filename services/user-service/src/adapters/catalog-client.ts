@@ -34,6 +34,14 @@ export interface CatalogCategory {
   children?: CatalogCategory[];
 }
 
+/** catalog-service public brand (`GET /catalog/brands`), the fields the app shows. */
+export interface CatalogBrand {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+}
+
 interface Envelope<T> {
   data: T;
 }
@@ -86,6 +94,15 @@ export class CatalogClient {
     };
     walk(await this.categories(timeoutMs, TREE_DEPTH));
     return ids;
+  }
+
+  /** First `limit` featured, active brands (catalog order: sortOrder, then name). */
+  async featuredBrands(limit: number, timeoutMs: number): Promise<CatalogBrand[]> {
+    const body = await getJson<Envelope<CatalogBrand[]>>(
+      this.url(`/catalog/brands?isFeatured=true&limit=${String(limit)}`),
+      { timeoutMs },
+    );
+    return body.data.map(({ id, name, slug, logoUrl }) => ({ id, name, slug, logoUrl }));
   }
 
   /** true = the brand is live and active; false = 404 (gone). Throws when catalog is down. */

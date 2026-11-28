@@ -16,6 +16,7 @@ import type {
 } from './home.types.js';
 import {
   adminListSchema,
+  categoriesPageSchema,
   createSchema,
   feedsSchema,
   historySchema,
@@ -36,7 +37,8 @@ const c = (request: FastifyRequest) => request.diScope.resolve('homeController')
 const LAYOUT_BODY_LIMIT = 1_048_576;
 
 /**
- * Mounted at `/home` (gateway `/v1/home`). Public, optional auth (never 401). Rate limits per user
+ * Mounted at `/home` (gateway `/v1/home`). Public, optional auth (never 401). `/categories` is the
+ * fixed-shape All Categories screen (one call). Rate limits per user
  * when the token is valid, else per IP. `optionalAuth` runs first so the limiter sees the user.
  */
 export const homeRoutes: FastifyPluginAsync = async (app) => {
@@ -47,6 +49,14 @@ export const homeRoutes: FastifyPluginAsync = async (app) => {
       preHandler: [optionalAuth, rateLimit('home-layout', 120, 60)],
     },
     (req, reply) => c(req).layout(req, reply),
+  );
+  app.get(
+    '/categories',
+    {
+      schema: { ...categoriesPageSchema, ...routeDocs(D.categoriesPage) },
+      preHandler: [optionalAuth, rateLimit('home-categories', 120, 60)],
+    },
+    (req, reply) => c(req).categoriesPage(req, reply),
   );
   const sections = [optionalAuth, rateLimit('home-sections', 60, 60)];
   app.get<{ Querystring: { page: HomePage; keys: string } }>(
@@ -72,7 +82,7 @@ export const homeRoutes: FastifyPluginAsync = async (app) => {
   );
 };
 
-/** Mounted at `/admin/home` (gateway `/v1/admin/home`). Staff with `home_layout.*`. */
+/** Mounted a t `/admin/home` (gateway `/v1/admin/home`). Staff with `home_layout.*`. */
 export const homeAdminRoutes: FastifyPluginAsync = async (app) => {
   const view = admin('home_layout.view');
   const manage = admin('home_layout.manage');

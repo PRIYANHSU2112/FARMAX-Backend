@@ -18,6 +18,7 @@
     "dev": "turbo run dev --concurrency=15 --filter=@farmx/api-gateway --filter=@farmx/auth-service --filter=@farmx/media-service --filter=@farmx/farm-service --filter=@farmx/catalog-service --filter=@farmx/product-service --filter=@farmx/user-service --filter=@farmx/order-service --filter=@farmx/inventory-service --filter=@farmx/payment-service --filter=@farmx/call-service --filter=@farmx/wallet-service",
     "build": "turbo run build --output-logs=errors-only",
     "test": "turbo run test --output-logs=new-only",
+    "test:admin-api": "node tests/swagger-admin-api-automation.js",
     "lint": "turbo run lint --output-logs=errors-only",
     "typecheck": "turbo run typecheck --output-logs=errors-only",
     "check": "turbo run lint typecheck test build --output-logs=errors-only",

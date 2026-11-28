@@ -1,0 +1,1432 @@
+{
+  "run": "ZL1CK",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T05:45:29.109Z",
+  "per": 5,
+  "db": {
+    "verified": 0,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "warehouse": [],
+    "mother": [],
+    "summary": []
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses",
+          "status": 200,
+          "ms": 648,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/warehouses?limit=2",
+          "status": 200,
+          "ms": 179,
+          "ok": true,
+          "note": "page1 1 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/warehouses?limit=101",
+          "status": 422,
+          "ms": 8,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/warehouses?q=TEST-AUTO",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses?type=MOTHER",
+          "status": 200,
+          "ms": 175,
+          "ok": true,
+          "note": "1 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses?status=SETUP",
+          "status": 200,
+          "ms": 87,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/warehouses",
+          "status": 409,
+          "ms": 169,
+          "ok": false,
+          "error": "CONFLICT: There is already a live central warehouse",
+          "body": "{\"name\":\"TEST-AUTO Warehouse 11 ZL1CK\",\"type\":\"MOTHER\",\"phone\":\"+919291080023\",\"email\":\"test.auto.zl1ck.26@example.com\",\"addressLine\":\"Plot 11, Poultry Farm Road, Bhimavaram\",\"landmark\":\"Opp. Sri Venkateswara Temple\",\"city\":\"Bhimavaram\",\"stateCode\":\"37\",\"pinCode\":\"534101\",\"latitude\":16.57,\"longitude\":81.55,\"tagline\":\"TEST-AUTO Tagline 1 ZL1CK\",\"totalAreaSqft\":120000,\"capacity\":{\"value\":100,\"unit\":\"KG\"},\"temperatureClasses\":[\"AMB\"],\"isAllocatable\":true,\"priority\":1,\"code\":\"TAZL1CK36\",\"district\":\"West Godavari\"}",
+          "unresolvedFk": ["parentWarehouse", "managerUser"]
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": "unresolved FK: parentWarehouse, managerUser",
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae",
+          "status": 200,
+          "ms": 171,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/activate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"activate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/bins",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/bins",
+          "status": 200,
+          "ms": 348,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/bins/{binId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, bin",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/bins/{binId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/calendar",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/calendar",
+          "status": 200,
+          "ms": 191,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/cutoffs",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/deactivate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"deactivate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/dock-bookings",
+          "status": 500,
+          "ms": 262,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/cancel",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"cancel\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/complete",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"complete\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-bookings/{bookingId}/start",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"start\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-doors",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/dock-doors",
+          "status": 500,
+          "ms": 253,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-doors",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, door",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/dock-doors/{doorId}/bookings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse, door (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/dock-yard",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/dock-yard",
+          "status": 500,
+          "ms": 266,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/gate-settings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/gate-settings",
+          "status": 200,
+          "ms": 237,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/gate-settings",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/holidays",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/holidays/{holidayId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, holiday",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/holidays/{holidayId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/limit",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"limit\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/operating-hours",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/orders",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Orders",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/orders",
+          "status": 200,
+          "ms": 696,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/overview",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Stats",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/overview",
+          "status": 200,
+          "ms": 713,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/racks",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/racks",
+          "status": 200,
+          "ms": 279,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, rack",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/racks/{rackId}/bins",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse, rack (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/reactivate",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "skip",
+      "skipReason": "state action \"reactivate\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/service-areas",
+          "status": 200,
+          "ms": 234,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/service-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for area",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, area",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/service-areas/{areaId}/reassign",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "skip",
+      "skipReason": "state action \"reassign\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/shifts",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/shifts/{shiftId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, shift",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/shifts/{shiftId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Calendar",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/staging-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/staging-areas",
+          "status": 200,
+          "ms": 194,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/staging-areas",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/staging-areas/{stagingId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, staging",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/staging-areas/{stagingId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/stock-by-category",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Stats",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/stock-by-category",
+          "status": 200,
+          "ms": 221,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage-rules",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/storage-rules",
+          "status": 200,
+          "ms": 187,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/storage-rules",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/{ruleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, rule",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/{ruleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage-rules/summary",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage Rules",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/storage-rules/summary",
+          "status": 200,
+          "ms": 180,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/storage/layout",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/storage/layout",
+          "status": 200,
+          "ms": 332,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/team",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/team",
+          "status": 200,
+          "ms": 255,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/team",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/documents",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/documents",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/team/{userId}/resend-invite",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "skip",
+      "skipReason": "state action \"resend-invite\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/weigh-scales",
+          "status": 500,
+          "ms": 169,
+          "ok": false,
+          "error": "INTERNAL_ERROR: Internal server error"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "FAIL"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales/{scaleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, scale",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/weigh-scales/{scaleId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses · Gate setup",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/yard-slots",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/yard-slots",
+          "status": 200,
+          "ms": 170,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, slot",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}/occupy",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"occupy\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/yard-slots/{slotId}/release",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Dock & Yard",
+      "kind": "skip",
+      "skipReason": "state action \"release\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/{id}/zones",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/01a20c9c-582c-77e2-9f44-3127180f40ae/zones",
+          "status": 200,
+          "ms": 191,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/zones",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for warehouse, zone",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "skip",
+      "skipReason": "DELETE is never run (user rule)",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/warehouses/{id}/zones/{zoneId}/racks",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Storage",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "needs a TEST-owned warehouse, zone (no test parent created)",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/code-availability",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/code-availability?code=TAZL1CK43",
+          "status": 200,
+          "ms": 98,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/coverage/{pinCode}",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for coverage",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/export.csv",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/export.csv",
+          "status": 200,
+          "ms": 683,
+          "ok": true
+        },
+        {
+          "phase": "D search",
+          "url": "/v1/admin/warehouses/export.csv?q=TEST-AUTO",
+          "status": 200,
+          "ms": 101,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses/export.csv?type=MOTHER",
+          "status": 200,
+          "ms": 167,
+          "ok": true,
+          "note": "0 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/warehouses/export.csv?status=SETUP",
+          "status": 200,
+          "ms": 96,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/lookups",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/lookups",
+          "status": 200,
+          "ms": 69,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/lookups/districts",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Service Areas",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/warehouses/lookups/districts?stateCode=37",
+          "status": 200,
+          "ms": 98,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/summary",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouses",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/summary",
+          "status": 200,
+          "ms": 707,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/warehouses/team/roles",
+      "service": "warehouse-service",
+      "tag": "Admin Warehouse Team",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/warehouses/team/roles",
+          "status": 200,
+          "ms": 311,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    }
+  ],
+  "mismatches": []
+}

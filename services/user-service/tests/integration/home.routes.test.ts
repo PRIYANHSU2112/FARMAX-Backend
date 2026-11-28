@@ -26,6 +26,8 @@ const C2 = '01900000-0000-7000-8000-000000000302';
 const FARM_A = '01900000-0000-7000-8000-000000000401';
 const FARM_B = '01900000-0000-7000-8000-000000000402';
 const NODE = '01900000-0000-7000-8000-000000000501';
+const D1 = '01900000-0000-7000-8000-000000000701';
+const B1 = '01900000-0000-7000-8000-000000000801';
 
 const userOf = (id: string, userType: string) =>
   ({
@@ -317,6 +319,21 @@ const build = async (opts: Opts = {}, repo = homeRepo()) => {
     ),
     diseaseIds: vi.fn(() => Promise.resolve(new Set<string>())),
     flockStageCodes: vi.fn(() => Promise.resolve(new Set(['GROWER']))),
+    diseases: vi.fn(() =>
+      opts.productsDown === true
+        ? Promise.reject(new Error('down'))
+        : Promise.resolve([
+            { id: D1, name: 'Respiratory', slug: 'respiratory', iconUrl: null, productCount: 14 },
+          ]),
+    ),
+    flockStages: vi.fn(() =>
+      opts.productsDown === true
+        ? Promise.reject(new Error('down'))
+        : Promise.resolve([
+            { code: 'BROODER', label: 'Brooding' },
+            { code: 'PRE_LAYER', label: 'Pre-lay' },
+          ]),
+    ),
   };
   const catalogClient = {
     placement: vi.fn((code: string) =>
@@ -333,9 +350,29 @@ const build = async (opts: Opts = {}, repo = homeRepo()) => {
               : null,
           ),
     ),
-    categories: vi.fn(() => Promise.resolve([])),
+    categories: vi.fn(() =>
+      opts.catalogDown === true
+        ? Promise.reject(new Error('down'))
+        : Promise.resolve([
+            {
+              id: C1,
+              parentId: null,
+              name: 'Feed',
+              slug: 'feed',
+              imageUrl: 'https://cdn.farmx.in/feed.webp',
+              depth: 0,
+              sortOrder: 1,
+              childCount: 3,
+            },
+          ]),
+    ),
     categoryIds: vi.fn(() => Promise.resolve(new Set([C1, C2]))),
     brandExists: vi.fn(() => Promise.resolve(true)),
+    featuredBrands: vi.fn(() =>
+      opts.catalogDown === true
+        ? Promise.reject(new Error('down'))
+        : Promise.resolve([{ id: B1, name: 'Godavari Bio', slug: 'godavari-bio', logoUrl: null }]),
+    ),
   };
   const farmClient = {
     context: vi.fn((_bearer: string, farmId: string | undefined) =>
@@ -505,6 +542,95 @@ describe('home layout (/home/layout)', () => {
     expect(r2.res.statusCode).toBe(200);
     expect(keysOf(r2.body)).not.toContain('hero');
     expect(r2.body.meta.degraded).toContain('hero');
+  });
+});
+
+describe('home categories page (/home/categories)', () => {
+  interface CategoriesJson {
+    data: {
+      categories: { id: string; subtitle: null; deepLink: string }[];
+      flock: { stages: { code: string; deepLink: string }[]; birdCount: number | null };
+      problems: { slug: string; productCount: number; deepLink: string }[];
+      makers: { initials: string; deepLink: string }[];
+    };
+    meta: { authState: string; degraded: string[]; stale: string[] };
+  }
+  const page = async (a: FastifyInstance, headers: Record<string, string> = {}) => {
+    const res = await a.inject({
+      method: 'GET',
+      url: '/home/categories',
+      headers: { ...APP, ...headers },
+    });
+    return { res, body: res.json<CategoriesJson>() };
+  };
+
+  it('guest: one call returns all four parts, Future fields null, no bird count, 304 on ETag', async () => {
+    const { a } = await build();
+    const { res, body } = await page(a);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['cache-control']).toBe('private, no-cache');
+    expect(body.meta).toMatchObject({ authState: 'none', degraded: [], stale: [] });
+    expect(body.data.categories).toEqual([
+      expect.objectContaining({ id: C1, subtitle: null, deepLink: 'farmx://category/feed' }),
+    ]);
+    expect(body.data.flock.stages.map((s) => s.code)).toEqual(['BROODER', 'PRE_LAYER']);
+    expect(body.data.flock.birdCount).toBeNull();
+    expect(body.data.problems).toEqual([
+      expect.objectContaining({
+        slug: 'respiratory',
+        productCount: 14,
+        deepLink: 'farmx://products?diseaseSlug=respiratory',
+      }),
+    ]);
+    expect(body.data.makers).toEqual([
+      expect.objectContaining({ initials: 'GB', deepLink: `farmx://products?brandId=${B1}` }),
+    ]);
+
+    const again = await a.inject({
+      method: 'GET',
+      url: '/home/categories',
+      headers: { ...APP, 'if-none-match': res.headers.etag! },
+    });
+    expect(again.statusCode).toBe(304);
+  });
+
+  it('farmer: bird count from the farm; expired token → 200 as a guest (never 401)', async () => {
+    const { a } = await build({ caller: userOf(FARMER, 'CUSTOMER') });
+    const { body } = await page(a, BEARER);
+    expect(body.meta.authState).toBe('ok');
+    expect(body.data.flock.birdCount).toBe(18_500);
+    await a.close();
+
+    const expired = await build({ expired: true });
+    const r = await page(expired.a, BEARER);
+    expect(r.res.statusCode).toBe(200);
+    expect(r.body.meta.authState).toBe('expired');
+    expect(r.body.data.flock.birdCount).toBeNull();
+  });
+
+  it('upstreams cached: repeat calls do not hit catalog / product again', async () => {
+    const { a, catalogClient, productClient } = await build();
+    await Promise.all(Array.from({ length: 10 }, () => page(a)));
+    await page(a);
+    expect(catalogClient.categories).toHaveBeenCalledTimes(1);
+    expect(catalogClient.featuredBrands).toHaveBeenCalledTimes(1);
+    expect(productClient.diseases).toHaveBeenCalledTimes(1);
+    expect(productClient.flockStages).toHaveBeenCalledTimes(1);
+  });
+
+  it('every upstream down → still 200, all four parts empty and degraded', async () => {
+    const { a } = await build({ productsDown: true, catalogDown: true });
+    const { res, body } = await page(a);
+    expect(res.statusCode).toBe(200);
+    expect([...body.meta.degraded].sort()).toEqual(['categories', 'makers', 'problems', 'stages']);
+    expect(body.data.categories).toEqual([]);
+    expect(body.data.flock.stages).toEqual([]);
+  });
+
+  it('unknown query params are stripped (cache-busters never break the page)', async () => {
+    const { a } = await build();
+    const res = await a.inject({ method: 'GET', url: '/home/categories?x=1', headers: APP });
+    expect(res.statusCode).toBe(200);
   });
 });
 

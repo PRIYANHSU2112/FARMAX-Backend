@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { userKeys } from '@farmx/infra/redis';
+import { describe, expect, it, vi } from 'vitest';
 
 import { sduiOf } from '../../src/features/home/home.context.js';
 import { checkLayout, hostAllowed } from '../../src/features/home/home.admin.service.js';
@@ -14,7 +15,17 @@ import {
   versionAtLeast,
   visibleSections,
 } from '../../src/features/home/home.rules.js';
-import { decorateCard, phoneFor, toSnapshot } from '../../src/features/home/home.service.js';
+import {
+  HomeCategoriesService,
+  initialsOf,
+  toCategoriesView,
+} from '../../src/features/home/home.categories.js';
+import {
+  HomeService,
+  decorateCard,
+  phoneFor,
+  toSnapshot,
+} from '../../src/features/home/home.service.js';
 import type { LayoutTree, SectionInput, Snapshot } from '../../src/features/home/home.types.js';
 import { replaceSchema } from '../../src/features/home/home.validation.js';
 
@@ -260,5 +271,160 @@ describe('home product cards', () => {
     });
     expect(card.tracking.id).toBe('HOME:12:featured:p1');
     expect(card.priceBreak).toBeNull();
+  });
+});
+
+describe('home categories page', () => {
+  const brand = (name: string) => ({ id: `id-${name}`, name, slug: name, logoUrl: null });
+  const disease = (slug: string) => ({
+    id: `d-${slug}`,
+    name: slug,
+    slug,
+    iconUrl: null,
+    productCount: 3,
+  });
+  const farm = {
+    farmId: 'f1',
+    farmName: 'Shed farm',
+    category: 'POULTRY_FARM',
+    productionTypes: ['LAYER'],
+    totalBirdCapacity: 18_500,
+    territoryCode: 'WG',
+    primaryNodeId: null,
+  };
+  const ctx = (withFarm: boolean) =>
+    ({ authState: withFarm ? 'ok' : 'none', region: null, farm: withFarm ? farm : null }) as never;
+
+  it('initials: two words → first letters, one word → first two, junk-safe', () => {
+    expect(initialsOf('Godavari Bio')).toBe('GB');
+    expect(initialsOf('Deccan AH')).toBe('DA');
+    expect(initialsOf('Coastal')).toBe('CO');
+    expect(initialsOf('  zoetis-india ltd ')).toBe('ZI');
+    expect(initialsOf('')).toBe('');
+  });
+
+  it('view: deep links, caps, Future fields null, bird count only with a farm', () => {
+    const parts = {
+      categories: [
+        {
+          id: 'c1',
+          parentId: null,
+          name: 'Feed',
+          slug: 'feed',
+          imageUrl: 'https://cdn.farmx.in/feed.png',
+          depth: 0,
+          sortOrder: 1,
+          childCount: 2,
+        },
+      ],
+      stages: [{ code: 'PRE_LAYER', label: 'Pre-lay' }],
+      problems: Array.from({ length: 15 }, (_, i) => disease(`p${String(i)}`)),
+      makers: Array.from({ length: 12 }, (_, i) => brand(`Maker ${String(i)}`)),
+    };
+    const farmer = toCategoriesView(parts, ctx(true));
+    expect(farmer.categories[0]).toEqual({
+      id: 'c1',
+      name: 'Feed',
+      slug: 'feed',
+      imageUrl: 'https://cdn.farmx.in/feed.png',
+      subtitle: null,
+      badge: null,
+      deepLink: 'farmx://category/feed',
+    });
+    expect(farmer.flock).toEqual({
+      stages: [
+        { code: 'PRE_LAYER', label: 'Pre-lay', deepLink: 'farmx://products?flockStage=PRE_LAYER' },
+      ],
+      currentStage: null,
+      shedLabel: null,
+      ageWeeks: null,
+      birdCount: 18_500,
+      productsForStage: null,
+    });
+    expect(farmer.problems).toHaveLength(12);
+    expect(farmer.problems[0]!.deepLink).toBe('farmx://products?diseaseSlug=p0');
+    expect(farmer.makers).toHaveLength(9);
+    expect(farmer.makers[0]).toMatchObject({
+      initials: 'M0',
+      deepLink: 'farmx://products?brandId=id-Maker 0',
+    });
+    expect(toCategoriesView(parts, ctx(false)).flock.birdCount).toBeNull();
+    const empty = toCategoriesView(
+      { categories: null, stages: null, problems: null, makers: null },
+      ctx(false),
+    );
+    expect(empty).toMatchObject({ categories: [], problems: [], makers: [] });
+    expect(empty.flock.stages).toEqual([]);
+  });
+
+  /** Real HomeService.remember over an in-memory cache; upstream calls are spies. */
+  const setup = (
+    over: Partial<
+      Record<'categories' | 'stages' | 'problems' | 'makers', () => Promise<unknown>>
+    > = {},
+  ) => {
+    const store = new Map<string, unknown>();
+    const cache = {
+      get: (k: string) => Promise.resolve(store.get(k)),
+      set: (k: string, v: unknown) => {
+        store.set(k, v);
+        return Promise.resolve();
+      },
+      invalidate: () => Promise.resolve(),
+    };
+    const logger = { warn: vi.fn(), error: vi.fn(), info: vi.fn() };
+    const catalogClient = {
+      categories: vi.fn(over.categories ?? (() => Promise.resolve([]))),
+      featuredBrands: vi.fn(over.makers ?? (() => Promise.resolve([brand('Godavari Bio')]))),
+    };
+    const productClient = {
+      flockStages: vi.fn(
+        over.stages ?? (() => Promise.resolve([{ code: 'GROWER', label: 'Grower' }])),
+      ),
+      diseases: vi.fn(over.problems ?? (() => Promise.resolve([disease('respiratory')]))),
+    };
+    const homeService = new HomeService({ cache, logger, catalogClient, productClient } as never);
+    const svc = new HomeCategoriesService({ homeService, catalogClient, productClient } as never);
+    return { svc, store, catalogClient, productClient };
+  };
+
+  it('single-flight: 50 parallel cold calls → one upstream call per part; then served from cache', async () => {
+    const { svc, catalogClient, productClient } = setup();
+    const pages = await Promise.all(Array.from({ length: 50 }, () => svc.page(ctx(false))));
+    expect(pages.every((p) => p.meta.degraded.length === 0)).toBe(true);
+    expect(pages[49]!.view.makers[0]!.initials).toBe('GB');
+    expect(catalogClient.categories).toHaveBeenCalledTimes(1);
+    expect(catalogClient.featuredBrands).toHaveBeenCalledWith(9, 300);
+    expect(productClient.diseases).toHaveBeenCalledWith(300, true);
+    expect(productClient.flockStages).toHaveBeenCalledTimes(1);
+    await svc.page(ctx(true));
+    expect(productClient.diseases).toHaveBeenCalledTimes(1);
+  });
+
+  it('upstream down → stale copy (meta.stale); no stale copy → empty part (meta.degraded)', async () => {
+    const down = () => Promise.reject(new Error('down'));
+    const { svc, store } = setup({ problems: down, makers: down });
+    store.set(userKeys.homeCatalog('diseases', 'non-empty', true), { v: [disease('heat-stress')] });
+    const { view, meta } = await svc.page(ctx(false));
+    expect(view.problems.map((p) => p.slug)).toEqual(['heat-stress']);
+    expect(meta.stale).toEqual(['problems']);
+    expect(meta.degraded).toEqual(['makers']);
+    expect(view.makers).toEqual([]);
+    expect(view.flock.stages).toHaveLength(1);
+  });
+
+  it('a part slower than the 350 ms budget is left empty; the page still answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc } = setup({ categories: () => new Promise(() => undefined) });
+      const pending = svc.page(ctx(false));
+      await vi.advanceTimersByTimeAsync(351);
+      const { view, meta } = await pending;
+      expect(meta.degraded).toEqual(['categories']);
+      expect(view.categories).toEqual([]);
+      expect(view.problems).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

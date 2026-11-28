@@ -31,7 +31,12 @@ export class HomeController {
   constructor(
     private readonly deps: Pick<
       Cradle,
-      'homeService' | 'homeAdminService' | 'homeFeedsService' | 'homeContextService' | 'config'
+      | 'homeService'
+      | 'homeAdminService'
+      | 'homeFeedsService'
+      | 'homeContextService'
+      | 'homeCategoriesService'
+      | 'config'
     >,
   ) {}
 
@@ -54,6 +59,24 @@ export class HomeController {
         },
       },
       'home layout served',
+    );
+    return this.conditional(request, reply, view, meta);
+  }
+
+  /** All Categories screen (fixed shape, one call). */
+  async categoriesPage(request: FastifyRequest, reply: FastifyReply) {
+    const ctx = await this.deps.homeContextService.build(request);
+    const { view, meta } = await this.deps.homeCategoriesService.page(ctx);
+    request.log.info(
+      {
+        homeCategories: {
+          userType: ctx.userType,
+          degraded: meta.degraded,
+          stale: meta.stale,
+          timings: meta.timings,
+        },
+      },
+      'home categories served',
     );
     return this.conditional(request, reply, view, meta);
   }

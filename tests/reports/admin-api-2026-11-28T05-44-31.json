@@ -1,0 +1,447 @@
+{
+  "run": "ZJSKC",
+  "base": "http://localhost:3090",
+  "startedAt": "2026-11-28T05:44:31.068Z",
+  "per": 5,
+  "db": {
+    "verified": 5,
+    "missing": [],
+    "pendingMigrations": []
+  },
+  "records": {
+    "adjustment": [
+      {
+        "id": "01a220af-1520-7128-adb5-c2919dfdc0c0",
+        "table": "wallet_adjustments",
+        "op": "POST /v1/admin/wallet/adjustments"
+      },
+      {
+        "id": "01a220af-16e5-72b7-bf2e-71af4b9c63d5",
+        "table": "wallet_adjustments",
+        "op": "POST /v1/admin/wallet/adjustments"
+      },
+      {
+        "id": "01a220af-189c-79a6-9305-ddb3944ad7c7",
+        "table": "wallet_adjustments",
+        "op": "POST /v1/admin/wallet/adjustments"
+      },
+      {
+        "id": "01a220af-1a47-7893-99b0-a5a95e812a27",
+        "table": "wallet_adjustments",
+        "op": "POST /v1/admin/wallet/adjustments"
+      },
+      {
+        "id": "01a220af-1be9-76b9-af21-85201c5b5a99",
+        "table": "wallet_adjustments",
+        "op": "POST /v1/admin/wallet/adjustments"
+      }
+    ],
+    "journal": []
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/accounts",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/wallet/accounts",
+          "status": 200,
+          "ms": 582,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/wallet/accounts?limit=2",
+          "status": 200,
+          "ms": 102,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/wallet/accounts?limit=101",
+          "status": 422,
+          "ms": 12,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/wallet/accounts?status=ACTIVE",
+          "status": 200,
+          "ms": 88,
+          "ok": true,
+          "note": "5 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/accounts/{userId}",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "no record id available for user",
+      "status": "NOT RUN"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/accounts/{userId}/freeze",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "skip",
+      "skipReason": "state action \"freeze\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/accounts/{userId}/unfreeze",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "skip",
+      "skipReason": "state action \"unfreeze\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/adjustments",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 200,
+          "ms": 564,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/wallet/adjustments?limit=2",
+          "status": 200,
+          "ms": 95,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/wallet/adjustments?limit=101",
+          "status": 422,
+          "ms": 12,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/wallet/adjustments?status=PENDING_APPROVAL",
+          "status": 200,
+          "ms": 89,
+          "ok": true,
+          "note": "10 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/adjustments",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "create",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 201,
+          "ms": 459,
+          "ok": true,
+          "id": "01a220af-1520-7128-adb5-c2919dfdc0c0"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 201,
+          "ms": 433,
+          "ok": true,
+          "id": "01a220af-16e5-72b7-bf2e-71af4b9c63d5"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 201,
+          "ms": 434,
+          "ok": true,
+          "id": "01a220af-189c-79a6-9305-ddb3944ad7c7"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 201,
+          "ms": 431,
+          "ok": true,
+          "id": "01a220af-1a47-7893-99b0-a5a95e812a27"
+        },
+        {
+          "phase": "B create r1",
+          "url": "/v1/admin/wallet/adjustments",
+          "status": 201,
+          "ms": 418,
+          "ok": true,
+          "id": "01a220af-1be9-76b9-af21-85201c5b5a99"
+        }
+      ],
+      "negatives": [],
+      "created": 5,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/adjustments/{id}",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "C get",
+          "url": "/v1/admin/wallet/adjustments/01a220af-1520-7128-adb5-c2919dfdc0c0",
+          "status": 200,
+          "ms": 84,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/wallet/adjustments/01a220af-16e5-72b7-bf2e-71af4b9c63d5",
+          "status": 200,
+          "ms": 86,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/wallet/adjustments/01a220af-189c-79a6-9305-ddb3944ad7c7",
+          "status": 200,
+          "ms": 87,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/wallet/adjustments/01a220af-1a47-7893-99b0-a5a95e812a27",
+          "status": 200,
+          "ms": 85,
+          "ok": true
+        },
+        {
+          "phase": "C get",
+          "url": "/v1/admin/wallet/adjustments/01a220af-1be9-76b9-af21-85201c5b5a99",
+          "status": 200,
+          "ms": 85,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/adjustments/{id}/approve",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "skip",
+      "skipReason": "state action \"approve\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/adjustments/{id}/reject",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "skip",
+      "skipReason": "state action \"reject\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/journals",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/wallet/journals",
+          "status": 200,
+          "ms": 623,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/wallet/journals?limit=2",
+          "status": 200,
+          "ms": 166,
+          "ok": true,
+          "note": "page1 2 rows, page2 2 rows, overlap=false"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/wallet/journals?limit=101",
+          "status": 422,
+          "ms": 9,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/wallet/journals?kind=TOPUP",
+          "status": 200,
+          "ms": 163,
+          "ok": true,
+          "note": "5 rows"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/wallet/journals?category=TOPUPS",
+          "status": 200,
+          "ms": 164,
+          "ok": true,
+          "note": "5 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/ledger-checks",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/wallet/ledger-checks",
+          "status": 200,
+          "ms": 580,
+          "ok": true
+        },
+        {
+          "phase": "D pagination",
+          "url": "/v1/admin/wallet/ledger-checks?limit=2",
+          "status": 200,
+          "ms": 102,
+          "ok": true,
+          "note": "page1 0 rows"
+        },
+        {
+          "phase": "D limit>100",
+          "url": "/v1/admin/wallet/ledger-checks?limit=101",
+          "status": 422,
+          "ms": 20,
+          "ok": true,
+          "note": "expect 422 or capped at 100"
+        },
+        {
+          "phase": "D filter",
+          "url": "/v1/admin/wallet/ledger-checks?status=OPEN",
+          "status": 200,
+          "ms": 92,
+          "ok": true,
+          "note": "0 rows"
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/wallet/ledger-checks/run",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "skip",
+      "skipReason": "state action \"run\"",
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "SKIPPED"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/wallet/settings",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "read",
+      "skipReason": null,
+      "calls": [
+        {
+          "phase": "A list",
+          "url": "/v1/admin/wallet/settings",
+          "status": 200,
+          "ms": 597,
+          "ok": true
+        }
+      ],
+      "negatives": [],
+      "created": 0,
+      "note": null,
+      "status": "PASS"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/wallet/settings/{key}",
+      "service": "wallet-service",
+      "tag": "Admin Wallet",
+      "kind": "update",
+      "skipReason": null,
+      "calls": [],
+      "negatives": [],
+      "created": 0,
+      "note": "only TEST records are updated; none for setting",
+      "status": "NOT RUN"
+    }
+  ],
+  "mismatches": []
+}

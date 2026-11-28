@@ -380,3 +380,65 @@ export interface FeedResult {
   status: FeedStatus;
   data: unknown;
 }
+
+// ── Categories page (`GET /home/categories`, fixed shape) ──
+
+/** The page's parts; a failed part is `[]` and its name lands in `meta.degraded`. */
+export const CATEGORY_PAGE_PARTS = ['categories', 'stages', 'problems', 'makers'] as const;
+export type CategoryPagePart = (typeof CATEGORY_PAGE_PARTS)[number];
+
+export interface CategoryCardView {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  /** ⏳ Future: catalog's public tree has no description yet. */
+  subtitle: string | null;
+  /** ⏳ Future: e.g. "Coming Soon" (no catalog flag yet). */
+  badge: string | null;
+  deepLink: string;
+}
+
+export interface FlockStageChipView {
+  code: string;
+  label: string;
+  deepLink: string;
+}
+
+export interface FlockView {
+  stages: FlockStageChipView[];
+  /** ⏳ Future: farm-service has no flock batches (stage / shed / age) yet. */
+  currentStage: string | null;
+  shedLabel: string | null;
+  ageWeeks: number | null;
+  /** The farm's bird capacity; null for guests or when not set. */
+  birdCount: number | null;
+  /** ⏳ Future: needs `currentStage`. */
+  productsForStage: number | null;
+}
+
+export interface ProblemCardView {
+  id: string;
+  name: string;
+  slug: string;
+  iconUrl: string | null;
+  productCount: number;
+  deepLink: string;
+}
+
+export interface MakerView {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  /** Fallback avatar text when there is no logo ("Godavari Bio" → "GB"). */
+  initials: string;
+  deepLink: string;
+}
+
+export interface CategoriesPageView {
+  categories: CategoryCardView[];
+  flock: FlockView;
+  problems: ProblemCardView[];
+  makers: MakerView[];
+}
